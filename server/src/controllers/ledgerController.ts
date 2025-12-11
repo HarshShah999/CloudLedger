@@ -83,8 +83,8 @@ export const createLedger = async (req: Request, res: Response, next: NextFuncti
 
     try {
         const result = await query(
-            'INSERT INTO ledgers (company_id, group_id, name, opening_balance, opening_balance_type, current_balance) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
-            [companyId, groupId, name, openingBalance || 0, openingBalanceType || 'Dr', openingBalance || 0] // Initial current balance = opening balance (simplified)
+            'INSERT INTO ledgers (company_id, group_id, name, opening_balance, opening_balance_type, current_balance, state, gstin) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *',
+            [companyId, groupId, name, openingBalance || 0, openingBalanceType || 'Dr', openingBalance || 0, req.body.state, req.body.gstin]
         );
 
         res.status(201).json({
@@ -104,8 +104,8 @@ export const updateLedger = async (req: Request, res: Response, next: NextFuncti
 
     try {
         const result = await query(
-            'UPDATE ledgers SET name = $1, group_id = $2, opening_balance = $3, opening_balance_type = $4 WHERE id = $5 RETURNING *',
-            [name, groupId, openingBalance, openingBalanceType, id]
+            'UPDATE ledgers SET name = $1, group_id = $2, opening_balance = $3, opening_balance_type = $4, state = $5, gstin = $6 WHERE id = $7 RETURNING *',
+            [name, groupId, openingBalance, openingBalanceType, req.body.state, req.body.gstin, id]
         );
 
         if (result.rows.length === 0) {

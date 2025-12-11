@@ -16,6 +16,9 @@ import invoiceRoutes from './routes/invoiceRoutes';
 import paymentRoutes from './routes/paymentRoutes';
 import dashboardRoutes from './routes/dashboardRoutes';
 import backupRoutes from './routes/backupRoutes';
+import recurringInvoiceRoutes from './routes/recurringInvoiceRoutes';
+import reconciliationRoutes from './routes/reconciliationRoutes';
+import gstRoutes from './routes/gstRoutes';
 
 dotenv.config();
 
@@ -48,13 +51,14 @@ app.use('/api/export', exportRoutes);
 app.use('/api/inventory', inventoryRoutes);
 app.use('/api/invoices', invoiceRoutes);
 app.use('/api/payments', paymentRoutes);
-import recurringInvoiceRoutes from './routes/recurringInvoiceRoutes';
 
 // ... existing code ...
 
 app.use('/api/recurring-invoices', recurringInvoiceRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/backup', backupRoutes);
+app.use('/api/reconciliation', reconciliationRoutes);
+app.use('/api/gst', gstRoutes);
 
 
 app.get('/', (req, res) => {

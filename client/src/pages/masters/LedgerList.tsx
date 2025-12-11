@@ -13,6 +13,8 @@ interface Ledger {
     group_name: string;
     opening_balance: number;
     opening_balance_type: string;
+    state?: string;
+    gstin?: string;
 }
 
 interface Group {
@@ -33,7 +35,9 @@ export const LedgerList: React.FC = () => {
         name: '',
         groupId: '',
         openingBalance: 0,
-        openingBalanceType: 'Dr'
+        openingBalanceType: 'Dr',
+        state: '',
+        gstin: ''
     });
 
     const fetchLedgers = async () => {
@@ -91,7 +95,9 @@ export const LedgerList: React.FC = () => {
             name: ledger.name,
             groupId: ledger.group_id || groups[0]?.id || '',
             openingBalance: Number(ledger.opening_balance),
-            openingBalanceType: ledger.opening_balance_type
+            openingBalanceType: ledger.opening_balance_type,
+            state: ledger.state || '',
+            gstin: ledger.gstin || ''
         });
         setShowModal(true);
     };
@@ -116,7 +122,9 @@ export const LedgerList: React.FC = () => {
             name: '',
             groupId: groups[0]?.id || '',
             openingBalance: 0,
-            openingBalanceType: 'Dr'
+            openingBalanceType: 'Dr',
+            state: '',
+            gstin: ''
         });
     };
 
@@ -250,6 +258,21 @@ export const LedgerList: React.FC = () => {
                                         <option value="Cr">Cr</option>
                                     </select>
                                 </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <Input
+                                    label="State"
+                                    placeholder="e.g. Maharashtra"
+                                    value={formData.state}
+                                    onChange={(e) => setFormData({ ...formData, state: e.target.value })}
+                                />
+                                <Input
+                                    label="GSTIN"
+                                    placeholder="27ABCDE1234F1Z5"
+                                    value={formData.gstin}
+                                    onChange={(e) => setFormData({ ...formData, gstin: e.target.value })}
+                                />
                             </div>
 
                             <div className="flex justify-end gap-3 mt-6">

@@ -8,6 +8,7 @@ interface Company {
     currency: string;
     role: string;
     gstin?: string;
+    state?: string;
 }
 
 interface CompanyContextType {

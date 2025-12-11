@@ -11,6 +11,7 @@ export const CompanyList: React.FC = () => {
     const [formData, setFormData] = useState({
         name: '',
         address: '',
+        state: '',
         email: '',
         phone: '',
         gstin: '',
@@ -33,6 +34,7 @@ export const CompanyList: React.FC = () => {
             setFormData({
                 name: '',
                 address: '',
+                state: '',
                 email: '',
                 phone: '',
                 gstin: '',
@@ -101,6 +103,12 @@ export const CompanyList: React.FC = () => {
                                 label="Address"
                                 value={formData.address}
                                 onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                            />
+                            <Input
+                                label="State"
+                                placeholder="State (e.g. Maharashtra)"
+                                value={formData.state}
+                                onChange={(e) => setFormData({ ...formData, state: e.target.value })}
                             />
                             <Input
                                 label="GSTIN"

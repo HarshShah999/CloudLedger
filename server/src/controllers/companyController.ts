@@ -11,8 +11,8 @@ export const createCompany = async (req: Request, res: Response, next: NextFunct
 
         // 1. Create Company
         const companyResult = await query(
-            'INSERT INTO companies (name, address, email, phone, currency, gstin) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
-            [name, address, email, phone, currency || 'INR', gstin]
+            'INSERT INTO companies (name, address, email, phone, currency, gstin, state) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *',
+            [name, address, email, phone, currency || 'INR', gstin, req.body.state]
         );
         const company = companyResult.rows[0];
 
@@ -35,7 +35,8 @@ export const createCompany = async (req: Request, res: Response, next: NextFunct
             { name: 'Assets', type: 'Asset' },
             { name: 'Liabilities', type: 'Liability' },
             { name: 'Income', type: 'Income' },
-            { name: 'Expenses', type: 'Expense' }
+            { name: 'Expenses', type: 'Expense' },
+            { name: 'Bank Accounts', type: 'Asset' }
         ];
 
         for (const group of groups) {

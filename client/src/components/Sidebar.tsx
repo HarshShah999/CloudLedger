@@ -25,6 +25,7 @@ const mainNavItems = [
     { label: 'Invoices', icon: FileText, path: '/invoices' },
     { label: 'Recurring', icon: Repeat, path: '/recurring-invoices' },
     { label: 'Vouchers', icon: FileText, path: '/vouchers' },
+    { label: 'Banking', icon: Building2, path: '/banking/reconciliation' },
 ];
 
 const reportItems = [
@@ -119,6 +120,33 @@ export const Sidebar: React.FC = () => {
                                         </li>
                                     );
                                 })}
+                                {/* GST Returns */}
+                                <li key="/reports/gstr-1">
+                                    <Link
+                                        to="/reports/gstr-1"
+                                        className={clsx(
+                                            'block px-4 py-2 rounded-lg text-sm transition-colors',
+                                            location.pathname === '/reports/gstr-1'
+                                                ? 'bg-primary/20 text-white font-medium'
+                                                : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                                        )}
+                                    >
+                                        GSTR-1
+                                    </Link>
+                                </li>
+                                <li key="/reports/gstr-3b">
+                                    <Link
+                                        to="/reports/gstr-3b"
+                                        className={clsx(
+                                            'block px-4 py-2 rounded-lg text-sm transition-colors',
+                                            location.pathname === '/reports/gstr-3b'
+                                                ? 'bg-primary/20 text-white font-medium'
+                                                : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                                        )}
+                                    >
+                                        GSTR-3B
+                                    </Link>
+                                </li>
                             </ul>
                         )}
                     </li>

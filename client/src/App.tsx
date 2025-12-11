@@ -24,7 +24,10 @@ import { InvoiceEntry } from './pages/invoices/InvoiceEntry';
 import { InvoiceDetail } from './pages/invoices/InvoiceDetail';
 import { RecurringInvoiceList } from './pages/invoices/RecurringInvoiceList';
 import { RecurringInvoiceEntry } from './pages/invoices/RecurringInvoiceEntry';
+import { GSTR1 } from './pages/reports/GSTR1';
+import { GSTR3B } from './pages/reports/GSTR3B';
 import { BackupRestore } from './pages/BackupRestore';
+import { BankReconciliation } from './pages/banking/BankReconciliation';
 
 function App() {
     return (
@@ -62,8 +65,12 @@ function App() {
                         <Route path="/reports" element={<TrialBalance />} />
                         <Route path="/reports/profit-loss" element={<ProfitAndLoss />} />
                         <Route path="/reports/balance-sheet" element={<BalanceSheet />} />
+                        <Route path="/reports/gstr-1" element={<GSTR1 />} />
+                        <Route path="/reports/gstr-3b" element={<GSTR3B />} />
+                        <Route path="/backup" element={<BackupRestore />} />
                         <Route path="/backup" element={<BackupRestore />} />
                         <Route path="/users" element={<Users />} />
+                        <Route path="/banking/reconciliation" element={<BankReconciliation />} />
                         <Route path="/settings" element={<Settings />} />
                     </Route>
 
