@@ -13,6 +13,7 @@ export const CompanyList: React.FC = () => {
         address: '',
         email: '',
         phone: '',
+        gstin: '',
         currency: 'INR',
         financialYear: {
             name: '2024-2025',
@@ -34,6 +35,7 @@ export const CompanyList: React.FC = () => {
                 address: '',
                 email: '',
                 phone: '',
+                gstin: '',
                 currency: 'INR',
                 financialYear: {
                     name: '2024-2025',
@@ -99,6 +101,12 @@ export const CompanyList: React.FC = () => {
                                 label="Address"
                                 value={formData.address}
                                 onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                            />
+                            <Input
+                                label="GSTIN"
+                                placeholder="Enter GSTIN Number"
+                                value={formData.gstin}
+                                onChange={(e) => setFormData({ ...formData, gstin: e.target.value })}
                             />
                             <div className="grid grid-cols-2 gap-4">
                                 <Input

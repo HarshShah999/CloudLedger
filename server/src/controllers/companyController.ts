@@ -3,7 +3,7 @@ import { query } from '../config/db';
 import { AppError } from '../middleware/errorHandler';
 
 export const createCompany = async (req: Request, res: Response, next: NextFunction) => {
-    const { name, address, email, phone, currency, financialYear } = req.body;
+    const { name, address, email, phone, currency, financialYear, gstin } = req.body;
     const userId = req.user?.id;
 
     try {
@@ -11,8 +11,8 @@ export const createCompany = async (req: Request, res: Response, next: NextFunct
 
         // 1. Create Company
         const companyResult = await query(
-            'INSERT INTO companies (name, address, email, phone, currency) VALUES ($1, $2, $3, $4, $5) RETURNING *',
-            [name, address, email, phone, currency || 'INR']
+            'INSERT INTO companies (name, address, email, phone, currency, gstin) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
+            [name, address, email, phone, currency || 'INR', gstin]
         );
         const company = companyResult.rows[0];
 
