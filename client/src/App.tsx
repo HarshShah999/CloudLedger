@@ -56,6 +56,8 @@ function App() {
                         <Route path="/invoices/:id/edit" element={<InvoiceEntry />} />
                         <Route path="/invoices/create/sales" element={<InvoiceEntry type="SALES" />} />
                         <Route path="/invoices/create/purchase" element={<InvoiceEntry type="PURCHASE" />} />
+                        <Route path="/invoices/create/credit-note" element={<InvoiceEntry type="CREDIT_NOTE" />} />
+                        <Route path="/invoices/create/debit-note" element={<InvoiceEntry type="DEBIT_NOTE" />} />
 
                         {/* Recurring Invoices */}
                         <Route path="/recurring-invoices" element={<RecurringInvoiceList />} />

@@ -23,7 +23,7 @@ export const InvoiceList: React.FC = () => {
     const navigate = useNavigate();
     const [invoices, setInvoices] = useState<Invoice[]>([]);
     const [loading, setLoading] = useState(false);
-    const [filterType, setFilterType] = useState<'SALES' | 'PURCHASE'>('SALES');
+    const [filterType, setFilterType] = useState<'SALES' | 'PURCHASE' | 'CREDIT_NOTE' | 'DEBIT_NOTE'>('SALES');
     const [paymentFilter, setPaymentFilter] = useState<string>('');
     const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
     const [emailModal, setEmailModal] = useState<{ id: string, invoiceNumber: string } | null>(null);
@@ -149,9 +149,22 @@ export const InvoiceList: React.FC = () => {
                     >
                         Purchase
                     </Button>
-                    <Button onClick={() => navigate(`/invoices/create/${filterType.toLowerCase()}`)}>
+                    <Button
+                        variant={filterType === 'CREDIT_NOTE' ? 'primary' : 'secondary'}
+                        onClick={() => setFilterType('CREDIT_NOTE')}
+                    >
+                        Credit Note
+                    </Button>
+                    <Button
+                        variant={filterType === 'DEBIT_NOTE' ? 'primary' : 'secondary'}
+                        onClick={() => setFilterType('DEBIT_NOTE')}
+                    >
+                        Debit Note
+                    </Button>
+
+                    <Button onClick={() => navigate(`/invoices/create/${filterType.toLowerCase().replace('_', '-')}`)}>
                         <Plus className="w-4 h-4" />
-                        New {filterType === 'SALES' ? 'Sales' : 'Purchase'} Invoice
+                        New {filterType === 'SALES' ? 'Sales' : filterType === 'PURCHASE' ? 'Purchase' : filterType === 'CREDIT_NOTE' ? 'Credit Note' : 'Debit Note'}
                     </Button>
                 </div>
             </div>

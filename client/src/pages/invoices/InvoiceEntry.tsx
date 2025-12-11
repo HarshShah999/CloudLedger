@@ -34,11 +34,18 @@ interface InvoiceItem {
     taxAmount: number;
 }
 
-export const InvoiceEntry: React.FC<{ type?: 'SALES' | 'PURCHASE' }> = ({ type: initialType }) => {
+export const InvoiceEntry: React.FC<{ type?: 'SALES' | 'PURCHASE' | 'CREDIT_NOTE' | 'DEBIT_NOTE' }> = ({ type: initialType }) => {
     const { selectedCompany } = useCompany();
     const navigate = useNavigate();
     const { id } = useParams<{ id: string }>();
-    const [type, setType] = useState<'SALES' | 'PURCHASE' | undefined>(initialType);
+    const [type, setType] = useState<'SALES' | 'PURCHASE' | 'CREDIT_NOTE' | 'DEBIT_NOTE' | undefined>(initialType);
+
+    // Update type when prop changes (for navigation between different Create routes)
+    useEffect(() => {
+        if (initialType) {
+            setType(initialType);
+        }
+    }, [initialType]);
 
     const [ledgers, setLedgers] = useState<Ledger[]>([]);
     const [items, setItems] = useState<Item[]>([]);
@@ -52,7 +59,9 @@ export const InvoiceEntry: React.FC<{ type?: 'SALES' | 'PURCHASE' }> = ({ type: 
         date: new Date().toISOString().split('T')[0],
         dueDate: '',
         notes: '',
-        discountPercent: 0
+        discountPercent: 0,
+        originalInvoiceNumber: '',
+        originalInvoiceDate: ''
     });
 
     const [invoiceItems, setInvoiceItems] = useState<InvoiceItem[]>([
@@ -99,7 +108,9 @@ export const InvoiceEntry: React.FC<{ type?: 'SALES' | 'PURCHASE' }> = ({ type: 
                     date: new Date(invoice.date).toISOString().split('T')[0],
                     dueDate: invoice.due_date ? new Date(invoice.due_date).toISOString().split('T')[0] : '',
                     notes: invoice.notes || '',
-                    discountPercent: Number(invoice.discount_percent)
+                    discountPercent: Number(invoice.discount_percent),
+                    originalInvoiceNumber: invoice.original_invoice_number || '',
+                    originalInvoiceDate: invoice.original_invoice_date ? new Date(invoice.original_invoice_date).toISOString().split('T')[0] : ''
                 });
 
                 setInvoiceItems(items.map((item: any) => ({
@@ -225,7 +236,7 @@ export const InvoiceEntry: React.FC<{ type?: 'SALES' | 'PURCHASE' }> = ({ type: 
     return (
         <div className="space-y-6">
             <h1 className="text-2xl font-bold text-slate-800">
-                {id ? 'Edit' : 'New'} {type === 'SALES' ? 'Sales' : 'Purchase'} Invoice
+                {id ? 'Edit' : 'New'} {type === 'SALES' ? 'Sales Invoice' : type === 'PURCHASE' ? 'Purchase Invoice' : type === 'CREDIT_NOTE' ? 'Credit Note' : 'Debit Note'}
             </h1>
 
             <form onSubmit={handleSubmit} className="space-y-6">
@@ -280,6 +291,21 @@ export const InvoiceEntry: React.FC<{ type?: 'SALES' | 'PURCHASE' }> = ({ type: 
                         value={formData.dueDate}
                         onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
                     />
+                    {(type === 'CREDIT_NOTE' || type === 'DEBIT_NOTE') && (
+                        <>
+                            <Input
+                                label="Original Invoice No."
+                                value={formData.originalInvoiceNumber}
+                                onChange={(e) => setFormData({ ...formData, originalInvoiceNumber: e.target.value })}
+                            />
+                            <Input
+                                label="Original Invoice Date"
+                                type="date"
+                                value={formData.originalInvoiceDate}
+                                onChange={(e) => setFormData({ ...formData, originalInvoiceDate: e.target.value })}
+                            />
+                        </>
+                    )}
                 </div>
 
                 {/* Items Table */}
