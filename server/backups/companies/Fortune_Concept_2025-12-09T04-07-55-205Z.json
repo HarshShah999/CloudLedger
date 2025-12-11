@@ -1,0 +1,570 @@
+{
+  "version": "1.0",
+  "exportDate": "2025-12-09T04:07:55.205Z",
+  "company": {
+    "id": "b53635ba-7fac-409d-9de4-c812b2a84263",
+    "name": "Fortune Concept",
+    "address": "Ahmedabad ",
+    "email": "fortune@gmail.com",
+    "phone": "9482221459",
+    "currency": "INR",
+    "created_at": "2025-12-03T04:58:39.848Z",
+    "gstin": null,
+    "state": null
+  },
+  "financialYears": [
+    {
+      "id": "00a3c930-22a0-44d9-8613-89420e4a8d3f",
+      "company_id": "b53635ba-7fac-409d-9de4-c812b2a84263",
+      "name": "2024-2025",
+      "start_date": "2024-03-31T18:30:00.000Z",
+      "end_date": "2025-03-30T18:30:00.000Z",
+      "is_active": true,
+      "created_at": "2025-12-03T04:58:39.848Z"
+    }
+  ],
+  "ledgerGroups": [
+    {
+      "id": "cd528726-805c-40df-950b-892efb5c43dc",
+      "company_id": "b53635ba-7fac-409d-9de4-c812b2a84263",
+      "name": "Assets",
+      "parent_id": null,
+      "type": "Asset",
+      "created_at": "2025-12-03T04:58:39.848Z"
+    },
+    {
+      "id": "9da583c0-da0b-4050-b751-a4bc692de194",
+      "company_id": "b53635ba-7fac-409d-9de4-c812b2a84263",
+      "name": "Liabilities",
+      "parent_id": null,
+      "type": "Liability",
+      "created_at": "2025-12-03T04:58:39.848Z"
+    },
+    {
+      "id": "ac1e6cd8-fc82-4b18-9c79-7ff3e739b54b",
+      "company_id": "b53635ba-7fac-409d-9de4-c812b2a84263",
+      "name": "Income",
+      "parent_id": null,
+      "type": "Income",
+      "created_at": "2025-12-03T04:58:39.848Z"
+    },
+    {
+      "id": "0b6176e9-5e8f-45fc-a63d-befd6156797b",
+      "company_id": "b53635ba-7fac-409d-9de4-c812b2a84263",
+      "name": "Expenses",
+      "parent_id": null,
+      "type": "Expense",
+      "created_at": "2025-12-03T04:58:39.848Z"
+    }
+  ],
+  "ledgers": [
+    {
+      "id": "9e955edf-ad4d-4efd-acbd-2384e5cf110e",
+      "company_id": "b53635ba-7fac-409d-9de4-c812b2a84263",
+      "group_id": "0b6176e9-5e8f-45fc-a63d-befd6156797b",
+      "name": "Customer",
+      "opening_balance": "1000.00",
+      "opening_balance_type": "Dr",
+      "current_balance": "0.00",
+      "created_at": "2025-12-03T05:00:22.925Z",
+      "gstin": null,
+      "state": null
+    },
+    {
+      "id": "0ddd8f3b-8153-4a51-abdb-334f6d80b8b2",
+      "company_id": "b53635ba-7fac-409d-9de4-c812b2a84263",
+      "group_id": "9da583c0-da0b-4050-b751-a4bc692de194",
+      "name": "Purchases",
+      "opening_balance": "0.00",
+      "opening_balance_type": "Dr",
+      "current_balance": "0.00",
+      "created_at": "2025-12-03T10:04:07.923Z",
+      "gstin": null,
+      "state": null
+    },
+    {
+      "id": "fe7a596f-8b70-40ff-b5f5-a5385ed70c92",
+      "company_id": "b53635ba-7fac-409d-9de4-c812b2a84263",
+      "group_id": "9da583c0-da0b-4050-b751-a4bc692de194",
+      "name": "Sales",
+      "opening_balance": "0.00",
+      "opening_balance_type": "Cr",
+      "current_balance": "0.00",
+      "created_at": "2025-12-03T10:04:41.753Z",
+      "gstin": null,
+      "state": null
+    },
+    {
+      "id": "a11f04aa-d793-4976-9c96-661f4bd091a9",
+      "company_id": "b53635ba-7fac-409d-9de4-c812b2a84263",
+      "group_id": "9da583c0-da0b-4050-b751-a4bc692de194",
+      "name": "GST",
+      "opening_balance": "0.00",
+      "opening_balance_type": "Dr",
+      "current_balance": "0.00",
+      "created_at": "2025-12-03T10:18:07.240Z",
+      "gstin": null,
+      "state": null
+    }
+  ],
+  "voucherTypes": [
+    {
+      "id": "4ff6de0c-d94d-4bfa-9fd3-9afb136d6437",
+      "company_id": "b53635ba-7fac-409d-9de4-c812b2a84263",
+      "name": "Sales",
+      "created_at": "2025-12-03T04:58:39.848Z"
+    },
+    {
+      "id": "8c5118dc-bc20-4297-8a0b-ecfe7173e7c4",
+      "company_id": "b53635ba-7fac-409d-9de4-c812b2a84263",
+      "name": "Purchase",
+      "created_at": "2025-12-03T04:58:39.848Z"
+    },
+    {
+      "id": "b0a76c29-2faf-4ca1-ba48-d81b9830547f",
+      "company_id": "b53635ba-7fac-409d-9de4-c812b2a84263",
+      "name": "Payment",
+      "created_at": "2025-12-03T04:58:39.848Z"
+    },
+    {
+      "id": "8011383e-751b-4a8b-8637-7bc7543dc32e",
+      "company_id": "b53635ba-7fac-409d-9de4-c812b2a84263",
+      "name": "Receipt",
+      "created_at": "2025-12-03T04:58:39.848Z"
+    },
+    {
+      "id": "bbeb5133-9646-4387-acf5-55c197e63815",
+      "company_id": "b53635ba-7fac-409d-9de4-c812b2a84263",
+      "name": "Journal",
+      "created_at": "2025-12-03T04:58:39.848Z"
+    }
+  ],
+  "vouchers": [
+    {
+      "id": "016514b6-75fc-4127-893c-466965f6a204",
+      "company_id": "b53635ba-7fac-409d-9de4-c812b2a84263",
+      "financial_year_id": null,
+      "voucher_type_id": "4ff6de0c-d94d-4bfa-9fd3-9afb136d6437",
+      "voucher_number": "ERR789",
+      "date": "2025-12-01T18:30:00.000Z",
+      "narration": "Invoice #ERR789 - ",
+      "total_amount": "21300.00",
+      "created_at": "2025-12-04T05:58:43.887Z",
+      "entries": [
+        {
+          "id": "6fcb583e-fd08-4aef-b371-a03a6c41af29",
+          "ledger_id": "fe7a596f-8b70-40ff-b5f5-a5385ed70c92",
+          "amount": 19500,
+          "type": "Cr"
+        },
+        {
+          "id": "ef70b60f-3a05-4fd8-b7b0-37d7ef50251a",
+          "ledger_id": "9e955edf-ad4d-4efd-acbd-2384e5cf110e",
+          "amount": 21300,
+          "type": "Dr"
+        }
+      ]
+    },
+    {
+      "id": "1278bc3c-a7bc-4c1a-80ec-e9eae0f3c385",
+      "company_id": "b53635ba-7fac-409d-9de4-c812b2a84263",
+      "financial_year_id": null,
+      "voucher_type_id": "8c5118dc-bc20-4297-8a0b-ecfe7173e7c4",
+      "voucher_number": "ADC123",
+      "date": "2025-12-02T18:30:00.000Z",
+      "narration": "Invoice #ADC123 - ",
+      "total_amount": "56050.00",
+      "created_at": "2025-12-03T10:15:17.240Z",
+      "entries": [
+        {
+          "id": "651427d8-9915-4bcd-8acd-a9b2f7ec8d3b",
+          "ledger_id": "0ddd8f3b-8153-4a51-abdb-334f6d80b8b2",
+          "amount": 47500,
+          "type": "Dr"
+        },
+        {
+          "id": "68585a73-e36c-45cf-a3be-d1feecfd475e",
+          "ledger_id": "9e955edf-ad4d-4efd-acbd-2384e5cf110e",
+          "amount": 56050,
+          "type": "Cr"
+        }
+      ]
+    },
+    {
+      "id": "58b47dcb-c186-42b2-bcdf-8e60c168e74b",
+      "company_id": "b53635ba-7fac-409d-9de4-c812b2a84263",
+      "financial_year_id": null,
+      "voucher_type_id": "4ff6de0c-d94d-4bfa-9fd3-9afb136d6437",
+      "voucher_number": "WWW890",
+      "date": "2025-12-02T18:30:00.000Z",
+      "narration": "Invoice #WWW890 - ",
+      "total_amount": "11564.00",
+      "created_at": "2025-12-04T06:09:22.920Z",
+      "entries": [
+        {
+          "id": "3941a84c-1405-490b-a61e-1f42417e6a4e",
+          "ledger_id": "fe7a596f-8b70-40ff-b5f5-a5385ed70c92",
+          "amount": 9800,
+          "type": "Cr"
+        },
+        {
+          "id": "28d06e0c-f7dc-482e-b3a8-113b92b4cb6f",
+          "ledger_id": "9e955edf-ad4d-4efd-acbd-2384e5cf110e",
+          "amount": 11564,
+          "type": "Dr"
+        }
+      ]
+    },
+    {
+      "id": "5e653482-7f80-4c25-82d2-0745fc4e41cb",
+      "company_id": "b53635ba-7fac-409d-9de4-c812b2a84263",
+      "financial_year_id": null,
+      "voucher_type_id": "4ff6de0c-d94d-4bfa-9fd3-9afb136d6437",
+      "voucher_number": "ETT894",
+      "date": "2025-12-02T18:30:00.000Z",
+      "narration": "Invoice #ETT894 - ",
+      "total_amount": "11210.00",
+      "created_at": "2025-12-04T07:25:34.345Z",
+      "entries": [
+        {
+          "id": "5d6b665b-1c17-4277-a8c8-f391f703b046",
+          "ledger_id": "fe7a596f-8b70-40ff-b5f5-a5385ed70c92",
+          "amount": 9500,
+          "type": "Cr"
+        },
+        {
+          "id": "0ba8684d-12e6-4708-898f-a6a1a143fa0e",
+          "ledger_id": "9e955edf-ad4d-4efd-acbd-2384e5cf110e",
+          "amount": 11210,
+          "type": "Dr"
+        }
+      ]
+    },
+    {
+      "id": "c603218e-e07c-4e98-a003-6a9f504febad",
+      "company_id": "b53635ba-7fac-409d-9de4-c812b2a84263",
+      "financial_year_id": null,
+      "voucher_type_id": "4ff6de0c-d94d-4bfa-9fd3-9afb136d6437",
+      "voucher_number": "DSS234",
+      "date": "2025-12-02T18:30:00.000Z",
+      "narration": "Invoice #DSS234 - ",
+      "total_amount": "11800.00",
+      "created_at": "2025-12-03T10:22:45.082Z",
+      "entries": [
+        {
+          "id": "89f5c5e0-5b06-4a39-a207-435688300565",
+          "ledger_id": "a11f04aa-d793-4976-9c96-661f4bd091a9",
+          "amount": 1800,
+          "type": "Cr"
+        },
+        {
+          "id": "374f6792-b8dc-4763-b2d0-6668fb6579cc",
+          "ledger_id": "9e955edf-ad4d-4efd-acbd-2384e5cf110e",
+          "amount": 11800,
+          "type": "Dr"
+        },
+        {
+          "id": "34fa284f-6a73-4575-b1c7-c914ce2b18b5",
+          "ledger_id": "fe7a596f-8b70-40ff-b5f5-a5385ed70c92",
+          "amount": 10000,
+          "type": "Cr"
+        }
+      ]
+    },
+    {
+      "id": "ecb9db43-7bee-47b6-83a2-56a4e5c0e12c",
+      "company_id": "b53635ba-7fac-409d-9de4-c812b2a84263",
+      "financial_year_id": null,
+      "voucher_type_id": "4ff6de0c-d94d-4bfa-9fd3-9afb136d6437",
+      "voucher_number": "ABC123",
+      "date": "2025-12-02T18:30:00.000Z",
+      "narration": "",
+      "total_amount": "123.00",
+      "created_at": "2025-12-03T05:14:19.163Z",
+      "entries": [
+        {
+          "id": "9116326a-85ba-4fc1-bb61-210d7c0f9a64",
+          "ledger_id": "9e955edf-ad4d-4efd-acbd-2384e5cf110e",
+          "amount": 123,
+          "type": "Dr"
+        },
+        {
+          "id": "cd4c322e-575c-41ca-b6dc-08e9732fe89a",
+          "ledger_id": "9e955edf-ad4d-4efd-acbd-2384e5cf110e",
+          "amount": 123,
+          "type": "Cr"
+        }
+      ]
+    }
+  ],
+  "units": [
+    {
+      "id": "40d6ab6d-76fe-4f1f-b4f1-51ddf383fad3",
+      "company_id": "b53635ba-7fac-409d-9de4-c812b2a84263",
+      "name": "Test Unit",
+      "symbol": "TU",
+      "created_at": "2025-12-03T07:52:54.020Z"
+    },
+    {
+      "id": "e4532858-0759-44a5-955f-505171ddd9fc",
+      "company_id": "b53635ba-7fac-409d-9de4-c812b2a84263",
+      "name": "Pieces ",
+      "symbol": "Pcs",
+      "created_at": "2025-12-04T11:05:33.007Z"
+    }
+  ],
+  "items": [
+    {
+      "id": "1a94f177-41ae-4003-8dc1-a85dcb03cad6",
+      "company_id": "b53635ba-7fac-409d-9de4-c812b2a84263",
+      "name": "Dell laptop",
+      "hsn_code": "84211960",
+      "unit_id": "e4532858-0759-44a5-955f-505171ddd9fc",
+      "description": null,
+      "tax_rate": "18.00",
+      "sales_rate": "10000.00",
+      "purchase_rate": "9500.00",
+      "opening_quantity": "5.000",
+      "current_quantity": "5.000",
+      "created_at": "2025-12-03T09:58:26.831Z"
+    }
+  ],
+  "invoices": [
+    {
+      "id": "3a5853ab-eb4e-44e5-afa0-ab27a901d7b8",
+      "company_id": "b53635ba-7fac-409d-9de4-c812b2a84263",
+      "voucher_id": "016514b6-75fc-4127-893c-466965f6a204",
+      "party_ledger_id": "9e955edf-ad4d-4efd-acbd-2384e5cf110e",
+      "sales_ledger_id": "fe7a596f-8b70-40ff-b5f5-a5385ed70c92",
+      "invoice_number": "ERR789",
+      "date": "2025-12-01T18:30:00.000Z",
+      "due_date": "2025-12-01T18:30:00.000Z",
+      "type": "SALES",
+      "subtotal": "19500.00",
+      "tax_total": "1800.00",
+      "grand_total": "21300.00",
+      "notes": "",
+      "created_at": "2025-12-04T05:58:43.887Z",
+      "discount_percent": "0.00",
+      "discount_amount": "0.00",
+      "paid_amount": "0.00",
+      "outstanding_amount": "21300.00",
+      "payment_status": "UNPAID",
+      "items": [
+        {
+          "id": "b66d5791-be14-4635-9fb1-082a7b0b803a",
+          "item_id": "1a94f177-41ae-4003-8dc1-a85dcb03cad6",
+          "description": "Dell laptop",
+          "quantity": 1,
+          "rate": 10000,
+          "amount": 10000,
+          "tax_rate": 0,
+          "tax_amount": 0,
+          "cgst_rate": 0,
+          "cgst_amount": 0,
+          "sgst_rate": 0,
+          "sgst_amount": 0,
+          "igst_rate": 0,
+          "igst_amount": 0,
+          "discount_percent": 5,
+          "discount_amount": 500,
+          "taxable_amount": 9500,
+          "total_amount": 9500
+        },
+        {
+          "id": "a9fb3b90-a334-45f8-9e37-75a1768806e7",
+          "item_id": "1a94f177-41ae-4003-8dc1-a85dcb03cad6",
+          "description": "Dell laptop",
+          "quantity": 1,
+          "rate": 10000,
+          "amount": 10000,
+          "tax_rate": 0,
+          "tax_amount": 0,
+          "cgst_rate": 0,
+          "cgst_amount": 0,
+          "sgst_rate": 0,
+          "sgst_amount": 0,
+          "igst_rate": 18,
+          "igst_amount": 1800,
+          "discount_percent": 0,
+          "discount_amount": 0,
+          "taxable_amount": 10000,
+          "total_amount": 11800
+        }
+      ]
+    },
+    {
+      "id": "13a53842-f0ab-463c-ac3f-cf4c2f361449",
+      "company_id": "b53635ba-7fac-409d-9de4-c812b2a84263",
+      "voucher_id": "5e653482-7f80-4c25-82d2-0745fc4e41cb",
+      "party_ledger_id": "9e955edf-ad4d-4efd-acbd-2384e5cf110e",
+      "sales_ledger_id": "fe7a596f-8b70-40ff-b5f5-a5385ed70c92",
+      "invoice_number": "ETT894",
+      "date": "2025-12-02T18:30:00.000Z",
+      "due_date": "2025-12-02T18:30:00.000Z",
+      "type": "SALES",
+      "subtotal": "9500.00",
+      "tax_total": "1710.00",
+      "grand_total": "11210.00",
+      "notes": "",
+      "created_at": "2025-12-04T07:25:34.345Z",
+      "discount_percent": "0.00",
+      "discount_amount": "0.00",
+      "paid_amount": "0.00",
+      "outstanding_amount": "11210.00",
+      "payment_status": "UNPAID",
+      "items": [
+        {
+          "id": "0b295105-7785-419e-a8e4-ee2df97f77ff",
+          "item_id": "1a94f177-41ae-4003-8dc1-a85dcb03cad6",
+          "description": "Dell laptop",
+          "quantity": 1,
+          "rate": 10000,
+          "amount": 10000,
+          "tax_rate": 18,
+          "tax_amount": 0,
+          "cgst_rate": 9,
+          "cgst_amount": 855,
+          "sgst_rate": 9,
+          "sgst_amount": 855,
+          "igst_rate": 0,
+          "igst_amount": 0,
+          "discount_percent": 5,
+          "discount_amount": 500,
+          "taxable_amount": 9500,
+          "total_amount": 11210
+        }
+      ]
+    },
+    {
+      "id": "270d4b52-6c51-41cd-9f08-45580f9238a5",
+      "company_id": "b53635ba-7fac-409d-9de4-c812b2a84263",
+      "voucher_id": "c603218e-e07c-4e98-a003-6a9f504febad",
+      "party_ledger_id": "9e955edf-ad4d-4efd-acbd-2384e5cf110e",
+      "sales_ledger_id": "fe7a596f-8b70-40ff-b5f5-a5385ed70c92",
+      "invoice_number": "DSS234",
+      "date": "2025-12-02T18:30:00.000Z",
+      "due_date": "2025-12-02T18:30:00.000Z",
+      "type": "SALES",
+      "subtotal": "10000.00",
+      "tax_total": "1800.00",
+      "grand_total": "11800.00",
+      "notes": "",
+      "created_at": "2025-12-03T10:22:45.082Z",
+      "discount_percent": "0.00",
+      "discount_amount": "0.00",
+      "paid_amount": "0.00",
+      "outstanding_amount": "0.00",
+      "payment_status": "UNPAID",
+      "items": [
+        {
+          "id": "422132d7-37a6-4172-b799-6e156e0e5b60",
+          "item_id": "1a94f177-41ae-4003-8dc1-a85dcb03cad6",
+          "description": "Dell laptop",
+          "quantity": 1,
+          "rate": 10000,
+          "amount": 10000,
+          "tax_rate": 18,
+          "tax_amount": 1800,
+          "cgst_rate": 0,
+          "cgst_amount": 0,
+          "sgst_rate": 0,
+          "sgst_amount": 0,
+          "igst_rate": 0,
+          "igst_amount": 0,
+          "discount_percent": 0,
+          "discount_amount": 0,
+          "taxable_amount": 0,
+          "total_amount": 0
+        }
+      ]
+    },
+    {
+      "id": "27394c80-b3da-4350-9a7d-77bb179c094f",
+      "company_id": "b53635ba-7fac-409d-9de4-c812b2a84263",
+      "voucher_id": "1278bc3c-a7bc-4c1a-80ec-e9eae0f3c385",
+      "party_ledger_id": "9e955edf-ad4d-4efd-acbd-2384e5cf110e",
+      "sales_ledger_id": "0ddd8f3b-8153-4a51-abdb-334f6d80b8b2",
+      "invoice_number": "ADC123",
+      "date": "2025-12-02T18:30:00.000Z",
+      "due_date": "2025-12-02T18:30:00.000Z",
+      "type": "PURCHASE",
+      "subtotal": "47500.00",
+      "tax_total": "8550.00",
+      "grand_total": "56050.00",
+      "notes": "",
+      "created_at": "2025-12-03T10:15:17.240Z",
+      "discount_percent": "0.00",
+      "discount_amount": "0.00",
+      "paid_amount": "0.00",
+      "outstanding_amount": "0.00",
+      "payment_status": "UNPAID",
+      "items": [
+        {
+          "id": "5328bc10-e9fb-4760-b2c0-b4d14b136c0b",
+          "item_id": "1a94f177-41ae-4003-8dc1-a85dcb03cad6",
+          "description": "Dell laptop",
+          "quantity": 5,
+          "rate": 9500,
+          "amount": 47500,
+          "tax_rate": 18,
+          "tax_amount": 8550,
+          "cgst_rate": 0,
+          "cgst_amount": 0,
+          "sgst_rate": 0,
+          "sgst_amount": 0,
+          "igst_rate": 0,
+          "igst_amount": 0,
+          "discount_percent": 0,
+          "discount_amount": 0,
+          "taxable_amount": 0,
+          "total_amount": 0
+        }
+      ]
+    },
+    {
+      "id": "feb5d1dd-ebfa-4f11-875b-2b48c27f9248",
+      "company_id": "b53635ba-7fac-409d-9de4-c812b2a84263",
+      "voucher_id": "58b47dcb-c186-42b2-bcdf-8e60c168e74b",
+      "party_ledger_id": "9e955edf-ad4d-4efd-acbd-2384e5cf110e",
+      "sales_ledger_id": "fe7a596f-8b70-40ff-b5f5-a5385ed70c92",
+      "invoice_number": "WWW890",
+      "date": "2025-12-02T18:30:00.000Z",
+      "due_date": "2025-12-02T18:30:00.000Z",
+      "type": "SALES",
+      "subtotal": "9800.00",
+      "tax_total": "1764.00",
+      "grand_total": "11564.00",
+      "notes": "",
+      "created_at": "2025-12-04T06:09:22.920Z",
+      "discount_percent": "0.00",
+      "discount_amount": "0.00",
+      "paid_amount": "0.00",
+      "outstanding_amount": "11564.00",
+      "payment_status": "UNPAID",
+      "items": [
+        {
+          "id": "a2086b87-40cd-4d15-b962-3576248fb053",
+          "item_id": "1a94f177-41ae-4003-8dc1-a85dcb03cad6",
+          "description": "Dell laptop",
+          "quantity": 1,
+          "rate": 10000,
+          "amount": 10000,
+          "tax_rate": 18,
+          "tax_amount": 0,
+          "cgst_rate": 0,
+          "cgst_amount": 0,
+          "sgst_rate": 0,
+          "sgst_amount": 0,
+          "igst_rate": 18,
+          "igst_amount": 1764,
+          "discount_percent": 2,
+          "discount_amount": 200,
+          "taxable_amount": 9800,
+          "total_amount": 11564
+        }
+      ]
+    }
+  ],
+  "recurringInvoices": []
+}
