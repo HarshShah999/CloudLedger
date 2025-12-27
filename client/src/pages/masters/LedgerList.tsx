@@ -5,6 +5,7 @@ import { Input } from '../../components/ui/Input';
 import { Plus, Search, Edit2, Trash2, Eye } from 'lucide-react';
 import api from '../../api/axios';
 import { useNavigate } from 'react-router-dom';
+import { notify } from '../../utils/notification';
 
 interface Ledger {
     id: string;
@@ -75,17 +76,20 @@ export const LedgerList: React.FC = () => {
                     ...formData,
                     companyId: selectedCompany.id
                 });
+                notify.success('Ledger updated successfully');
             } else {
                 // Create new ledger
                 await api.post('/ledgers', {
                     ...formData,
                     companyId: selectedCompany.id
                 });
+                notify.success('Ledger created successfully');
             }
             await fetchLedgers();
             handleCloseModal();
         } catch (error) {
             console.error('Failed to save ledger', error);
+            notify.error('Failed to save ledger');
         }
     };
 
@@ -109,9 +113,10 @@ export const LedgerList: React.FC = () => {
 
         try {
             await api.delete(`/ledgers/${ledgerId}`);
+            notify.success('Ledger deleted successfully');
             await fetchLedgers();
         } catch (error: any) {
-            alert(error.response?.data?.message || 'Failed to delete ledger');
+            notify.error(error.response?.data?.message || 'Failed to delete ledger');
         }
     };
 

@@ -5,6 +5,7 @@ import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Plus, Trash2, Save, ArrowLeft } from 'lucide-react';
 import api from '../../api/axios';
+import { notify } from '../../utils/notification';
 
 interface VoucherType {
     id: string;
@@ -91,7 +92,7 @@ export const VoucherEntry: React.FC = () => {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!isBalanced) {
-            alert('Voucher is not balanced!');
+            notify.warning('Voucher is not balanced!');
             return;
         }
 
@@ -102,10 +103,11 @@ export const VoucherEntry: React.FC = () => {
                 companyId: selectedCompany?.id,
                 entries
             });
+            notify.success('Voucher saved successfully');
             navigate('/vouchers');
         } catch (error) {
             console.error('Failed to create voucher', error);
-            alert('Failed to save voucher');
+            notify.error('Failed to save voucher');
         } finally {
             setLoading(false);
         }

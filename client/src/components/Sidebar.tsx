@@ -47,10 +47,12 @@ export const Sidebar: React.FC = () => {
     return (
         <aside className="w-64 bg-slate-900 text-white h-screen fixed left-0 top-0 flex flex-col">
             <div className="p-6 shrink-0">
-                <h1 className="text-2xl font-bold text-white flex items-center gap-2">
-                    <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
+                <h1 className="text-2xl font-bold text-white flex items-center">
+                    {/* <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
                         CL
-                    </div>
+                    </div> */}
+                    <div className=" flex items-center justify-center">
+                    <img src="../assets/logo.png" alt="CloudLedger Logo" className="w-16 h-16" /></div>
                     CloudLedger
                 </h1>
             </div>

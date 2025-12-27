@@ -17,6 +17,15 @@ const createCompanySchema = Joi.object({
         startDate: Joi.date().required(),
         endDate: Joi.date().required(),
     }).optional(),
+       gstin: Joi.string()
+        .pattern(/^[0-3][0-9][A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/)
+        .length(15)
+        .allow(null, '')
+        .messages({
+            'string.pattern.base': 'Invalid GSTIN format',
+            'string.length': 'GSTIN must be exactly 15 characters',
+        }),
+       state:Joi.string().required(),
 });
 
 router.use(protect);

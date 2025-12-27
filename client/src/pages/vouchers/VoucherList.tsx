@@ -5,6 +5,7 @@ import { Button } from '../../components/ui/Button';
 import { Plus, Search, Edit2, Trash2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import api from '../../api/axios';
+import { notify } from '../../utils/notification';
 
 interface Voucher {
     id: string;
@@ -46,9 +47,10 @@ export const VoucherList: React.FC = () => {
 
         try {
             await api.delete(`/vouchers/${voucherId}`);
+            notify.success('Voucher deleted successfully');
             await fetchVouchers();
         } catch (error: any) {
-            alert(error.response?.data?.message || 'Failed to delete voucher');
+            notify.error(error.response?.data?.message || 'Failed to delete voucher');
         }
     };
 

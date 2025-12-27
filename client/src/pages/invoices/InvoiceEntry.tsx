@@ -5,6 +5,7 @@ import { Input } from '../../components/ui/Input';
 import { Plus, Trash2, Save } from 'lucide-react';
 import api from '../../api/axios';
 import { useNavigate, useParams } from 'react-router-dom';
+import { notify } from '../../utils/notification';
 
 interface Ledger {
     id: string;
@@ -128,7 +129,7 @@ export const InvoiceEntry: React.FC<{ type?: 'SALES' | 'PURCHASE' | 'CREDIT_NOTE
 
             } catch (error) {
                 console.error('Failed to fetch invoice details', error);
-                alert('Failed to load invoice details');
+                notify.error('Failed to load invoice details');
             }
         };
         fetchInvoice();
@@ -214,7 +215,7 @@ export const InvoiceEntry: React.FC<{ type?: 'SALES' | 'PURCHASE' | 'CREDIT_NOTE
         try {
             if (id) {
                 await api.put(`/invoices/${id}`, payload);
-                alert('Invoice updated successfully!');
+                notify.success('Invoice updated successfully!');
             } else {
                 await api.post('/invoices', payload);
                 alert('Invoice saved successfully!');

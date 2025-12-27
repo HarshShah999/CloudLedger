@@ -197,6 +197,9 @@ export const createInvoiceService = async (invoiceData: any) => {
         }
     }
 
+
+    let original_invoice_date = invoiceData.originalInvoiceDate || null;
+
     // 4. Create Invoice
     const invoiceRes = await query(
         `INSERT INTO invoices (
@@ -208,7 +211,7 @@ export const createInvoiceService = async (invoiceData: any) => {
         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18) RETURNING *`,
         [companyId, voucherId, partyLedgerId, salesLedgerId, invoiceNumber, date, dueDate, type,
             subtotal, totalTax, grandTotal, notes, discountPercent, invoiceDiscountAmount, grandTotal, 'UNPAID',
-            invoiceData.originalInvoiceNumber, invoiceData.originalInvoiceDate]
+            invoiceData.originalInvoiceNumber, original_invoice_date]
     );
     const invoice = invoiceRes.rows[0];
 

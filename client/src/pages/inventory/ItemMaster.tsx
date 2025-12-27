@@ -4,6 +4,7 @@ import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Plus, Search, Edit2, Trash2, Package } from 'lucide-react';
 import api from '../../api/axios';
+import { notify } from '../../utils/notification';
 
 interface Unit {
     id: string;
@@ -84,17 +85,19 @@ export const ItemMaster: React.FC = () => {
                     ...formData,
                     companyId: selectedCompany.id
                 });
+                notify.success('Item updated successfully');
             } else {
                 await api.post('/inventory/items', {
                     ...formData,
                     companyId: selectedCompany.id
                 });
+                notify.success('Item created successfully');
             }
             await fetchData();
             handleCloseModal();
         } catch (error) {
             console.error('Failed to save item', error);
-            alert('Failed to save item');
+            notify.error('Failed to save item');
         }
     };
 
@@ -113,10 +116,10 @@ export const ItemMaster: React.FC = () => {
             setFormData({ ...formData, unitId: newUnit.id });
             setShowUnitModal(false);
             setUnitFormData({ name: '', symbol: '' });
-            alert('Unit created successfully!');
+            notify.success('Unit created successfully!');
         } catch (error) {
             console.error('Failed to create unit', error);
-            alert('Failed to create unit');
+            notify.error('Failed to create unit');
         }
     };
 

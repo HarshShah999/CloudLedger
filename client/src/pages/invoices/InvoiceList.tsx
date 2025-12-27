@@ -5,6 +5,7 @@ import { Plus, Download, Trash2, Eye, DollarSign, Edit, Mail } from 'lucide-reac
 import api from '../../api/axios';
 import { useNavigate } from 'react-router-dom';
 import { Input } from '../../components/ui/Input';
+import { notify } from '../../utils/notification';
 
 interface Invoice {
     id: string;
@@ -75,19 +76,19 @@ export const InvoiceList: React.FC = () => {
             link.remove();
         } catch (error) {
             console.error('Failed to download PDF', error);
-            alert('Failed to download PDF');
+            notify.error('Failed to download PDF');
         }
     };
 
     const handleDelete = async (invoiceId: string) => {
         try {
             await api.delete(`/invoices/${invoiceId}`);
-            alert('Invoice deleted successfully');
+            notify.success('Invoice deleted successfully');
             fetchInvoices();
             setDeleteConfirm(null);
         } catch (error: any) {
             console.error('Failed to delete invoice', error);
-            alert(error.response?.data?.message || 'Failed to delete invoice');
+            notify.error(error.response?.data?.message || 'Failed to delete invoice');
         }
     };
 
@@ -98,12 +99,12 @@ export const InvoiceList: React.FC = () => {
         setSendingEmail(true);
         try {
             await api.post(`/invoices/${emailModal.id}/email`, emailForm);
-            alert('Email sent successfully!');
+            notify.success('Email sent successfully!');
             setEmailModal(null);
             setEmailForm({ to: '', cc: '', subject: '', message: '' });
         } catch (error: any) {
             console.error('Failed to send email', error);
-            alert(error.response?.data?.message || 'Failed to send email');
+            notify.error(error.response?.data?.message || 'Failed to send email');
         } finally {
             setSendingEmail(false);
         }

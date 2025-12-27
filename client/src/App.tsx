@@ -1,4 +1,5 @@
 import React from 'react';
+import { Toaster } from 'react-hot-toast';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { AuthLayout } from './layouts/AuthLayout';
@@ -32,6 +33,7 @@ import { BankReconciliation } from './pages/banking/BankReconciliation';
 function App() {
     return (
         <BrowserRouter>
+            <Toaster position="top-right" />
             <AuthProvider>
                 <Routes>
                     <Route element={<AuthLayout />}>

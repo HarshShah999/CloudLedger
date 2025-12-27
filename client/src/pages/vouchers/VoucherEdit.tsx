@@ -5,6 +5,7 @@ import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Plus, Trash2, Save } from 'lucide-react';
 import api from '../../api/axios';
+import { notify } from '../../utils/notification';
 
 interface VoucherType {
     id: string;
@@ -76,7 +77,7 @@ export const VoucherEdit: React.FC = () => {
                 })));
             } catch (error) {
                 console.error('Failed to fetch data', error);
-                alert('Failed to load voucher');
+                notify.error('Failed to load voucher');
                 navigate('/vouchers');
             }
         };
@@ -112,7 +113,7 @@ export const VoucherEdit: React.FC = () => {
 
         const { debit, credit, difference } = calculateTotals();
         if (difference > 0.01) {
-            alert(`Voucher is not balanced. Debit: ₹${debit}, Credit: ₹${credit}`);
+            notify.warning(`Voucher is not balanced. Debit: ₹${debit}, Credit: ₹${credit}`);
             return;
         }
 
@@ -129,9 +130,10 @@ export const VoucherEdit: React.FC = () => {
                     type: e.type
                 }))
             });
+            notify.success('Voucher updated successfully');
             navigate('/vouchers');
         } catch (error: any) {
-            alert(error.response?.data?.message || 'Failed to update voucher');
+            notify.error(error.response?.data?.message || 'Failed to update voucher');
         } finally {
             setLoading(false);
         }
