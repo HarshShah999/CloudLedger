@@ -4,6 +4,7 @@ import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { FileSpreadsheet, Filter, TrendingUp, TrendingDown } from 'lucide-react';
 import api from '../../api/axios';
+import { notify } from '../../utils/notification';
 
 interface LedgerItem {
     group_name: string;
@@ -74,9 +75,11 @@ export const ProfitAndLoss: React.FC = () => {
             document.body.appendChild(link);
             link.click();
             link.remove();
+            link.click();
+            link.remove();
         } catch (error) {
             console.error('Export failed', error);
-            alert('Failed to export report');
+            notify.error('Failed to export report');
         }
     };
 

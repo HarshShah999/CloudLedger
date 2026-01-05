@@ -1,12 +1,11 @@
 
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '../../context/AuthContext';
+
 import { useCompany } from '../../context/CompanyContext';
 import api from '../../api/axios';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
-import { Select } from '../../components/ui/Select';
 import { format } from 'date-fns';
 
 interface Transaction {

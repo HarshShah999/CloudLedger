@@ -218,18 +218,18 @@ export const InvoiceEntry: React.FC<{ type?: 'SALES' | 'PURCHASE' | 'CREDIT_NOTE
                 notify.success('Invoice updated successfully!');
             } else {
                 await api.post('/invoices', payload);
-                alert('Invoice saved successfully!');
+                notify.success('Invoice saved successfully!');
             }
             navigate('/invoices');
         } catch (error: any) {
             console.error('Failed to save invoice', error);
-            alert(error.response?.data?.message || 'Failed to save invoice');
+            notify.error(error.response?.data?.message || 'Failed to save invoice');
         } finally {
             setLoading(false);
         }
     };
 
-    const { subtotal, totalTax, invoiceDiscount, grandTotal } = calculateTotals();
+    const { subtotal, invoiceDiscount, grandTotal } = calculateTotals();
     const gst = getGSTBreakdown();
 
     if (!type && !id) return <div>Loading...</div>; // Should not happen if routed correctly

@@ -2,8 +2,9 @@ import React, { useEffect, useState } from 'react';
 import { useCompany } from '../context/CompanyContext';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
-import { Plus, Lock, Unlock, Edit2, Trash2, CheckCircle, XCircle } from 'lucide-react';
+import { Plus, Lock, Unlock, Trash2, CheckCircle } from 'lucide-react';
 import api from '../api/axios';
+import { notify } from '../utils/notification';
 
 interface FinancialYear {
     id: string;
@@ -55,10 +56,11 @@ export const FinancialYears: React.FC = () => {
                 startDate: formData.startDate,
                 endDate: formData.endDate
             });
+            notify.success('Financial year created successfully');
             await fetchYears();
             handleCloseModal();
         } catch (error: any) {
-            alert(error.response?.data?.message || 'Failed to create financial year');
+            notify.error(error.response?.data?.message || 'Failed to create financial year');
         }
     };
 
@@ -68,9 +70,10 @@ export const FinancialYears: React.FC = () => {
             await api.put(`/financial-years/${yearId}/activate`, {
                 companyId: selectedCompany.id
             });
+            notify.success('Financial year activated successfully');
             await fetchYears();
         } catch (error: any) {
-            alert(error.response?.data?.message || 'Failed to activate year');
+            notify.error(error.response?.data?.message || 'Failed to activate year');
         }
     };
 
@@ -81,18 +84,20 @@ export const FinancialYears: React.FC = () => {
 
         try {
             await api.put(`/financial-years/${yearId}/close`);
+            notify.success('Financial year closed successfully');
             await fetchYears();
         } catch (error: any) {
-            alert(error.response?.data?.message || 'Failed to close year');
+            notify.error(error.response?.data?.message || 'Failed to close year');
         }
     };
 
     const handleReopen = async (yearId: string) => {
         try {
             await api.put(`/financial-years/${yearId}/reopen`);
+            notify.success('Financial year reopened successfully');
             await fetchYears();
         } catch (error: any) {
-            alert(error.response?.data?.message || 'Failed to reopen year');
+            notify.error(error.response?.data?.message || 'Failed to reopen year');
         }
     };
 
@@ -103,9 +108,10 @@ export const FinancialYears: React.FC = () => {
 
         try {
             await api.delete(`/financial-years/${yearId}`);
+            notify.success('Financial year deleted successfully');
             await fetchYears();
         } catch (error: any) {
-            alert(error.response?.data?.message || 'Failed to delete year');
+            notify.error(error.response?.data?.message || 'Failed to delete year');
         }
     };
 

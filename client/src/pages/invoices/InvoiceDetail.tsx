@@ -5,6 +5,7 @@ import { Input } from '../../components/ui/Input';
 import { ArrowLeft, Download, DollarSign, Trash2, Edit, Mail } from 'lucide-react';
 import api from '../../api/axios';
 import { useCompany } from '../../context/CompanyContext';
+import { notify } from '../../utils/notification';
 
 interface Payment {
     id: string;
@@ -68,7 +69,7 @@ export const InvoiceDetail: React.FC = () => {
                 invoiceId: id,
                 ...paymentForm
             });
-            alert('Payment recorded successfully');
+            notify.success('Payment recorded successfully');
             setShowPaymentModal(false);
             fetchInvoiceDetails();
             setPaymentForm({
@@ -80,7 +81,7 @@ export const InvoiceDetail: React.FC = () => {
             });
         } catch (error: any) {
             console.error('Failed to record payment', error);
-            alert(error.response?.data?.message || 'Failed to record payment');
+            notify.error(error.response?.data?.message || 'Failed to record payment');
         }
     };
 
@@ -89,11 +90,11 @@ export const InvoiceDetail: React.FC = () => {
 
         try {
             await api.delete(`/payments/${paymentId}`);
-            alert('Payment deleted successfully');
+            notify.success('Payment deleted successfully');
             fetchInvoiceDetails();
         } catch (error) {
             console.error('Failed to delete payment', error);
-            alert('Failed to delete payment');
+            notify.error('Failed to delete payment');
         }
     };
 
@@ -102,12 +103,12 @@ export const InvoiceDetail: React.FC = () => {
         setSendingEmail(true);
         try {
             await api.post(`/invoices/${id}/email`, emailForm);
-            alert('Email sent successfully!');
+            notify.success('Email sent successfully!');
             setShowEmailModal(false);
             setEmailForm({ to: '', cc: '', subject: '', message: '' });
         } catch (error: any) {
             console.error('Failed to send email', error);
-            alert(error.response?.data?.message || 'Failed to send email');
+            notify.error(error.response?.data?.message || 'Failed to send email');
         } finally {
             setSendingEmail(false);
         }
@@ -138,7 +139,7 @@ export const InvoiceDetail: React.FC = () => {
             link.remove();
         } catch (error) {
             console.error('Failed to download PDF', error);
-            alert('Failed to download PDF');
+            notify.error('Failed to download PDF');
         }
     };
 

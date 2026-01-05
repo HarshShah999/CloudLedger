@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useCompany } from '../../context/CompanyContext';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
-import { Plus, Search, Edit2, Trash2, Package } from 'lucide-react';
+import { Plus, Edit2, Package } from 'lucide-react';
 import api from '../../api/axios';
 import { notify } from '../../utils/notification';
 
@@ -28,7 +28,7 @@ export const ItemMaster: React.FC = () => {
     const { selectedCompany } = useCompany();
     const [items, setItems] = useState<Item[]>([]);
     const [units, setUnits] = useState<Unit[]>([]);
-    const [loading, setLoading] = useState(false);
+
     const [showModal, setShowModal] = useState(false);
     const [showUnitModal, setShowUnitModal] = useState(false);
     const [editingItem, setEditingItem] = useState<Item | null>(null);
@@ -50,7 +50,6 @@ export const ItemMaster: React.FC = () => {
 
     const fetchData = async () => {
         if (!selectedCompany) return;
-        setLoading(true);
         try {
             const [itemsRes, unitsRes] = await Promise.all([
                 api.get(`/inventory/items?companyId=${selectedCompany.id}`),
@@ -66,8 +65,6 @@ export const ItemMaster: React.FC = () => {
             }
         } catch (error) {
             console.error('Failed to fetch data', error);
-        } finally {
-            setLoading(false);
         }
     };
 

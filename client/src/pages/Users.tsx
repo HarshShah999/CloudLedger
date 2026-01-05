@@ -4,6 +4,7 @@ import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { useAuth } from '../context/AuthContext';
 import api from '../api/axios';
+import { notify } from '../utils/notification';
 
 interface User {
     id: string;
@@ -55,14 +56,16 @@ export const Users: React.FC = () => {
                     email: formData.email,
                     role: formData.role
                 });
+                notify.success('User updated successfully');
             } else {
                 // Create user
                 await api.post('/users', formData);
+                notify.success('User created successfully');
             }
             await fetchUsers();
             handleCloseModal();
         } catch (error: any) {
-            alert(error.response?.data?.message || 'Failed to save user');
+            notify.error(error.response?.data?.message || 'Failed to save user');
         }
     };
 
@@ -84,9 +87,10 @@ export const Users: React.FC = () => {
 
         try {
             await api.delete(`/users/${userId}`);
+            notify.success('User deleted successfully');
             await fetchUsers();
         } catch (error: any) {
-            alert(error.response?.data?.message || 'Failed to delete user');
+            notify.error(error.response?.data?.message || 'Failed to delete user');
         }
     };
 

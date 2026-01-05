@@ -4,6 +4,7 @@ import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { useAuth } from '../context/AuthContext';
 import api from '../api/axios';
+import { notify } from '../utils/notification';
 
 export const Settings: React.FC = () => {
     const { user, setUser } = useAuth();
@@ -32,10 +33,11 @@ export const Settings: React.FC = () => {
         try {
             const response = await api.put(`/users/${user?.id}`, profileData);
             setUser(response.data.data.user);
+            notify.success('Profile updated successfully!');
             setSuccessMessage('Profile updated successfully!');
             setTimeout(() => setSuccessMessage(''), 3000);
         } catch (error: any) {
-            alert(error.response?.data?.message || 'Failed to update profile');
+            notify.error(error.response?.data?.message || 'Failed to update profile');
         } finally {
             setLoading(false);
         }

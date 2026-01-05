@@ -8,6 +8,24 @@ import api from '../../api/axios';
 export const CompanyList: React.FC = () => {
     const { companies, refreshCompanies, selectCompany, selectedCompany } = useCompany();
     const [showModal, setShowModal] = useState(false);
+    const getCurrentFinancialYear = () => {
+        const today = new Date();
+        const month = today.getMonth(); // 0 is January
+        const year = today.getFullYear();
+
+        // If Jan, Feb, Mar, FY starts in previous year
+        const startYear = month < 3 ? year - 1 : year;
+        const endYear = startYear + 1;
+
+        return {
+            name: `${startYear}-${endYear}`,
+            startDate: `${startYear}-04-01`,
+            endDate: `${endYear}-03-31`
+        };
+    };
+
+    const initialFinancialYear = getCurrentFinancialYear();
+
     const [formData, setFormData] = useState({
         name: '',
         address: '',
@@ -16,11 +34,7 @@ export const CompanyList: React.FC = () => {
         phone: '',
         gstin: '',
         currency: 'INR',
-        financialYear: {
-            name: '2024-2025',
-            startDate: '2024-04-01',
-            endDate: '2025-03-31'
-        }
+        financialYear: initialFinancialYear
     });
     const [loading, setLoading] = useState(false);
 
@@ -39,11 +53,7 @@ export const CompanyList: React.FC = () => {
                 phone: '',
                 gstin: '',
                 currency: 'INR',
-                financialYear: {
-                    name: '2024-2025',
-                    startDate: '2024-04-01',
-                    endDate: '2025-03-31'
-                }
+                financialYear: getCurrentFinancialYear()
             });
         } catch (error) {
             console.error('Failed to create company', error);

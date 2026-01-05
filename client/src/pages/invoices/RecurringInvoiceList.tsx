@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { useCompany } from '../../context/CompanyContext';
 import { Button } from '../../components/ui/Button';
-import { Plus, Trash2, Edit, Play, Calendar } from 'lucide-react';
+import { Plus, Trash2, Edit, Play } from 'lucide-react';
 import api from '../../api/axios';
 import { useNavigate } from 'react-router-dom';
+import { notify } from '../../utils/notification';
 
 interface RecurringInvoice {
     id: string;
@@ -43,21 +44,22 @@ export const RecurringInvoiceList: React.FC = () => {
         if (!confirm('Are you sure you want to delete this recurring invoice template?')) return;
         try {
             await api.delete(`/recurring-invoices/${id}`);
-            alert('Recurring invoice deleted successfully');
+            notify.success('Recurring invoice deleted successfully');
             fetchRecurringInvoices();
         } catch (error: any) {
             console.error('Failed to delete recurring invoice', error);
-            alert(error.response?.data?.message || 'Failed to delete recurring invoice');
+            notify.error(error.response?.data?.message || 'Failed to delete recurring invoice');
         }
     };
 
     const handleToggleStatus = async (id: string, currentStatus: boolean) => {
         try {
             await api.patch(`/recurring-invoices/${id}`, { is_active: !currentStatus });
+            notify.success(`Recurring invoice ${!currentStatus ? 'activated' : 'paused'} successfully`);
             fetchRecurringInvoices();
         } catch (error: any) {
             console.error('Failed to update status', error);
-            alert('Failed to update status');
+            notify.error('Failed to update status');
         }
     };
 

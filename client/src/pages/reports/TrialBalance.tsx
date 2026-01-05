@@ -2,8 +2,9 @@ import React, { useEffect, useState } from 'react';
 import { useCompany } from '../../context/CompanyContext';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
-import { Download, Filter, FileSpreadsheet } from 'lucide-react';
+import { Filter, FileSpreadsheet } from 'lucide-react';
 import api from '../../api/axios';
+import { notify } from '../../utils/notification';
 
 interface ReportRow {
     id: string;
@@ -63,9 +64,11 @@ export const TrialBalance: React.FC = () => {
             document.body.appendChild(link);
             link.click();
             link.remove();
+            link.click();
+            link.remove();
         } catch (error) {
             console.error('Export failed', error);
-            alert('Failed to export report');
+            notify.error('Failed to export report');
         }
     };
 

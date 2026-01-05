@@ -5,6 +5,7 @@ import { Input } from '../../components/ui/Input';
 import { Plus, Trash2, Save } from 'lucide-react';
 import api from '../../api/axios';
 import { useNavigate, useParams } from 'react-router-dom';
+import { notify } from '../../utils/notification';
 
 interface Ledger {
     id: string;
@@ -183,15 +184,15 @@ export const RecurringInvoiceEntry: React.FC = () => {
                 // In `recurringInvoiceRoutes.ts`: `router.put('/:id', protect, updateRecurringInvoice);`
                 // Yes, I did.
                 await api.put(`/recurring-invoices/${id}`, payload);
-                alert('Recurring invoice updated successfully!');
+                notify.success('Recurring invoice updated successfully!');
             } else {
                 await api.post('/recurring-invoices', payload);
-                alert('Recurring invoice created successfully!');
+                notify.success('Recurring invoice created successfully!');
             }
             navigate('/recurring-invoices');
         } catch (error: any) {
             console.error('Failed to save recurring invoice', error);
-            alert(error.response?.data?.message || 'Failed to save recurring invoice');
+            notify.error(error.response?.data?.message || 'Failed to save recurring invoice');
         } finally {
             setLoading(false);
         }

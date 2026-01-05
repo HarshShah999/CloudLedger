@@ -118,8 +118,12 @@ export const getPnL = async (req: Request, res: Response, next: NextFunction) =>
                 group_name: row.group_name,
                 group_type: row.group_type,
                 ledger_name: row.ledger_name,
-                balance: Math.abs(balance),
-                balance_type: balance >= 0 ? 'Cr' : 'Dr'
+                // Keep signed balance for accurate totals, but maybe client wants absolute?
+                // The client P&L just blindly sums them if we returned absolute 
+                // but we are returning the individual items. 
+                // If we return negative balance, frontend will show negative, which is correct for returns.
+                balance: balance,
+                balance_type: balance >= 0 ? (row.group_type === 'Income' ? 'Cr' : 'Dr') : (row.group_type === 'Income' ? 'Dr' : 'Cr')
             };
         });
 
@@ -184,26 +188,33 @@ export const getBalanceSheet = async (req: Request, res: Response, next: NextFun
         // Calculate balances for each ledger
         const ledgers = result.rows.map((row: any) => {
             const openingBalance = parseFloat(row.opening_balance) || 0;
-            const debit = parseFloat(row.total_debit);
-            const credit = parseFloat(row.total_credit);
+            // Normalize opening balance to signed value (Dr positive, Cr negative for Asset context? No, keep standard)
+            // Let's standardize: Dr is Positive, Cr is Negative globally for calculation?
+            // Or stick to Group context:
+            // Asset: Dr +, Cr -
+            // Liability: Cr +, Dr -
 
-            // Start with opening balance
-            let balance = openingBalance;
+            let balance = 0;
 
-            // For Assets: Debit increases, Credit decreases
-            // For Liabilities: Credit increases, Debit decreases
+            // Initial Balance (based on group logic)
             if (row.group_type === 'Asset') {
-                balance += (debit - credit);
+                // Asset: Debit is normal (positive)
+                let open = row.opening_balance_type === 'Dr' ? openingBalance : -openingBalance;
+                balance = open + parseFloat(row.total_debit) - parseFloat(row.total_credit);
             } else {
-                balance += (credit - debit);
+                // Liability: Credit is normal (positive)
+                let open = row.opening_balance_type === 'Cr' ? openingBalance : -openingBalance;
+                balance = open + parseFloat(row.total_credit) - parseFloat(row.total_debit);
             }
 
             return {
                 group_name: row.group_name,
                 group_type: row.group_type,
                 ledger_name: row.ledger_name,
-                balance: Math.abs(balance),
-                balance_type: balance >= 0 ? row.opening_balance_type : (row.opening_balance_type === 'Dr' ? 'Cr' : 'Dr')
+                balance: balance, // Allow negative for contra items
+                balance_type: balance >= 0 ?
+                    (row.group_type === 'Asset' ? 'Dr' : 'Cr') :
+                    (row.group_type === 'Asset' ? 'Cr' : 'Dr')
             };
         });
 
