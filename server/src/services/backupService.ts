@@ -1,12 +1,15 @@
-import { exec } from 'child_process';
+import { query as dbQuery } from '../config/db';
+import { AppError } from '../middleware/errorHandler';
+import { execFile } from 'child_process';
 import { promisify } from 'util';
 import fs from 'fs/promises';
 import path from 'path';
 import { createGzip, createGunzip } from 'zlib';
 import { pipeline } from 'stream/promises';
-import { createReadStream, createWriteStream } from 'fs';
+import { createReadStream, createWriteStream, existsSync } from 'fs';
+import { logger } from '../config/logger';
 
-const execAsync = promisify(exec);
+const execFileAsync = promisify(execFile);
 
 // Backup directory configuration
 const BACKUP_DIR = process.env.BACKUP_DIR || './backups';
@@ -20,44 +23,33 @@ const DB_USER = process.env.DB_USER || 'postgres';
 const DB_PASSWORD = process.env.DB_PASSWORD || '';
 const DB_NAME = process.env.DB_NAME || 'cloudledger';
 
-const logDebug = async (msg: string) => {
-    try {
-        await fs.appendFile('debug_backup.txt', new Date().toISOString() + ': ' + msg + '\n');
-    } catch (e) { console.error('Failed to write log', e); }
-    console.log(msg);
-};
-
-// Helper to find PostgreSQL binaries
-const findPostgresBinary = async (binaryName: string): Promise<string> => {
-    const fs = require('fs');
-
+/**
+ * Finds pg_dump / psql: PG_BIN_DIR if set, else the usual Windows install folders,
+ * else the system PATH (Linux/macOS servers and containers).
+ */
+const findPostgresBinary = (binaryName: 'pg_dump' | 'psql'): string => {
+    if (process.env.PG_BIN_DIR) return path.join(process.env.PG_BIN_DIR, process.platform === 'win32' ? `${binaryName}.exe` : binaryName);
     if (process.platform === 'win32') {
-        const versions = [17, 16, 15, 14];
-
-        await logDebug(`🔍 Searching for ${binaryName} in PostgreSQL installations...`);
-
-        for (const v of versions) {
+        for (const v of [18, 17, 16, 15, 14]) {
             const p = `C:\\Program Files\\PostgreSQL\\${v}\\bin\\${binaryName}.exe`;
-
-            try {
-                if (fs.existsSync(p)) {
-                    await logDebug(`✅ Found ${binaryName} v${v} at: ${p}`);
-                    return `"${p}"`;
-                } else {
-                    await logDebug(`❌ Checked v${v}: Not found`);
-                }
-            } catch (error: any) {
-                await logDebug(`⚠️ Error checking v${v}: ${error.message}`);
-            }
+            if (existsSync(p)) return p;
         }
     }
-
-    // Final fallback to PATH
-    await logDebug(`⚠️ Falling back to system PATH for ${binaryName}`);
     return binaryName;
 };
 
-
+/** Runs a PostgreSQL tool without a shell (arguments are never interpreted as commands). */
+const runPgTool = async (binary: 'pg_dump' | 'psql', args: string[]) => {
+    try {
+        await execFileAsync(findPostgresBinary(binary), ['-h', DB_HOST, '-p', String(DB_PORT), '-U', DB_USER, ...args], {
+            env: { ...process.env, PGPASSWORD: DB_PASSWORD },
+            maxBuffer: 64 * 1024 * 1024,
+        });
+    } catch (e: any) {
+        // Keep the tool's own message (e.g. version mismatch) but never echo the environment
+        throw new Error(`${binary} failed: ${String(e.stderr || e.message).trim().split('\n').slice(-3).join(' ')}`);
+    }
+};
 
 // Ensure backup directories exist
 export const initializeBackupDirectories = async () => {
@@ -65,9 +57,9 @@ export const initializeBackupDirectories = async () => {
         await fs.mkdir(BACKUP_DIR, { recursive: true });
         await fs.mkdir(FULL_BACKUP_DIR, { recursive: true });
         await fs.mkdir(COMPANY_BACKUP_DIR, { recursive: true });
-        console.log('✅ Backup directories initialized');
+        logger.info('✅ Backup directories initialized');
     } catch (error) {
-        console.error('❌ Failed to create backup directories:', error);
+        logger.error({ err: error }, '❌ Failed to create backup directories:');
         throw error;
     }
 };
@@ -86,25 +78,10 @@ export const createFullBackup = async (): Promise<{ filename: string; filepath: 
     const gzFilepath = path.join(FULL_BACKUP_DIR, gzFilename);
 
     try {
-        // Set PGPASSWORD environment variable for authentication
-        const env = { ...process.env, PGPASSWORD: DB_PASSWORD };
-
-        // Find pg_dump
-        // const pgDumpPath = await findPostgresBinary('pg_dump');
-
-        const pgDumpPath = `"C:\\Program Files\\PostgreSQL\\17\\bin\\pg_dump.exe"`;
-
-
-        // Create pg_dump command
-        const dumpCommand = `${pgDumpPath} -h ${DB_HOST} -p ${DB_PORT} -U ${DB_USER} -d ${DB_NAME} -F p -f "${sqlFilepath}"`;
-
-        console.log(`Creating database backup with command: ${dumpCommand}`);
-        try {
-            await execAsync(dumpCommand, { env });
-        } catch (execError: any) {
-            console.error('pg_dump execution failed:', execError);
-            throw new Error(`pg_dump failed: ${execError.message}`);
-        }
+        await fs.mkdir(FULL_BACKUP_DIR, { recursive: true });
+        // Plain SQL that drops and recreates each object, so it can be restored into
+        // the existing database without dropping the database itself
+        await runPgTool('pg_dump', ['-d', DB_NAME, '-F', 'p', '--clean', '--if-exists', '--no-owner', '--no-privileges', '-f', sqlFilepath]);
 
         // Check if SQL file was created
         try {
@@ -114,14 +91,14 @@ export const createFullBackup = async (): Promise<{ filename: string; filepath: 
         }
 
         // Compress the SQL file using Node.js zlib
-        console.log('Compressing backup file...');
+        logger.info('Compressing backup file...');
         try {
             const source = createReadStream(sqlFilepath);
             const destination = createWriteStream(gzFilepath);
             const gzip = createGzip();
             await pipeline(source, gzip, destination);
         } catch (zipError: any) {
-            console.error('Compression failed:', zipError);
+            logger.error({ err: zipError }, 'Compression failed:');
             throw new Error(`Compression failed: ${zipError.message}`);
         }
 
@@ -131,7 +108,7 @@ export const createFullBackup = async (): Promise<{ filename: string; filepath: 
         // Get file size
         const stats = await fs.stat(gzFilepath);
 
-        console.log(`✅ Backup created: ${gzFilename} (${(stats.size / 1024 / 1024).toFixed(2)} MB)`);
+        logger.info(`✅ Backup created: ${gzFilename} (${(stats.size / 1024 / 1024).toFixed(2)} MB)`);
 
         return {
             filename: gzFilename,
@@ -139,7 +116,7 @@ export const createFullBackup = async (): Promise<{ filename: string; filepath: 
             size: stats.size
         };
     } catch (error: any) {
-        console.error('❌ Backup creation failed:', error);
+        logger.error({ err: error }, '❌ Backup creation failed:');
         // Clean up any partial files
         await fs.unlink(sqlFilepath).catch(() => { });
         await fs.unlink(gzFilepath).catch(() => { });
@@ -171,21 +148,20 @@ export const listBackups = async (type: 'full' | 'company' = 'full'): Promise<an
         // Sort by creation date (newest first)
         return backups.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
     } catch (error) {
-        console.error('Error listing backups:', error);
+        logger.error({ err: error }, 'Error listing backups:');
         return [];
     }
 };
 
 // Delete a backup file
 export const deleteBackup = async (filename: string, type: 'full' | 'company' = 'full'): Promise<void> => {
-    const dir = type === 'full' ? FULL_BACKUP_DIR : COMPANY_BACKUP_DIR;
-    const filepath = path.join(dir, filename);
+    const filepath = getBackupPath(filename, type);
 
     try {
         await fs.unlink(filepath);
-        console.log(`✅ Backup deleted: ${filename}`);
+        logger.info(`✅ Backup deleted: ${filename}`);
     } catch (error: any) {
-        console.error('❌ Failed to delete backup:', error);
+        logger.error({ err: error }, '❌ Failed to delete backup:');
         throw new Error(`Failed to delete backup: ${error.message}`);
     }
 };
@@ -193,15 +169,12 @@ export const deleteBackup = async (filename: string, type: 'full' | 'company' = 
 // Restore database from backup
 export const restoreFromBackup = async (filepath: string): Promise<void> => {
     try {
-        // Set PGPASSWORD environment variable
-        const env = { ...process.env, PGPASSWORD: DB_PASSWORD };
-
         let sqlFilepath = filepath;
         const cleanupFiles: string[] = [];
 
         // Decompress if gzipped
         if (filepath.endsWith('.gz')) {
-            console.log('Decompressing backup file...');
+            logger.info('Decompressing backup file...');
             const tempSqlFile = filepath.replace('.gz', '');
 
             try {
@@ -213,12 +186,12 @@ export const restoreFromBackup = async (filepath: string): Promise<void> => {
                 sqlFilepath = tempSqlFile;
                 cleanupFiles.push(tempSqlFile);
             } catch (unzipError: any) {
-                console.error('Decompression failed:', unzipError);
+                logger.error({ err: unzipError }, 'Decompression failed:');
                 throw new Error(`Decompression failed: ${unzipError.message}`);
             }
         }
 
-        console.log('Restoring database...');
+        logger.info('Restoring database...');
 
         // Verify SQL file exists
         try {
@@ -227,29 +200,17 @@ export const restoreFromBackup = async (filepath: string): Promise<void> => {
             throw new Error(`Restore file not found: ${sqlFilepath}`);
         }
 
-        // Find psql binary
-        const psqlPath = await findPostgresBinary('psql');
-
-        // Drop and recreate database (WARNING: This deletes all data!)
-        // Note: Connecting to 'postgres' database to drop 'cloudledger'
-        const dropCommand = `${psqlPath} -h ${DB_HOST} -p ${DB_PORT} -U ${DB_USER} -d postgres -c "DROP DATABASE IF EXISTS ${DB_NAME};"`;
-        await execAsync(dropCommand, { env });
-
-        const createCommand = `${psqlPath} -h ${DB_HOST} -p ${DB_PORT} -U ${DB_USER} -d postgres -c "CREATE DATABASE ${DB_NAME};"`;
-        await execAsync(createCommand, { env });
-
-        // Restore from backup
-        const restoreCommand = `${psqlPath} -h ${DB_HOST} -p ${DB_PORT} -U ${DB_USER} -d ${DB_NAME} -f "${sqlFilepath}"`;
-        await execAsync(restoreCommand, { env });
+        // One transaction: if anything fails, the database is left exactly as it was
+        await runPgTool('psql', ['-d', DB_NAME, '-v', 'ON_ERROR_STOP=1', '--single-transaction', '-q', '-f', sqlFilepath]);
 
         // Clean up temp files
         for (const file of cleanupFiles) {
             await fs.unlink(file).catch(() => { });
         }
 
-        console.log('✅ Database restored successfully');
+        logger.info('✅ Database restored successfully');
     } catch (error: any) {
-        console.error('❌ Restore failed:', error);
+        logger.error({ err: error }, '❌ Restore failed:');
         throw new Error(`Restore failed: ${error.message}`);
     }
 };
@@ -270,16 +231,54 @@ export const cleanOldBackups = async (retentionDays: number = 30): Promise<numbe
             }
         }
 
-        console.log(`✅ Cleaned ${deletedCount} old backups`);
+        logger.info(`✅ Cleaned ${deletedCount} old backups`);
         return deletedCount;
     } catch (error) {
-        console.error('Error cleaning old backups:', error);
+        logger.error({ err: error }, 'Error cleaning old backups:');
         return 0;
     }
 };
 
 // Get backup file path
+/** Only plain backup file names are accepted (no directories, no traversal). */
+export const safeBackupName = (filename: string): string => {
+    const base = path.basename(String(filename || ''));
+    if (!/^[A-Za-z0-9._-]+\.(sql|sql\.gz|json)$/.test(base) || base.startsWith('.')) {
+        throw new AppError('Invalid backup file name', 400);
+    }
+    return base;
+};
+
 export const getBackupPath = (filename: string, type: 'full' | 'company' = 'full'): string => {
     const dir = type === 'full' ? FULL_BACKUP_DIR : COMPANY_BACKUP_DIR;
-    return path.join(dir, filename);
+    return path.join(dir, safeBackupName(filename));
+};
+
+/* ---------- Backup and restore log (backup_logs / restore_logs) ---------- */
+
+export const logBackup = async (entry: { status: 'SUCCESS' | 'FAILED'; filename?: string; size?: number; error?: string; userId?: string | null }) => {
+    await dbQuery(
+        `INSERT INTO backup_logs (type, filename, file_size, status, error_message, created_by, storage_location)
+         VALUES ('FULL', $1, $2, $3, $4, $5, 'local')`,
+        [entry.filename ?? null, entry.size ?? null, entry.status, entry.error ?? null, entry.userId ?? null]
+    );
+};
+
+export const listBackupLogs = async () =>
+    (
+        await dbQuery(
+            `SELECT bl.*, u.name as created_by_name
+             FROM backup_logs bl
+             LEFT JOIN users u ON bl.created_by = u.id
+             WHERE bl.type = 'FULL'
+             ORDER BY bl.created_at DESC
+             LIMIT 50`
+        )
+    ).rows;
+
+export const logRestore = async (entry: { filename: string; status: 'SUCCESS' | 'FAILED'; error?: string; userId: string }) => {
+    await dbQuery(
+        `INSERT INTO restore_logs (backup_filename, type, status, error_message, restored_by) VALUES ($1, 'FULL', $2, $3, $4)`,
+        [entry.filename, entry.status, entry.error ?? null, entry.userId]
+    );
 };

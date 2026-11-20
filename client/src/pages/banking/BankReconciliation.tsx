@@ -7,6 +7,7 @@ import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { format } from 'date-fns';
+import { amount } from '../../lib/format';
 
 interface Transaction {
     id: string;
@@ -186,10 +187,10 @@ export const BankReconciliation: React.FC = () => {
                                             {t.instrument_date ? format(new Date(t.instrument_date), 'dd-MM-yyyy') : '-'}
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900 font-medium">
-                                            {t.type === 'Dr' ? Number(t.amount).toFixed(2) : ''}
+                                            {t.type === 'Dr' ? amount(Number(t.amount)) : ''}
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900 font-medium">
-                                            {t.type === 'Cr' ? Number(t.amount).toFixed(2) : ''}
+                                            {t.type === 'Cr' ? amount(Number(t.amount)) : ''}
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm">
                                             <input
@@ -207,23 +208,23 @@ export const BankReconciliation: React.FC = () => {
                     </div>
 
                     <div className="bg-slate-50 p-4 border-t border-slate-200">
-                        <div className="grid grid-cols-3 gap-4 text-sm">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
                             <div className="p-3 bg-white rounded-lg shadow-sm">
                                 <p className="text-slate-500 mb-1">Balance as per Company Books</p>
                                 <p className="text-lg font-bold text-slate-800">
-                                    {Math.abs(totals.companyBalance).toFixed(2)} {totals.companyBalance >= 0 ? 'Dr' : 'Cr'}
+                                    {amount(Math.abs(totals.companyBalance))} {totals.companyBalance >= 0 ? 'Dr' : 'Cr'}
                                 </p>
                             </div>
                             <div className="p-3 bg-white rounded-lg shadow-sm">
                                 <p className="text-slate-500 mb-1">Amounts not reflected in Bank</p>
                                 <p className="text-lg font-bold text-orange-600">
-                                    {Math.abs(totals.amountsNotReflected).toFixed(2)} {totals.amountsNotReflected >= 0 ? 'Dr' : 'Cr'}
+                                    {amount(Math.abs(totals.amountsNotReflected))} {totals.amountsNotReflected >= 0 ? 'Dr' : 'Cr'}
                                 </p>
                             </div>
                             <div className="p-3 bg-white rounded-lg shadow-sm">
                                 <p className="text-slate-500 mb-1">Balance as per Bank</p>
                                 <p className="text-lg font-bold text-green-600">
-                                    {Math.abs(totals.bankBalance).toFixed(2)} {totals.bankBalance >= 0 ? 'Dr' : 'Cr'}
+                                    {amount(Math.abs(totals.bankBalance))} {totals.bankBalance >= 0 ? 'Dr' : 'Cr'}
                                 </p>
                             </div>
                         </div>

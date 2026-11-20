@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import logo from '../assets/logo.png';
 import { Link, useLocation } from 'react-router-dom';
 import clsx from 'clsx';
 import {
@@ -13,7 +14,10 @@ import {
     ChevronRight,
     Package,
     Repeat,
-    Database
+    Database,
+    ShieldCheck,
+    Wallet,
+    Upload,
 } from 'lucide-react';
 
 const mainNavItems = [
@@ -22,37 +26,59 @@ const mainNavItems = [
     { label: 'Financial Years', icon: Building2, path: '/financial-years' },
     { label: 'Ledgers', icon: BookOpen, path: '/ledgers' },
     { label: 'Items', icon: Package, path: '/inventory/items' },
-    { label: 'Invoices', icon: FileText, path: '/invoices' },
+    { label: 'Sales & Purchases', icon: FileText, path: '/invoices' },
+    { label: 'Receipts & Payments', icon: Wallet, path: '/receipts' },
     { label: 'Recurring', icon: Repeat, path: '/recurring-invoices' },
     { label: 'Vouchers', icon: FileText, path: '/vouchers' },
     { label: 'Banking', icon: Building2, path: '/banking/reconciliation' },
 ];
 
 const reportItems = [
+    { label: 'Outstanding', path: '/reports/outstanding' },
+    { label: 'Day Book', path: '/reports/day-book' },
+    { label: 'Stock Summary', path: '/reports/stock-summary' },
+    { label: 'Cash / Bank Book', path: '/reports/cash-bank-book' },
+    { label: 'GSTR-2B Matching', path: '/reports/gstr-2b' },
+    { label: 'TDS Register', path: '/reports/tds' },
     { label: 'Trial Balance', path: '/reports' },
     { label: 'Profit & Loss', path: '/reports/profit-loss' },
     { label: 'Balance Sheet', path: '/reports/balance-sheet' },
 ];
 
 const bottomNavItems = [
+    { label: 'Import', icon: Upload, path: '/import' },
     { label: 'Backup', icon: Database, path: '/backup' },
     { label: 'Users', icon: Users, path: '/users' },
+    { label: 'Audit Trail', icon: ShieldCheck, path: '/audit' },
     { label: 'Settings', icon: Settings, path: '/settings' },
 ];
 
-export const Sidebar: React.FC = () => {
+export const Sidebar: React.FC<{ open?: boolean; onClose?: () => void }> = ({ open = false, onClose }) => {
     const location = useLocation();
     const [reportsOpen, setReportsOpen] = useState(true);
 
+    // Close the drawer after navigating on phones
+    useEffect(() => {
+        onClose?.();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [location.pathname]);
+
     return (
-        <aside className="w-64 bg-slate-900 text-white h-screen fixed left-0 top-0 flex flex-col">
+        <>
+        {open && <div className="fixed inset-0 z-30 bg-black/40 lg:hidden" onClick={onClose} aria-hidden="true" />}
+        <aside
+            className={clsx(
+                'w-64 bg-slate-900 text-white h-screen fixed left-0 top-0 z-40 flex flex-col transition-transform duration-200 lg:translate-x-0',
+                open ? 'translate-x-0' : '-translate-x-full'
+            )}
+        >
             <div className="p-6 shrink-0">
                 <h1 className="text-2xl font-bold text-white flex items-center">
                     {/* <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
                         CL
                     </div> */}
                     <div className=" flex items-center justify-center">
-                    <img src="../assets/logo.png" alt="CloudLedger Logo" className="w-16 h-16" /></div>
+                    <img src={logo} alt="CloudLedger" className="w-16 h-16" /></div>
                     CloudLedger
                 </h1>
             </div>
@@ -214,5 +240,6 @@ export const Sidebar: React.FC = () => {
                 </div>
             </div>
         </aside>
+        </>
     );
 };

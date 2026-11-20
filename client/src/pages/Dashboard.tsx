@@ -20,6 +20,9 @@ import {
 import { useCompany } from '../context/CompanyContext';
 import api from '../api/axios';
 import { useNavigate } from 'react-router-dom';
+import { formatDateTime, inrRounded } from '../lib/format';
+import { formatDate } from '../lib/dates';
+
 
 ChartJS.register(
     CategoryScale,
@@ -178,7 +181,7 @@ export const Dashboard: React.FC = () => {
             <div className="flex items-center justify-between">
                 <h1 className="text-2xl font-bold text-slate-800">Dashboard</h1>
                 <div className="text-sm text-slate-500">
-                    Last updated: {lastUpdated.toLocaleTimeString()}
+                    Last updated: {formatDateTime(lastUpdated)}
                 </div>
             </div>
 
@@ -195,7 +198,7 @@ export const Dashboard: React.FC = () => {
                             </div>
                             <h3 className="text-slate-500 text-sm font-medium mb-1">{kpi.label}</h3>
                             <p className="text-2xl font-bold text-slate-800">
-                                ₹{kpi.value.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                                {inrRounded(kpi.value)}
                             </p>
                         </div>
                     );
@@ -227,12 +230,12 @@ export const Dashboard: React.FC = () => {
                                         </div>
                                         <div>
                                             <p className="text-sm font-medium text-slate-800">{txn.voucher_type || 'Voucher'} #{txn.voucher_number}</p>
-                                            <p className="text-xs text-slate-500">{new Date(txn.date).toLocaleDateString()}</p>
+                                            <p className="text-xs text-slate-500">{formatDate(txn.date)}</p>
                                         </div>
                                     </div>
                                     <div className="text-right">
                                         <p className={`text-sm font-bold ${getVoucherColor(txn.voucher_type)}`}>
-                                            ₹{Number(txn.total_amount).toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                                            {inrRounded(txn.total_amount)}
                                         </p>
                                     </div>
                                 </div>

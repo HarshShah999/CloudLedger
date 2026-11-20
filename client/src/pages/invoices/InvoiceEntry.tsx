@@ -1,16 +1,21 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useCompany } from '../../context/CompanyContext';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Plus, Trash2, Save } from 'lucide-react';
-import api from '../../api/axios';
+import api, { apiError } from '../../api/axios';
 import { useNavigate, useParams } from 'react-router-dom';
+import { calculateInvoice, isInterStateSupply } from '../../lib/invoiceCalc';
+import { DocType, docInfo } from '../../lib/docTypes';
+import { useGstMeta } from '../../lib/gstMeta';
 import { notify } from '../../utils/notification';
+import { amount, inr } from '../../lib/format';
 
 interface Ledger {
     id: string;
     name: string;
     state?: string;
+    gst_registration_type?: string | null;
 }
 
 interface Item {
@@ -35,11 +40,11 @@ interface InvoiceItem {
     taxAmount: number;
 }
 
-export const InvoiceEntry: React.FC<{ type?: 'SALES' | 'PURCHASE' | 'CREDIT_NOTE' | 'DEBIT_NOTE' }> = ({ type: initialType }) => {
+export const InvoiceEntry: React.FC<{ type?: DocType }> = ({ type: initialType }) => {
     const { selectedCompany } = useCompany();
     const navigate = useNavigate();
     const { id } = useParams<{ id: string }>();
-    const [type, setType] = useState<'SALES' | 'PURCHASE' | 'CREDIT_NOTE' | 'DEBIT_NOTE' | undefined>(initialType);
+    const [type, setType] = useState<DocType | undefined>(initialType);
 
     // Update type when prop changes (for navigation between different Create routes)
     useEffect(() => {
@@ -53,6 +58,7 @@ export const InvoiceEntry: React.FC<{ type?: 'SALES' | 'PURCHASE' | 'CREDIT_NOTE
     const [loading, setLoading] = useState(false);
     const [companyState, setCompanyState] = useState('');
 
+    const gstMeta = useGstMeta();
     const [formData, setFormData] = useState({
         partyLedgerId: '',
         salesLedgerId: '',
@@ -62,7 +68,21 @@ export const InvoiceEntry: React.FC<{ type?: 'SALES' | 'PURCHASE' | 'CREDIT_NOTE
         notes: '',
         discountPercent: 0,
         originalInvoiceNumber: '',
-        originalInvoiceDate: ''
+        originalInvoiceDate: '',
+        validUntil: '',
+        placeOfSupply: '',
+        supplyType: '',
+        reverseCharge: false,
+        tdsSection: '',
+        tdsRate: 0,
+        shippingBillNumber: '',
+        shippingBillDate: '',
+        portCode: '',
+        transportMode: '',
+        transportDistanceKm: '',
+        vehicleNumber: '',
+        transporterId: '',
+        transporterName: ''
     });
 
     const [invoiceItems, setInvoiceItems] = useState<InvoiceItem[]>([
@@ -92,6 +112,23 @@ export const InvoiceEntry: React.FC<{ type?: 'SALES' | 'PURCHASE' | 'CREDIT_NOTE
         fetchData();
     }, [selectedCompany]);
 
+    // Suggest the next number from the company's series (new documents only).
+    // A number the user typed by hand is never overwritten.
+    const lastSuggested = useRef('');
+    useEffect(() => {
+        if (id || !selectedCompany || !type) return;
+        api.get('/invoices/next-number', { params: { companyId: selectedCompany.id, type, date: formData.date } })
+            .then((res) => {
+                const suggested: string = res.data.data.number;
+                setFormData((f) => {
+                    if (f.invoiceNumber && f.invoiceNumber !== lastSuggested.current) return f;
+                    lastSuggested.current = suggested;
+                    return { ...f, invoiceNumber: suggested };
+                });
+            })
+            .catch(() => undefined);
+    }, [id, selectedCompany, type, formData.date]);
+
     // Fetch Invoice Data for Edit
     useEffect(() => {
         const fetchInvoice = async () => {
@@ -106,12 +143,26 @@ export const InvoiceEntry: React.FC<{ type?: 'SALES' | 'PURCHASE' | 'CREDIT_NOTE
                     partyLedgerId: invoice.party_ledger_id,
                     salesLedgerId: invoice.sales_ledger_id,
                     invoiceNumber: invoice.invoice_number,
-                    date: new Date(invoice.date).toISOString().split('T')[0],
-                    dueDate: invoice.due_date ? new Date(invoice.due_date).toISOString().split('T')[0] : '',
+                    date: String(invoice.date).slice(0, 10),
+                    dueDate: invoice.due_date ? String(invoice.due_date).slice(0, 10) : '',
                     notes: invoice.notes || '',
                     discountPercent: Number(invoice.discount_percent),
                     originalInvoiceNumber: invoice.original_invoice_number || '',
-                    originalInvoiceDate: invoice.original_invoice_date ? new Date(invoice.original_invoice_date).toISOString().split('T')[0] : ''
+                    originalInvoiceDate: invoice.original_invoice_date ? String(invoice.original_invoice_date).slice(0, 10) : '',
+                    placeOfSupply: invoice.place_of_supply || '',
+                    supplyType: invoice.supply_type && invoice.supply_type !== 'NORMAL' ? invoice.supply_type : '',
+                    reverseCharge: !!invoice.reverse_charge,
+                    tdsSection: invoice.tds_section || '',
+                    tdsRate: Number(invoice.tds_rate || 0),
+                    shippingBillNumber: invoice.shipping_bill_number || '',
+                    shippingBillDate: invoice.shipping_bill_date ? String(invoice.shipping_bill_date).slice(0, 10) : '',
+                    portCode: invoice.port_code || '',
+                    transportMode: invoice.transport_mode || '',
+                    transportDistanceKm: invoice.transport_distance_km ?? '',
+                    vehicleNumber: invoice.vehicle_number || '',
+                    transporterId: invoice.transporter_id || '',
+                    transporterName: invoice.transporter_name || '',
+                    validUntil: invoice.valid_until ? String(invoice.valid_until).slice(0, 10) : ''
                 });
 
                 setInvoiceItems(items.map((item: any) => ({
@@ -129,7 +180,7 @@ export const InvoiceEntry: React.FC<{ type?: 'SALES' | 'PURCHASE' | 'CREDIT_NOTE
 
             } catch (error) {
                 console.error('Failed to fetch invoice details', error);
-                notify.error('Failed to load invoice details');
+                notify.error(apiError(error, 'Failed to load invoice details'));
             }
         };
         fetchInvoice();
@@ -144,7 +195,7 @@ export const InvoiceEntry: React.FC<{ type?: 'SALES' | 'PURCHASE' | 'CREDIT_NOTE
             if (selectedItem) {
                 item.itemId = value;
                 item.description = selectedItem.name;
-                item.rate = type === 'SALES' ? Number(selectedItem.sales_rate) : Number(selectedItem.purchase_rate);
+                item.rate = docInfo(type || 'SALES').sales ? Number(selectedItem.sales_rate) : Number(selectedItem.purchase_rate);
                 item.taxRate = Number(selectedItem.tax_rate);
             }
         } else {
@@ -171,27 +222,38 @@ export const InvoiceEntry: React.FC<{ type?: 'SALES' | 'PURCHASE' | 'CREDIT_NOTE
         setInvoiceItems(invoiceItems.filter((_, i) => i !== index));
     };
 
-    const calculateTotals = () => {
-        const subtotal = invoiceItems.reduce((sum, item) => sum + item.taxableAmount, 0);
-        const totalTax = invoiceItems.reduce((sum, item) => sum + item.taxAmount, 0);
-        const invoiceDiscount = (subtotal * Number(formData.discountPercent)) / 100;
-        const grandTotal = subtotal + totalTax - invoiceDiscount;
-
-        return { subtotal, totalTax, invoiceDiscount, grandTotal };
-    };
-
-    const getGSTBreakdown = () => {
-        const partyState = ledgers.find(l => l.id === formData.partyLedgerId)?.state || '';
-        const isInterState = companyState !== partyState || !companyState || !partyState;
-
-        const totalTax = invoiceItems.reduce((sum, item) => sum + item.taxAmount, 0);
-
-        if (isInterState) {
-            return { igst: totalTax, cgst: 0, sgst: 0, isInterState: true };
-        } else {
-            return { igst: 0, cgst: totalTax / 2, sgst: totalTax / 2, isInterState: false };
+    // Same maths as the server, so what you see is exactly what gets saved.
+    const party = ledgers.find(l => l.id === formData.partyLedgerId);
+    const partyState = party?.state || '';
+    const info = docInfo(type || 'SALES');
+    const supply = formData.supplyType || (info.sales && party?.gst_registration_type === 'SEZ' ? 'SEZ_WPAY' : info.sales && party?.gst_registration_type === 'OVERSEAS' ? 'EXPORT_WPAY' : 'NORMAL');
+    const isExport = supply.startsWith('EXPORT');
+    const isInterState = (supply !== 'NORMAL' && supply !== 'DEEMED_EXPORT') ||
+        isInterStateSupply(companyState, formData.placeOfSupply || (isExport ? 'Foreign Country' : partyState || companyState));
+    const rcm = type === 'PURCHASE' && formData.reverseCharge;
+    // Same maths as the server, so what you see is exactly what gets saved.
+    const preview = (() => {
+        try {
+            const roundOff = selectedCompany?.round_off_invoices ?? true;
+            const calc = calculateInvoice(
+                invoiceItems.filter(i => Number(i.quantity) > 0),
+                {
+                    isInterState,
+                    invoiceDiscountPercent: formData.discountPercent,
+                    roundOff: roundOff && !rcm,
+                    withoutPayment: supply === 'SEZ_WOPAY' || supply === 'EXPORT_WOPAY',
+                }
+            );
+            if (!rcm) return calc;
+            // Reverse charge: the supplier is paid without GST
+            const payable = calc.subtotal;
+            const rounded = roundOff ? Math.round(payable) : payable;
+            return { ...calc, roundOff: Math.round((rounded - payable) * 100) / 100, grandTotal: rounded };
+        } catch {
+            return null;
         }
-    };
+    })();
+    const tdsAmount = type === 'PURCHASE' && Number(formData.tdsRate) > 0 && preview ? Math.round((preview.subtotal * Number(formData.tdsRate)) / 100) : 0;
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -202,8 +264,12 @@ export const InvoiceEntry: React.FC<{ type?: 'SALES' | 'PURCHASE' | 'CREDIT_NOTE
             companyId: selectedCompany.id,
             type,
             ...formData,
+            supplyType: formData.supplyType || null,
+            tdsRate: Number(formData.tdsRate || 0),
+            transportMode: formData.transportMode || null,
+            transportDistanceKm: formData.transportDistanceKm === '' ? null : Number(formData.transportDistanceKm),
             items: invoiceItems.map(item => ({
-                itemId: item.itemId,
+                itemId: item.itemId || null,
                 description: item.description,
                 quantity: item.quantity,
                 rate: item.rate,
@@ -220,24 +286,26 @@ export const InvoiceEntry: React.FC<{ type?: 'SALES' | 'PURCHASE' | 'CREDIT_NOTE
                 await api.post('/invoices', payload);
                 notify.success('Invoice saved successfully!');
             }
-            navigate('/invoices');
+            navigate(`/invoices?type=${type}`);
         } catch (error: any) {
             console.error('Failed to save invoice', error);
-            notify.error(error.response?.data?.message || 'Failed to save invoice');
+            notify.error(apiError(error, 'Failed to save invoice'));
         } finally {
             setLoading(false);
         }
     };
 
-    const { subtotal, invoiceDiscount, grandTotal } = calculateTotals();
-    const gst = getGSTBreakdown();
+    const subtotal = preview ? preview.gross - preview.lineDiscount : 0;
+    const invoiceDiscount = preview?.invoiceDiscount ?? 0;
+    const grandTotal = preview?.grandTotal ?? 0;
+    const gst = { isInterState, igst: preview?.igst ?? 0, cgst: preview?.cgst ?? 0, sgst: preview?.sgst ?? 0 };
 
     if (!type && !id) return <div>Loading...</div>; // Should not happen if routed correctly
 
     return (
         <div className="space-y-6">
             <h1 className="text-2xl font-bold text-slate-800">
-                {id ? 'Edit' : 'New'} {type === 'SALES' ? 'Sales Invoice' : type === 'PURCHASE' ? 'Purchase Invoice' : type === 'CREDIT_NOTE' ? 'Credit Note' : 'Debit Note'}
+                {id ? 'Edit' : 'New'} {docInfo(type || 'SALES').label}
             </h1>
 
             <form onSubmit={handleSubmit} className="space-y-6">
@@ -259,7 +327,7 @@ export const InvoiceEntry: React.FC<{ type?: 'SALES' | 'PURCHASE' | 'CREDIT_NOTE
                     </div>
                     <div>
                         <label className="block text-sm font-medium text-slate-700 mb-1">
-                            {type === 'SALES' ? 'Sales' : 'Purchase'} Ledger
+                            {docInfo(type || 'SALES').sales ? 'Sales' : 'Purchase'} Ledger
                         </label>
                         <select
                             className="input-field"
@@ -277,7 +345,8 @@ export const InvoiceEntry: React.FC<{ type?: 'SALES' | 'PURCHASE' | 'CREDIT_NOTE
                         label="Invoice No."
                         value={formData.invoiceNumber}
                         onChange={(e) => setFormData({ ...formData, invoiceNumber: e.target.value })}
-                        required
+                        placeholder="Auto"
+                        maxLength={type === 'PURCHASE' || type === 'PURCHASE_ORDER' ? 50 : 16}
                     />
                     <Input
                         label="Date"
@@ -292,6 +361,14 @@ export const InvoiceEntry: React.FC<{ type?: 'SALES' | 'PURCHASE' | 'CREDIT_NOTE
                         value={formData.dueDate}
                         onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
                     />
+                    {type === 'QUOTATION' && (
+                        <Input
+                            label="Valid Until"
+                            type="date"
+                            value={formData.validUntil}
+                            onChange={(e) => setFormData({ ...formData, validUntil: e.target.value })}
+                        />
+                    )}
                     {(type === 'CREDIT_NOTE' || type === 'DEBIT_NOTE') && (
                         <>
                             <Input
@@ -308,6 +385,90 @@ export const InvoiceEntry: React.FC<{ type?: 'SALES' | 'PURCHASE' | 'CREDIT_NOTE
                         </>
                     )}
                 </div>
+
+                {/* GST & TDS */}
+                <div className="card grid grid-cols-1 gap-4 sm:grid-cols-3">
+                    <div>
+                        <label className="mb-1 block text-sm font-medium text-slate-700">Place of supply</label>
+                        <select className="input-field" value={formData.placeOfSupply} onChange={(e) => setFormData({ ...formData, placeOfSupply: e.target.value })}>
+                            <option value="">{isExport ? 'Foreign Country (export)' : `Party's state${partyState ? ` (${partyState})` : ''}`}</option>
+                            {gstMeta.states.map((st) => (
+                                <option key={st.code} value={st.name}>{st.code} – {st.name}</option>
+                            ))}
+                        </select>
+                        <p className="mt-1 text-xs text-slate-500">{isInterState ? 'Inter-state: IGST' : 'Intra-state: CGST + SGST'}</p>
+                    </div>
+                    {info.sales && (
+                        <div>
+                            <label className="mb-1 block text-sm font-medium text-slate-700">Type of supply</label>
+                            <select className="input-field" value={formData.supplyType || supply} onChange={(e) => setFormData({ ...formData, supplyType: e.target.value === 'NORMAL' ? '' : e.target.value })}>
+                                <option value="NORMAL">Regular (domestic)</option>
+                                <option value="SEZ_WPAY">SEZ – with payment of IGST</option>
+                                <option value="SEZ_WOPAY">SEZ – without payment (LUT)</option>
+                                <option value="EXPORT_WPAY">Export – with payment of IGST</option>
+                                <option value="EXPORT_WOPAY">Export – without payment (LUT)</option>
+                                <option value="DEEMED_EXPORT">Deemed export</option>
+                            </select>
+                        </div>
+                    )}
+                    {isExport && (
+                        <>
+                            <Input label="Shipping bill no." value={formData.shippingBillNumber} onChange={(e) => setFormData({ ...formData, shippingBillNumber: e.target.value })} />
+                            <Input label="Shipping bill date" type="date" value={formData.shippingBillDate} onChange={(e) => setFormData({ ...formData, shippingBillDate: e.target.value })} />
+                            <Input label="Port code" placeholder="INNSA1" value={formData.portCode} onChange={(e) => setFormData({ ...formData, portCode: e.target.value.toUpperCase() })} />
+                        </>
+                    )}
+                    {type === 'PURCHASE' && (
+                        <>
+                            <label className="flex items-center gap-2 self-center text-sm text-slate-700">
+                                <input type="checkbox" checked={formData.reverseCharge} onChange={(e) => setFormData({ ...formData, reverseCharge: e.target.checked })} />
+                                Reverse charge (we pay the GST)
+                            </label>
+                            <div>
+                                <label className="mb-1 block text-sm font-medium text-slate-700">TDS</label>
+                                <select
+                                    className="input-field"
+                                    value={formData.tdsSection}
+                                    onChange={(e) => {
+                                        const sec = gstMeta.tdsSections.find((t) => t.code === e.target.value);
+                                        setFormData({ ...formData, tdsSection: e.target.value, tdsRate: sec ? sec.rate : 0 });
+                                    }}
+                                >
+                                    <option value="">No TDS</option>
+                                    {gstMeta.tdsSections.map((t) => (
+                                        <option key={t.code} value={t.code}>{t.label}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            {formData.tdsSection && (
+                                <Input label="TDS rate %" type="number" step="0.001" min="0" max="30" value={formData.tdsRate} onChange={(e) => setFormData({ ...formData, tdsRate: Number(e.target.value) })} />
+                            )}
+                        </>
+                    )}
+                </div>
+
+                {/* Transport (for the e-way bill) */}
+                {(type === 'SALES' || type === 'SALES_ORDER') && (
+                    <details className="card" open={!!formData.transportMode}>
+                        <summary className="cursor-pointer text-sm font-medium text-slate-700">Transport details (needed for an e-way bill when goods are worth more than ₹50,000)</summary>
+                        <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
+                            <div>
+                                <label className="mb-1 block text-sm font-medium text-slate-700">Mode</label>
+                                <select className="input-field" value={formData.transportMode} onChange={(e) => setFormData({ ...formData, transportMode: e.target.value })}>
+                                    <option value="">Not specified</option>
+                                    <option value="ROAD">Road</option>
+                                    <option value="RAIL">Rail</option>
+                                    <option value="AIR">Air</option>
+                                    <option value="SHIP">Ship</option>
+                                </select>
+                            </div>
+                            <Input label="Vehicle number" placeholder="MH12AB1234" value={formData.vehicleNumber} onChange={(e) => setFormData({ ...formData, vehicleNumber: e.target.value.toUpperCase() })} />
+                            <Input label="Distance (km, 0 = auto)" type="number" min="0" value={formData.transportDistanceKm} onChange={(e) => setFormData({ ...formData, transportDistanceKm: e.target.value })} />
+                            <Input label="Transporter ID" value={formData.transporterId} onChange={(e) => setFormData({ ...formData, transporterId: e.target.value.toUpperCase() })} />
+                            <Input label="Transporter name" value={formData.transporterName} onChange={(e) => setFormData({ ...formData, transporterName: e.target.value })} />
+                        </div>
+                    </details>
+                )}
 
                 {/* Items Table */}
                 <div className="card overflow-x-auto">
@@ -363,8 +524,8 @@ export const InvoiceEntry: React.FC<{ type?: 'SALES' | 'PURCHASE' | 'CREDIT_NOTE
                                             required
                                         />
                                     </td>
-                                    <td className="p-2 text-right font-mono text-slate-700">
-                                        {item.amount.toFixed(2)}
+                                    <td className="p-2 text-right tabular-nums text-slate-700">
+                                        {amount(item.amount)}
                                     </td>
                                     <td className="p-2">
                                         <input
@@ -377,14 +538,14 @@ export const InvoiceEntry: React.FC<{ type?: 'SALES' | 'PURCHASE' | 'CREDIT_NOTE
                                             step="0.01"
                                         />
                                     </td>
-                                    <td className="p-2 text-right font-mono text-slate-700">
-                                        {item.taxableAmount.toFixed(2)}
+                                    <td className="p-2 text-right tabular-nums text-slate-700">
+                                        {amount(item.taxableAmount)}
                                     </td>
                                     <td className="p-2 text-right text-slate-600">
                                         {item.taxRate}%
                                     </td>
-                                    <td className="p-2 text-right font-mono text-slate-700">
-                                        {item.taxAmount.toFixed(2)}
+                                    <td className="p-2 text-right tabular-nums text-slate-700">
+                                        {amount(item.taxAmount)}
                                     </td>
                                     <td className="p-2 text-center">
                                         <button
@@ -409,7 +570,7 @@ export const InvoiceEntry: React.FC<{ type?: 'SALES' | 'PURCHASE' | 'CREDIT_NOTE
                 {/* Footer / Totals */}
                 <div className="card bg-slate-50">
                     <div className="flex justify-between items-start">
-                        <div className="w-1/2">
+                        <div className="w-full sm:w-1/2">
                             <Input
                                 label="Invoice Discount %"
                                 type="number"
@@ -420,46 +581,73 @@ export const InvoiceEntry: React.FC<{ type?: 'SALES' | 'PURCHASE' | 'CREDIT_NOTE
                                 step="0.01"
                             />
                         </div>
-                        <div className="w-96 space-y-2">
+                        <div className="w-full sm:w-96 space-y-2">
                             <div className="flex justify-between text-slate-600">
                                 <span>Subtotal:</span>
-                                <span className="font-mono">₹{subtotal.toFixed(2)}</span>
+                                <span className="tabular-nums">{inr(subtotal)}</span>
                             </div>
+                            {invoiceDiscount > 0 && (
+                                <>
+                                    <div className="flex justify-between text-slate-600">
+                                        <span>Invoice Discount ({formData.discountPercent}%):</span>
+                                        <span className="tabular-nums">-{inr(invoiceDiscount)}</span>
+                                    </div>
+                                    <div className="flex justify-between text-slate-600">
+                                        <span>Taxable Value:</span>
+                                        <span className="tabular-nums">{inr((preview?.subtotal ?? 0))}</span>
+                                    </div>
+                                </>
+                            )}
 
                             {/* GST Breakdown */}
                             {gst.isInterState ? (
                                 <div className="flex justify-between text-slate-600">
                                     <span>IGST:</span>
-                                    <span className="font-mono">₹{gst.igst.toFixed(2)}</span>
+                                    <span className="tabular-nums">{inr(gst.igst)}</span>
                                 </div>
                             ) : (
                                 <>
                                     <div className="flex justify-between text-slate-600">
                                         <span>CGST:</span>
-                                        <span className="font-mono">₹{gst.cgst.toFixed(2)}</span>
+                                        <span className="tabular-nums">{inr(gst.cgst)}</span>
                                     </div>
                                     <div className="flex justify-between text-slate-600">
                                         <span>SGST:</span>
-                                        <span className="font-mono">₹{gst.sgst.toFixed(2)}</span>
+                                        <span className="tabular-nums">{inr(gst.sgst)}</span>
                                     </div>
                                 </>
                             )}
 
-                            {invoiceDiscount > 0 && (
+
+                            {preview && preview.roundOff !== 0 && (
                                 <div className="flex justify-between text-slate-600">
-                                    <span>Invoice Discount ({formData.discountPercent}%):</span>
-                                    <span className="font-mono">-₹{invoiceDiscount.toFixed(2)}</span>
+                                    <span>Round Off:</span>
+                                    <span className="tabular-nums">{preview.roundOff > 0 ? '+' : '-'}{inr(Math.abs(preview.roundOff))}</span>
                                 </div>
                             )}
-
                             <div className="flex justify-between font-bold text-lg text-slate-800 border-t border-slate-300 pt-2">
                                 <span>Grand Total:</span>
-                                <span className="font-mono">₹{grandTotal.toFixed(2)}</span>
+                                <span className="tabular-nums">{inr(grandTotal)}</span>
                             </div>
+                            {rcm && preview && (
+                                <p className="text-xs text-amber-700">GST of {inr(preview.taxTotal)} is payable by you under reverse charge (not paid to the supplier).</p>
+                            )}
+                            {tdsAmount > 0 && (
+                                <>
+                                    <div className="flex justify-between text-slate-600">
+                                        <span>Less TDS ({formData.tdsSection} @ {formData.tdsRate}%):</span>
+                                        <span className="tabular-nums">-{inr(tdsAmount)}</span>
+                                    </div>
+                                    <div className="flex justify-between font-semibold text-slate-800">
+                                        <span>Payable to supplier:</span>
+                                        <span className="tabular-nums">{inr((grandTotal - tdsAmount))}</span>
+                                    </div>
+                                </>
+                            )}
                         </div>
                     </div>
                     <div className="mt-6 flex justify-end gap-4">
-                        <Button type="button" variant="secondary" onClick={() => navigate('/invoices')}>
+                        <Button type="button" variant="secondary" onClick={() => navigate(`/invoices?type=${type}`)}>
                             Cancel
                         </Button>
                         <Button type="submit" isLoading={loading}>

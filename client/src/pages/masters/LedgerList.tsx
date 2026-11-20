@@ -3,9 +3,11 @@ import { useCompany } from '../../context/CompanyContext';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Plus, Search, Edit2, Trash2, Eye } from 'lucide-react';
-import api from '../../api/axios';
+import api, { apiError } from '../../api/axios';
+import { stateFromGstin, useGstMeta } from '../../lib/gstMeta';
 import { useNavigate } from 'react-router-dom';
 import { notify } from '../../utils/notification';
+import { amount } from '../../lib/format';
 
 interface Ledger {
     id: string;
@@ -16,6 +18,13 @@ interface Ledger {
     opening_balance_type: string;
     state?: string;
     gstin?: string;
+    phone?: string;
+    email?: string;
+    address?: string;
+    gst_registration_type?: string;
+    pan?: string;
+    city?: string;
+    pincode?: string;
 }
 
 interface Group {
@@ -32,13 +41,21 @@ export const LedgerList: React.FC = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [showModal, setShowModal] = useState(false);
     const [editingLedger, setEditingLedger] = useState<Ledger | null>(null);
+    const gstMeta = useGstMeta();
     const [formData, setFormData] = useState({
         name: '',
         groupId: '',
         openingBalance: 0,
         openingBalanceType: 'Dr',
         state: '',
-        gstin: ''
+        gstin: '',
+        phone: '',
+        email: '',
+        address: '',
+        gstRegistrationType: '',
+        pan: '',
+        city: '',
+        pincode: ''
     });
 
     const fetchLedgers = async () => {
@@ -89,7 +106,7 @@ export const LedgerList: React.FC = () => {
             handleCloseModal();
         } catch (error) {
             console.error('Failed to save ledger', error);
-            notify.error('Failed to save ledger');
+            notify.error(apiError(error, 'Failed to save ledger'));
         }
     };
 
@@ -101,7 +118,14 @@ export const LedgerList: React.FC = () => {
             openingBalance: Number(ledger.opening_balance),
             openingBalanceType: ledger.opening_balance_type,
             state: ledger.state || '',
-            gstin: ledger.gstin || ''
+            gstin: ledger.gstin || '',
+            phone: ledger.phone || '',
+            email: ledger.email || '',
+            address: ledger.address || '',
+            gstRegistrationType: ledger.gst_registration_type || '',
+            pan: ledger.pan || '',
+            city: ledger.city || '',
+            pincode: ledger.pincode || ''
         });
         setShowModal(true);
     };
@@ -116,7 +140,7 @@ export const LedgerList: React.FC = () => {
             notify.success('Ledger deleted successfully');
             await fetchLedgers();
         } catch (error: any) {
-            notify.error(error.response?.data?.message || 'Failed to delete ledger');
+            notify.error(apiError(error, 'Failed to delete ledger'));
         }
     };
 
@@ -129,7 +153,14 @@ export const LedgerList: React.FC = () => {
             openingBalance: 0,
             openingBalanceType: 'Dr',
             state: '',
-            gstin: ''
+            gstin: '',
+            phone: '',
+            email: '',
+            address: '',
+            gstRegistrationType: '',
+            pan: '',
+            city: '',
+            pincode: ''
         });
     };
 
@@ -180,8 +211,8 @@ export const LedgerList: React.FC = () => {
                                     <tr key={ledger.id} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
                                         <td className="py-3 px-4 font-medium text-slate-800">{ledger.name}</td>
                                         <td className="py-3 px-4 text-slate-600">{ledger.group_name}</td>
-                                        <td className="py-3 px-4 text-right font-mono">
-                                            {Number(ledger.opening_balance).toLocaleString()} {ledger.opening_balance_type}
+                                        <td className="py-3 px-4 text-right tabular-nums">
+                                            {amount(Number(ledger.opening_balance))} {ledger.opening_balance_type}
                                         </td>
                                         <td className="py-3 px-4 text-right">
                                             <div className="flex items-center justify-end gap-2">
@@ -245,7 +276,7 @@ export const LedgerList: React.FC = () => {
                                 </select>
                             </div>
 
-                            <div className="grid grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <Input
                                     label="Opening Balance"
                                     type="number"
@@ -265,19 +296,78 @@ export const LedgerList: React.FC = () => {
                                 </div>
                             </div>
 
-                            <div className="grid grid-cols-2 gap-4">
-                                <Input
-                                    label="State"
-                                    placeholder="e.g. Maharashtra"
-                                    value={formData.state}
-                                    onChange={(e) => setFormData({ ...formData, state: e.target.value })}
-                                />
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <Input
                                     label="GSTIN"
-                                    placeholder="27ABCDE1234F1Z5"
+                                    placeholder="27ABCDE1234F1Z0"
                                     value={formData.gstin}
-                                    onChange={(e) => setFormData({ ...formData, gstin: e.target.value })}
+                                    onChange={(e) => {
+                                        const gstin = e.target.value.toUpperCase();
+                                        const st = stateFromGstin(gstin, gstMeta.states);
+                                        setFormData({
+                                            ...formData,
+                                            gstin,
+                                            state: st || formData.state,
+                                            gstRegistrationType: gstin && ['', 'UNREGISTERED', 'CONSUMER'].includes(formData.gstRegistrationType) ? 'REGULAR' : formData.gstRegistrationType,
+                                        });
+                                    }}
+                                    maxLength={15}
                                 />
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 mb-1">State</label>
+                                    <select className="input-field" value={formData.state} onChange={(e) => setFormData({ ...formData, state: e.target.value })}>
+                                        <option value="">Select state</option>
+                                        {gstMeta.states.map((st) => (
+                                            <option key={st.code} value={st.name}>{st.code} – {st.name}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 mb-1">GST registration</label>
+                                    <select className="input-field" value={formData.gstRegistrationType} onChange={(e) => setFormData({ ...formData, gstRegistrationType: e.target.value })}>
+                                        <option value="">Not applicable</option>
+                                        <option value="REGULAR">Registered – regular</option>
+                                        <option value="COMPOSITION">Registered – composition</option>
+                                        <option value="UNREGISTERED">Unregistered business</option>
+                                        <option value="CONSUMER">Consumer</option>
+                                        <option value="SEZ">SEZ unit / developer</option>
+                                        <option value="OVERSEAS">Overseas (export / import)</option>
+                                    </select>
+                                </div>
+                                <Input
+                                    label="PAN (for TDS)"
+                                    placeholder="ABCDE1234F"
+                                    value={formData.pan}
+                                    maxLength={10}
+                                    onChange={(e) => setFormData({ ...formData, pan: e.target.value.toUpperCase() })}
+                                />
+                            </div>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <Input
+                                    label="Mobile (WhatsApp)"
+                                    inputMode="tel"
+                                    placeholder="98765 43210"
+                                    value={formData.phone}
+                                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                                />
+                                <Input
+                                    label="Email"
+                                    type="email"
+                                    placeholder="accounts@customer.com"
+                                    value={formData.email}
+                                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                                />
+                            </div>
+                            <Input
+                                label="Billing Address"
+                                placeholder="Street, city, PIN"
+                                value={formData.address}
+                                onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                            />
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <Input label="City" value={formData.city} onChange={(e) => setFormData({ ...formData, city: e.target.value })} />
+                                <Input label="PIN code" inputMode="numeric" maxLength={6} value={formData.pincode} onChange={(e) => setFormData({ ...formData, pincode: e.target.value.replace(/\D/g, '') })} />
                             </div>
 
                             <div className="flex justify-end gap-3 mt-6">

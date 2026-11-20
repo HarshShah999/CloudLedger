@@ -5,9 +5,14 @@ import { Input } from '../components/ui/Input';
 import { useAuth } from '../context/AuthContext';
 import api from '../api/axios';
 import { notify } from '../utils/notification';
+import { CompanySettings } from '../components/CompanySettings';
+import { BrandingSettings } from '../components/BrandingSettings';
+import { ReminderSettings } from '../components/ReminderSettings';
+import { useCompany } from '../context/CompanyContext';
 
 export const Settings: React.FC = () => {
     const { user, setUser } = useAuth();
+    const { selectedCompany } = useCompany();
     const [loading, setLoading] = useState(false);
     const [successMessage, setSuccessMessage] = useState('');
 
@@ -31,7 +36,7 @@ export const Settings: React.FC = () => {
         setSuccessMessage('');
 
         try {
-            const response = await api.put(`/users/${user?.id}`, profileData);
+            const response = await api.put(`/users/me`, profileData);
             setUser(response.data.data.user);
             notify.success('Profile updated successfully!');
             setSuccessMessage('Profile updated successfully!');
@@ -116,8 +121,8 @@ export const Settings: React.FC = () => {
                             required
                         />
                         <Input
-                            label="Role"
-                            value={user?.role || ''}
+                            label={`Role in ${selectedCompany?.name || 'company'}`}
+                            value={selectedCompany?.role || ''}
                             disabled
                         />
                         <div className="pt-4">
@@ -135,7 +140,7 @@ export const Settings: React.FC = () => {
                     <div className="space-y-4">
                         <div>
                             <p className="text-sm text-slate-500">Account Type</p>
-                            <p className="font-medium text-slate-800 capitalize">{user?.role}</p>
+                            <p className="font-medium text-slate-800 capitalize">{user?.is_superadmin ? 'Platform administrator' : 'User'}</p>
                         </div>
                         <div>
                             <p className="text-sm text-slate-500">Status</p>
@@ -148,6 +153,10 @@ export const Settings: React.FC = () => {
                     </div>
                 </div>
             </div>
+
+            <CompanySettings />
+            <BrandingSettings />
+            <ReminderSettings />
 
             {/* Change Password */}
             <div className="card lg:max-w-2xl">
@@ -176,7 +185,7 @@ export const Settings: React.FC = () => {
                         value={passwordData.newPassword}
                         onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
                         required
-                        minLength={6}
+                        minLength={8}
                     />
                     <Input
                         label="Confirm New Password"
@@ -184,7 +193,7 @@ export const Settings: React.FC = () => {
                         value={passwordData.confirmPassword}
                         onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
                         required
-                        minLength={6}
+                        minLength={8}
                     />
                     <div className="pt-4">
                         <Button type="submit" isLoading={loading}>

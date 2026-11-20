@@ -1,193 +1,214 @@
-
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Download, AlertTriangle, ExternalLink } from 'lucide-react';
+import api, { apiError } from '../../api/axios';
 import { useCompany } from '../../context/CompanyContext';
-import api from '../../api/axios';
-import { Card } from '../../components/ui/Card';
+import { notify } from '../../utils/notification';
 import { Button } from '../../components/ui/Button';
-import { Input } from '../../components/ui/Input';
-import { format } from 'date-fns';
-import { Download, Filter } from 'lucide-react';
+import { GstMonthPicker, defaultReturnMonth, monthRange } from '../../components/GstMonthPicker';
+import { fetchBlob, saveBlob } from '../../lib/files';
+import { formatDate } from '../../lib/dates';
 
+const inr = (n: number) => '₹' + Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+const SECTIONS: [string, string, string][] = [
+    ['b2b', 'B2B', 'Sales to registered businesses (incl. SEZ, deemed exports)'],
+    ['b2cLarge', 'B2C Large', 'Unregistered, other state, invoice above ₹1 lakh'],
+    ['b2cSmall', 'B2C Small', 'Other sales to unregistered buyers (consolidated by state and rate)'],
+    ['exports', 'Exports', 'Exports with or without payment of IGST'],
+    ['cdnr', 'Credit notes (registered)', 'Credit notes issued to registered buyers'],
+    ['cdnur', 'Credit notes (unregistered)', 'Credit notes to unregistered buyers'],
+];
+
+/** GSTR-1: outward supplies by section, with a portal-ready JSON download. */
 export const GSTR1: React.FC = () => {
     const { selectedCompany } = useCompany();
-    const [loading, setLoading] = useState(false);
+    const navigate = useNavigate();
+    const [month, setMonth] = useState(defaultReturnMonth());
+    const [data, setData] = useState<any>(null);
+    const [tab, setTab] = useState('b2b');
+    const range = monthRange(month);
 
-    const [fromDate, setFromDate] = useState(format(new Date(new Date().getFullYear(), new Date().getMonth(), 1), 'yyyy-MM-dd'));
-    const [toDate, setToDate] = useState(format(new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0), 'yyyy-MM-dd'));
-
-    const [data, setData] = useState<{
-        b2b: any[];
-        b2cLarge: any[];
-        b2cSmall: any[];
-    }>({ b2b: [], b2cLarge: [], b2cSmall: [] });
-
-    const fetchData = async () => {
+    useEffect(() => {
         if (!selectedCompany) return;
-        setLoading(true);
+        setData(null);
+        api.get(`/gst/gstr1/${selectedCompany.id}`, { params: { fromDate: range.from, toDate: range.to } })
+            .then((r) => setData(r.data.data))
+            .catch((e) => notify.error(apiError(e, 'Could not prepare GSTR-1')));
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [selectedCompany?.id, month]);
+
+    const downloadJson = async () => {
+        if (!selectedCompany) return;
         try {
-            const response = await api.get(`/gst/gstr1/${selectedCompany.id}`, {
-                params: { fromDate, toDate }
-            });
-            setData(response.data.data);
-        } catch (error) {
-            console.error('Failed to fetch GSTR-1 data', error);
-        } finally {
-            setLoading(false);
+            const blob = await fetchBlob(`/gst/gstr1/${selectedCompany.id}/json`, { fromDate: range.from, toDate: range.to });
+            saveBlob(blob, `GSTR1_${selectedCompany.gstin || ''}_${range.period}.json`);
+        } catch (e) {
+            notify.error(apiError(e, 'Could not create the JSON file'));
         }
     };
 
-    useEffect(() => {
-        fetchData();
-    }, [selectedCompany]);
-
-    const calculateTotals = (invoices: any[]) => {
-        return invoices.reduce((acc: any, inv: any) => ({
-            taxable: acc.taxable + Number(inv.subtotal),
-            tax: acc.tax + Number(inv.tax_total),
-            total: acc.total + Number(inv.grand_total)
-        }), { taxable: 0, tax: 0, total: 0 });
-    };
-
-    const b2bTotals = calculateTotals(data.b2b);
-    const b2cLargeTotals = calculateTotals(data.b2cLarge);
-    const b2cSmallTotals = calculateTotals(data.b2cSmall);
+    const rows: any[] = data?.[tab] ?? [];
+    const totals = (docs: any[]) =>
+        docs.reduce(
+            (a, d) => {
+                for (const it of d.items) {
+                    a.taxable += Number(it.taxable_amount);
+                    a.tax += Number(it.igst_amount) + Number(it.cgst_amount) + Number(it.sgst_amount);
+                }
+                a.value += Number(d.grand_total);
+                return a;
+            },
+            { taxable: 0, tax: 0, value: 0 }
+        );
 
     return (
-        <div className="p-6">
-            <div className="flex justify-between items-center mb-6">
-                <h1 className="text-2xl font-bold text-slate-800">GSTR-1 (Outward Supplies)</h1>
-                <div className="flex gap-3">
-                    <div className="flex items-center gap-2 bg-white p-1 rounded-lg border border-slate-200">
-                        <Input
-                            type="date"
-                            value={fromDate}
-                            onChange={(e) => setFromDate(e.target.value)}
-                            className="border-none focus:ring-0"
-                        />
-                        <span className="text-slate-400">to</span>
-                        <Input
-                            type="date"
-                            value={toDate}
-                            onChange={(e) => setToDate(e.target.value)}
-                            className="border-none focus:ring-0"
-                        />
-                    </div>
-                    <Button onClick={fetchData} variant="secondary">
-                        <Filter className="w-4 h-4 mr-2" />
-                        Apply
-                    </Button>
-                    <Button variant="primary">
-                        <Download className="w-4 h-4 mr-2" />
-                        Export JSON
+        <div className="space-y-6">
+            <div className="flex flex-wrap items-end justify-between gap-3">
+                <div>
+                    <h1 className="text-2xl font-bold text-slate-800">GSTR-1</h1>
+                    <p className="text-sm text-slate-500">Outward supplies. Download the JSON and upload it on the GST portal (Returns → GSTR-1 → Prepare offline → Upload).</p>
+                </div>
+                <div className="flex flex-wrap items-end gap-2">
+                    <GstMonthPicker value={month} onChange={setMonth} />
+                    <Button onClick={downloadJson} disabled={!data}>
+                        <Download className="h-4 w-4" /> Download JSON
                     </Button>
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-                <Card className="p-4">
-                    <p className="text-sm text-slate-500 font-medium">B2B Invoices</p>
-                    <div className="mt-2">
-                        <p className="text-2xl font-bold text-slate-800">{data.b2b.length}</p>
-                        <p className="text-sm text-slate-500">
-                            Count: {data.b2b.length} | Tax: ₹{b2bTotals.tax.toFixed(2)}
-                        </p>
-                    </div>
-                </Card>
-                <Card className="p-4">
-                    <p className="text-sm text-slate-500 font-medium">B2C Large Invoices</p>
-                    <div className="mt-2">
-                        <p className="text-2xl font-bold text-slate-800">{data.b2cLarge.length}</p>
-                        <p className="text-sm text-slate-500">
-                            Count: {data.b2cLarge.length} | Tax: ₹{b2cLargeTotals.tax.toFixed(2)}
-                        </p>
-                    </div>
-                </Card>
-                <Card className="p-4">
-                    <p className="text-sm text-slate-500 font-medium">B2C Small Invoices</p>
-                    <div className="mt-2">
-                        <p className="text-2xl font-bold text-slate-800">{data.b2cSmall.length}</p>
-                        <p className="text-sm text-slate-500">
-                            Count: {data.b2cSmall.length} | Tax: ₹{b2cSmallTotals.tax.toFixed(2)}
-                        </p>
-                    </div>
-                </Card>
+            {data?.summary.warnings.length > 0 && (
+                <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+                    <p className="mb-1 flex items-center gap-2 font-semibold">
+                        <AlertTriangle className="h-4 w-4" /> Fix these before filing
+                    </p>
+                    <ul className="list-disc pl-5">
+                        {data.summary.warnings.slice(0, 10).map((w: string) => (
+                            <li key={w}>{w}</li>
+                        ))}
+                    </ul>
+                </div>
+            )}
+
+            <div className="-mx-3 overflow-x-auto px-3 sm:mx-0 sm:px-0">
+                <div className="flex w-max gap-1 rounded-xl bg-slate-100 p-1">
+                    {[...SECTIONS, ['hsn', 'HSN summary', ''] as [string, string, string]].map(([k, l]) => (
+                        <button
+                            key={k}
+                            onClick={() => setTab(k)}
+                            className={`whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium ${tab === k ? 'bg-white text-primary shadow' : 'text-slate-600'}`}
+                        >
+                            {l}
+                            {data && k !== 'hsn' && <span className="ml-1 text-xs text-slate-400">({data[k]?.length ?? 0})</span>}
+                        </button>
+                    ))}
+                </div>
             </div>
 
-            <Card className="mb-6">
-                <div className="p-4 border-b border-slate-200">
-                    <h3 className="text-lg font-semibold text-slate-800">4A, 4B, 4C, 6B, 6C - B2B Invoices</h3>
-                </div>
-                <div className="overflow-x-auto">
-                    <table className="w-full">
-                        <thead className="bg-slate-50">
-                            <tr>
-                                <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">GSTIN/UIN</th>
-                                <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Receiver Name</th>
-                                <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Invoice No</th>
-                                <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Date</th>
-                                <th className="px-4 py-3 text-right text-xs font-medium text-slate-500 uppercase">Invoice Value</th>
-                                <th className="px-4 py-3 text-right text-xs font-medium text-slate-500 uppercase">Taxable Value</th>
-                                <th className="px-4 py-3 text-right text-xs font-medium text-slate-500 uppercase">Total Tax</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-200">
-                            {loading ? (
-                                <tr><td colSpan={7} className="px-4 py-8 text-center text-slate-500">Loading...</td></tr>
-                            ) : data.b2b.length === 0 ? (
-                                <tr><td colSpan={7} className="px-4 py-8 text-center text-slate-500">No B2B invoices found</td></tr>
-                            ) : (
-                                data.b2b.map((inv) => (
-                                    <tr key={inv.id} className="hover:bg-slate-50">
-                                        <td className="px-4 py-3 text-sm text-slate-900">{inv.party_gstin}</td>
-                                        <td className="px-4 py-3 text-sm text-slate-900">{inv.party_name}</td>
-                                        <td className="px-4 py-3 text-sm text-slate-900">{inv.invoice_number}</td>
-                                        <td className="px-4 py-3 text-sm text-slate-500">{format(new Date(inv.date), 'dd-MM-yyyy')}</td>
-                                        <td className="px-4 py-3 text-sm text-right text-slate-900">₹{Number(inv.grand_total).toFixed(2)}</td>
-                                        <td className="px-4 py-3 text-sm text-right text-slate-900">₹{Number(inv.subtotal).toFixed(2)}</td>
-                                        <td className="px-4 py-3 text-sm text-right text-slate-900">₹{Number(inv.tax_total).toFixed(2)}</td>
-                                    </tr>
-                                ))
+            <div className="card overflow-x-auto">
+                {tab === 'hsn' ? (
+                    <HsnTable data={data?.hsn} />
+                ) : (
+                    <>
+                        <p className="mb-3 text-sm text-slate-500">{SECTIONS.find(([k]) => k === tab)?.[2]}</p>
+                        <table className="w-full min-w-[720px] text-sm">
+                            <thead>
+                                <tr className="border-b border-slate-200 text-left text-slate-600">
+                                    <th className="px-3 py-2">Date</th>
+                                    <th className="px-3 py-2">Number</th>
+                                    <th className="px-3 py-2">Party</th>
+                                    <th className="px-3 py-2">GSTIN</th>
+                                    <th className="px-3 py-2">Place of supply</th>
+                                    <th className="px-3 py-2 text-right">Taxable</th>
+                                    <th className="px-3 py-2 text-right">Tax</th>
+                                    <th className="px-3 py-2 text-right">Value</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {rows.length === 0 && (
+                                    <tr><td colSpan={8} className="py-8 text-center text-slate-500">{data ? 'Nothing in this section' : 'Loading…'}</td></tr>
+                                )}
+                                {rows.map((d) => {
+                                    const t = totals([d]);
+                                    return (
+                                        <tr key={d.id} className="cursor-pointer border-b border-slate-100 hover:bg-slate-50" onClick={() => navigate(`/invoices/${d.id}`)}>
+                                            <td className="whitespace-nowrap px-3 py-2">{formatDate(d.date)}</td>
+                                            <td className="px-3 py-2">{d.invoice_number} <ExternalLink className="inline h-3 w-3 text-slate-300" /></td>
+                                            <td className="px-3 py-2">{d.party_name}</td>
+                                            <td className="px-3 py-2 font-mono text-xs">{d.party_gstin || '—'}</td>
+                                            <td className="px-3 py-2">{d.place_of_supply || <span className="text-red-600">missing</span>}</td>
+                                            <td className="px-3 py-2 text-right">{inr(t.taxable)}</td>
+                                            <td className="px-3 py-2 text-right">{inr(t.tax)}</td>
+                                            <td className="px-3 py-2 text-right font-medium">{inr(t.value)}</td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                            {rows.length > 0 && (
+                                <tfoot>
+                                    {(() => {
+                                        const t = totals(rows);
+                                        return (
+                                            <tr className="font-semibold">
+                                                <td colSpan={5} className="px-3 py-2 text-right">Total</td>
+                                                <td className="px-3 py-2 text-right">{inr(t.taxable)}</td>
+                                                <td className="px-3 py-2 text-right">{inr(t.tax)}</td>
+                                                <td className="px-3 py-2 text-right">{inr(t.value)}</td>
+                                            </tr>
+                                        );
+                                    })()}
+                                </tfoot>
                             )}
-                        </tbody>
-                    </table>
-                </div>
-            </Card>
-
-            <Card>
-                <div className="p-4 border-b border-slate-200">
-                    <h3 className="text-lg font-semibold text-slate-800">5A, 5B - B2C (Large) Invoices</h3>
-                </div>
-                <div className="overflow-x-auto">
-                    <table className="w-full">
-                        <thead className="bg-slate-50">
-                            <tr>
-                                <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Place Of Supply</th>
-                                <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Invoice No</th>
-                                <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Date</th>
-                                <th className="px-4 py-3 text-right text-xs font-medium text-slate-500 uppercase">Invoice Value</th>
-                                <th className="px-4 py-3 text-right text-xs font-medium text-slate-500 uppercase">Taxable Value</th>
-                                <th className="px-4 py-3 text-right text-xs font-medium text-slate-500 uppercase">Total Tax</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-200">
-                            {data.b2cLarge.length === 0 ? (
-                                <tr><td colSpan={6} className="px-4 py-8 text-center text-slate-500">No B2C Large invoices found</td></tr>
-                            ) : (
-                                data.b2cLarge.map((inv) => (
-                                    <tr key={inv.id} className="hover:bg-slate-50">
-                                        <td className="px-4 py-3 text-sm text-slate-900">{inv.party_state}</td>
-                                        <td className="px-4 py-3 text-sm text-slate-900">{inv.invoice_number}</td>
-                                        <td className="px-4 py-3 text-sm text-slate-500">{format(new Date(inv.date), 'dd-MM-yyyy')}</td>
-                                        <td className="px-4 py-3 text-sm text-right text-slate-900">₹{Number(inv.grand_total).toFixed(2)}</td>
-                                        <td className="px-4 py-3 text-sm text-right text-slate-900">₹{Number(inv.subtotal).toFixed(2)}</td>
-                                        <td className="px-4 py-3 text-sm text-right text-slate-900">₹{Number(inv.tax_total).toFixed(2)}</td>
-                                    </tr>
-                                ))
-                            )}
-                        </tbody>
-                    </table>
-                </div>
-            </Card>
+                        </table>
+                    </>
+                )}
+            </div>
         </div>
+    );
+};
+
+const HsnTable: React.FC<{ data?: { b2b: any[]; b2c: any[] } }> = ({ data }) => {
+    if (!data) return <p className="py-8 text-center text-slate-500">Loading…</p>;
+    const block = (title: string, rows: any[]) => (
+        <div className="mb-6">
+            <h3 className="mb-2 font-semibold text-slate-700">{title}</h3>
+            <table className="w-full min-w-[760px] text-sm">
+                <thead>
+                    <tr className="border-b border-slate-200 text-left text-slate-600">
+                        <th className="px-3 py-2">HSN/SAC</th>
+                        <th className="px-3 py-2">Description</th>
+                        <th className="px-3 py-2">UQC</th>
+                        <th className="px-3 py-2 text-right">Qty</th>
+                        <th className="px-3 py-2 text-right">Rate</th>
+                        <th className="px-3 py-2 text-right">Taxable</th>
+                        <th className="px-3 py-2 text-right">IGST</th>
+                        <th className="px-3 py-2 text-right">CGST</th>
+                        <th className="px-3 py-2 text-right">SGST</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {rows.length === 0 && <tr><td colSpan={9} className="py-4 text-center text-slate-500">None</td></tr>}
+                    {rows.map((h) => (
+                        <tr key={h.num} className="border-b border-slate-100">
+                            <td className="px-3 py-2 font-mono">{h.hsn_sc || <span className="text-red-600">missing</span>}</td>
+                            <td className="px-3 py-2">{h.desc}</td>
+                            <td className="px-3 py-2">{h.uqc}</td>
+                            <td className="px-3 py-2 text-right">{h.qty}</td>
+                            <td className="px-3 py-2 text-right">{h.rt}%</td>
+                            <td className="px-3 py-2 text-right">{inr(h.txval)}</td>
+                            <td className="px-3 py-2 text-right">{inr(h.iamt)}</td>
+                            <td className="px-3 py-2 text-right">{inr(h.camt)}</td>
+                            <td className="px-3 py-2 text-right">{inr(h.samt)}</td>
+                        </tr>
+                    ))}
+                </tbody>
+            </table>
+        </div>
+    );
+    return (
+        <>
+            {block('B2B (to registered buyers)', data.b2b)}
+            {block('B2C (to unregistered buyers)', data.b2c)}
+        </>
     );
 };

@@ -91,7 +91,7 @@ export const CompanyList: React.FC = () => {
                         <p className="text-slate-500 text-sm mb-4">{company.role}</p>
                         <div className="flex items-center gap-2 text-sm text-slate-500 bg-slate-50 p-2 rounded-lg">
                             <Calendar className="w-4 h-4" />
-                            <span>FY: 2024-2025</span>
+                            <span>{company.state || 'State not set'}{company.gstin ? ` · GSTIN ${company.gstin}` : ''}</span>
                         </div>
                     </div>
                 ))}
@@ -126,7 +126,7 @@ export const CompanyList: React.FC = () => {
                                 value={formData.gstin}
                                 onChange={(e) => setFormData({ ...formData, gstin: e.target.value })}
                             />
-                            <div className="grid grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <Input
                                     label="Email"
                                     type="email"

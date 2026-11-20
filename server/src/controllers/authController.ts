@@ -1,99 +1,59 @@
 import { Request, Response, NextFunction } from 'express';
-import { query } from '../config/db';
-import { hashPassword, comparePassword, generateToken } from '../utils/authUtils';
+import { authenticate, getUser, publicUser, registerAccount } from '../services/userService';
 import { AppError } from '../middleware/errorHandler';
+import { requireCsrfHeader } from '../middleware/auth';
+import {
+    clearAuthCookies, refreshSession, revokeSession, revokeUserSessions, sessionFromRefreshCookie, startSession,
+} from '../services/sessionService';
 
-export const register = async (req: Request, res: Response, next: NextFunction) => {
-    const { name, email, password, role = 'accountant' } = req.body;
-
-    console.log('📝 Registration attempt:', { name, email, role });
-
-    try {
-        // Check if user exists
-        const userCheck = await query('SELECT * FROM users WHERE email = $1', [email]);
-        if (userCheck.rows.length > 0) {
-            console.log('❌ User already exists:', email);
-            return next(new AppError('User already exists', 400));
-        }
-
-        // Hash password
-        console.log('🔐 Hashing password...');
-        const hashedPassword = await hashPassword(password);
-
-        // Create user with specified role
-        console.log('💾 Creating user in database with role:', role);
-        const newUser = await query(
-            'INSERT INTO users (name, email, password, role) VALUES ($1, $2, $3, $4) RETURNING id, name, email, role',
-            [name, email, hashedPassword, role]
-        );
-
-        const user = newUser.rows[0];
-        console.log('✅ User created:', user);
-
-        const token = generateToken(user.id, user.role);
-
-        res.status(201).json({
-            status: 'success',
-            token,
-            data: {
-                user,
-            },
-        });
-    } catch (error) {
-        console.error('❌ Registration error:', error);
-        next(error);
-    }
+/** POST /api/auth/register — creates the account and signs it in. */
+export const register = async (req: Request, res: Response) => {
+    const user = await registerAccount(req.body);
+    const token = await startSession(req, res, user.id);
+    res.status(201).json({ status: 'success', token, data: { user: publicUser(user) } });
 };
 
-export const login = async (req: Request, res: Response, next: NextFunction) => {
-    const { email, password } = req.body;
+/** POST /api/auth/login */
+export const login = async (req: Request, res: Response) => {
+    const user = await authenticate(req.body.email, req.body.password);
+    const token = await startSession(req, res, user.id);
+    res.status(200).json({ status: 'success', token, data: { user: publicUser(user) } });
+};
 
+export const getMe = async (req: Request, res: Response) => {
+    res.status(200).json({ status: 'success', data: { user: publicUser(await getUser(req.user!.id)) } });
+};
+
+/** POST /api/auth/refresh — new access token (and rotated refresh token) from the refresh cookie. */
+export const refresh = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        // Check if user exists
-        const result = await query('SELECT * FROM users WHERE email = $1', [email]);
-        if (result.rows.length === 0) {
-            return next(new AppError('Invalid email or password', 401));
-        }
-
-        const user = result.rows[0];
-
-        // Check password
-        const isMatch = await comparePassword(password, user.password);
-        if (!isMatch) {
-            return next(new AppError('Invalid email or password', 401));
-        }
-
-        const token = generateToken(user.id, user.role);
-
-        // Remove password from output
-        delete user.password;
-
-        res.status(200).json({
-            status: 'success',
-            token,
-            data: {
-                user,
-            },
-        });
+        if (!requireCsrfHeader(req)) throw new AppError('Request blocked: missing X-Requested-With header', 403);
+        const { access } = await refreshSession(req, res);
+        res.json({ status: 'success', token: access });
     } catch (error) {
         next(error);
     }
 };
 
-export const getMe = async (req: Request, res: Response, next: NextFunction) => {
+/** POST /api/auth/logout — ends this session on the server and clears the cookies. */
+export const logout = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const result = await query('SELECT id, name, email, role FROM users WHERE id = $1', [req.user?.id]);
+        if (!requireCsrfHeader(req)) throw new AppError('Request blocked: missing X-Requested-With header', 403);
+        const sid = await sessionFromRefreshCookie(req);
+        if (sid) await revokeSession(sid);
+        clearAuthCookies(res);
+        res.status(204).send();
+    } catch (error) {
+        next(error);
+    }
+};
 
-        if (result.rows.length === 0) {
-            return next(new AppError('User not found', 404));
-        }
-
-        res.status(200).json({
-            status: 'success',
-            data: {
-                user: result.rows[0],
-            },
-        });
+/** POST /api/auth/logout-all — signs this user out on every device. */
+export const logoutAll = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        await revokeUserSessions(req.user!.id, null, 'signed out everywhere');
+        clearAuthCookies(res);
+        res.status(204).send();
     } catch (error) {
         next(error);
     }

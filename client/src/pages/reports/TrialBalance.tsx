@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from 'react';
+import { currentFinancialYear, today } from '../../lib/dates';
 import { useCompany } from '../../context/CompanyContext';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Filter, FileSpreadsheet } from 'lucide-react';
-import api from '../../api/axios';
+import api, { apiError } from '../../api/axios';
 import { notify } from '../../utils/notification';
+import { amount, inr } from '../../lib/format';
 
 interface ReportRow {
     id: string;
@@ -19,8 +21,8 @@ export const TrialBalance: React.FC = () => {
     const { selectedCompany } = useCompany();
     const [reportData, setReportData] = useState<ReportRow[]>([]);
     const [loading, setLoading] = useState(false);
-    const [startDate, setStartDate] = useState('2024-04-01');
-    const [endDate, setEndDate] = useState('2025-03-31');
+    const [startDate, setStartDate] = useState(currentFinancialYear().startDate);
+    const [endDate, setEndDate] = useState(today() < currentFinancialYear().endDate ? today() : currentFinancialYear().endDate);
 
     const fetchReport = async () => {
         if (!selectedCompany) return;
@@ -68,7 +70,7 @@ export const TrialBalance: React.FC = () => {
             link.remove();
         } catch (error) {
             console.error('Export failed', error);
-            notify.error('Failed to export report');
+            notify.error(apiError(error, 'Failed to export report'));
         }
     };
 
@@ -136,11 +138,11 @@ export const TrialBalance: React.FC = () => {
                                     <tr key={row.id} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
                                         <td className="py-2 px-4 font-medium text-slate-800">{row.name}</td>
                                         <td className="py-2 px-4 text-slate-500 text-sm">{row.group_name}</td>
-                                        <td className="py-2 px-4 text-right font-mono text-slate-700">
-                                            {row.closing_balance_type === 'Dr' ? Number(row.closing_balance).toLocaleString() : ''}
+                                        <td className="py-2 px-4 text-right tabular-nums text-slate-700">
+                                            {row.closing_balance_type === 'Dr' ? amount(Number(row.closing_balance)) : ''}
                                         </td>
-                                        <td className="py-2 px-4 text-right font-mono text-slate-700">
-                                            {row.closing_balance_type === 'Cr' ? Number(row.closing_balance).toLocaleString() : ''}
+                                        <td className="py-2 px-4 text-right tabular-nums text-slate-700">
+                                            {row.closing_balance_type === 'Cr' ? amount(Number(row.closing_balance)) : ''}
                                         </td>
                                     </tr>
                                 ))
@@ -149,8 +151,8 @@ export const TrialBalance: React.FC = () => {
                         <tfoot className="bg-slate-100 border-t-2 border-slate-300 font-bold">
                             <tr>
                                 <td colSpan={2} className="py-3 px-4 text-right text-slate-800">Total:</td>
-                                <td className="py-3 px-4 text-right text-slate-900">₹{totalDebit.toLocaleString()}</td>
-                                <td className="py-3 px-4 text-right text-slate-900">₹{totalCredit.toLocaleString()}</td>
+                                <td className="py-3 px-4 text-right text-slate-900">{inr(totalDebit)}</td>
+                                <td className="py-3 px-4 text-right text-slate-900">{inr(totalCredit)}</td>
                             </tr>
                         </tfoot>
                     </table>

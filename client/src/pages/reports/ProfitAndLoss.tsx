@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from 'react';
+import { currentFinancialYear, today } from '../../lib/dates';
 import { useCompany } from '../../context/CompanyContext';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { FileSpreadsheet, Filter, TrendingUp, TrendingDown } from 'lucide-react';
-import api from '../../api/axios';
+import api, { apiError } from '../../api/axios';
 import { notify } from '../../utils/notification';
+import { inr } from '../../lib/format';
 
 interface LedgerItem {
     group_name: string;
@@ -24,8 +26,8 @@ export const ProfitAndLoss: React.FC = () => {
     const [netProfit, setNetProfit] = useState(0);
     const [netProfitType, setNetProfitType] = useState('Profit');
 
-    const [startDate, setStartDate] = useState('2024-04-01');
-    const [endDate, setEndDate] = useState('2025-03-31');
+    const [startDate, setStartDate] = useState(currentFinancialYear().startDate);
+    const [endDate, setEndDate] = useState(today() < currentFinancialYear().endDate ? today() : currentFinancialYear().endDate);
 
     const fetchReport = async () => {
         if (!selectedCompany) return;
@@ -79,7 +81,7 @@ export const ProfitAndLoss: React.FC = () => {
             link.remove();
         } catch (error) {
             console.error('Export failed', error);
-            notify.error('Failed to export report');
+            notify.error(apiError(error, 'Failed to export report'));
         }
     };
 
@@ -101,7 +103,7 @@ export const ProfitAndLoss: React.FC = () => {
                         <TrendingUp className="w-5 h-5 text-emerald-500" />
                     </div>
                     <p className="text-2xl font-bold text-emerald-600">
-                        ₹{totalIncome.toLocaleString()}
+                        {inr(totalIncome)}
                     </p>
                 </div>
 
@@ -111,7 +113,7 @@ export const ProfitAndLoss: React.FC = () => {
                         <TrendingDown className="w-5 h-5 text-red-500" />
                     </div>
                     <p className="text-2xl font-bold text-red-600">
-                        ₹{totalExpenses.toLocaleString()}
+                        {inr(totalExpenses)}
                     </p>
                 </div>
 
@@ -125,7 +127,7 @@ export const ProfitAndLoss: React.FC = () => {
                         )}
                     </div>
                     <p className={`text-2xl font-bold ${netProfit >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-                        ₹{Math.abs(netProfit).toLocaleString()}
+                        {inr(Math.abs(netProfit))}
                     </p>
                 </div>
             </div>
@@ -171,16 +173,16 @@ export const ProfitAndLoss: React.FC = () => {
                                     income.map((item, idx) => (
                                         <div key={idx} className="flex justify-between items-center py-2 border-b border-slate-100">
                                             <span className="text-slate-700">{item.ledger_name}</span>
-                                            <span className="font-mono text-emerald-600">
-                                                ₹{item.balance.toLocaleString()}
+                                            <span className="tabular-nums text-emerald-600">
+                                                {inr(item.balance)}
                                             </span>
                                         </div>
                                     ))
                                 )}
                                 <div className="flex justify-between items-center py-3 border-t-2 border-slate-300 font-bold">
                                     <span className="text-slate-800">Total Income</span>
-                                    <span className="font-mono text-emerald-600">
-                                        ₹{totalIncome.toLocaleString()}
+                                    <span className="tabular-nums text-emerald-600">
+                                        {inr(totalIncome)}
                                     </span>
                                 </div>
                             </div>
@@ -199,16 +201,16 @@ export const ProfitAndLoss: React.FC = () => {
                                     expenses.map((item, idx) => (
                                         <div key={idx} className="flex justify-between items-center py-2 border-b border-slate-100">
                                             <span className="text-slate-700">{item.ledger_name}</span>
-                                            <span className="font-mono text-red-600">
-                                                ₹{item.balance.toLocaleString()}
+                                            <span className="tabular-nums text-red-600">
+                                                {inr(item.balance)}
                                             </span>
                                         </div>
                                     ))
                                 )}
                                 <div className="flex justify-between items-center py-3 border-t-2 border-slate-300 font-bold">
                                     <span className="text-slate-800">Total Expenses</span>
-                                    <span className="font-mono text-red-600">
-                                        ₹{totalExpenses.toLocaleString()}
+                                    <span className="tabular-nums text-red-600">
+                                        {inr(totalExpenses)}
                                     </span>
                                 </div>
                             </div>
@@ -220,7 +222,7 @@ export const ProfitAndLoss: React.FC = () => {
                         <div className="flex justify-between items-center">
                             <h3 className="text-xl font-bold text-slate-800">Net {netProfitType}</h3>
                             <p className={`text-3xl font-bold ${netProfit >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-                                ₹{Math.abs(netProfit).toLocaleString()}
+                                {inr(Math.abs(netProfit))}
                             </p>
                         </div>
                     </div>

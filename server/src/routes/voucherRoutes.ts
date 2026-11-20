@@ -1,42 +1,21 @@
 import express from 'express';
-import { createVoucher, getVouchers, getVoucherTypes, getVoucherById, updateVoucher, deleteVoucher } from '../controllers/voucherController';
 import { protect } from '../middleware/auth';
-import { validate } from '../middleware/validate';
-import Joi from 'joi';
+import { requireCompany, requireResource } from '../middleware/companyAccess';
+import { validate, createVoucherSchema, updateVoucherSchema } from '../middleware/validate';
+import {
+    createVoucher, getVouchers, getVoucherTypes, getVoucherById, updateVoucher, deleteVoucher, getNextVoucherNumber,
+} from '../controllers/voucherController';
 
 const router = express.Router();
-
-const voucherSchema = Joi.object({
-    companyId: Joi.string().uuid(),
-    voucherTypeId: Joi.string().uuid().required(),
-    voucherNumber: Joi.string().required(),
-    date: Joi.date().required(),
-    narration: Joi.string().allow('', null),
-    entries: Joi.array().items(
-        Joi.object({
-            ledgerId: Joi.string().uuid().required(),
-            amount: Joi.number().positive().required(),
-            type: Joi.string().valid('Dr', 'Cr').required(),
-        })
-    ).min(2).required(),
-});
-
-const createVoucherSchema = voucherSchema.keys({
-    companyId: Joi.string().uuid().required(),
-});
-
 router.use(protect);
 
-router.route('/')
-    .get(getVouchers)
-    .post(validate(createVoucherSchema), createVoucher);
+router.get('/', requireCompany('viewer'), getVouchers);
+router.post('/', validate(createVoucherSchema), requireCompany('accountant'), createVoucher);
+router.get('/types', requireCompany('viewer'), getVoucherTypes);
+router.get('/next-number', requireCompany('viewer'), getNextVoucherNumber);
 
-router.route('/types')
-    .get(getVoucherTypes);
-
-router.route('/:id')
-    .get(getVoucherById)
-    .put(validate(voucherSchema), updateVoucher)
-    .delete(deleteVoucher);
+router.get('/:id', requireResource('vouchers', 'viewer'), getVoucherById);
+router.put('/:id', validate(updateVoucherSchema), requireResource('vouchers', 'accountant'), updateVoucher);
+router.delete('/:id', requireResource('vouchers', 'accountant'), deleteVoucher);
 
 export default router;

@@ -1,25 +1,21 @@
 import express from 'express';
-import { getUsers, createUser, updateUser, deleteUser, updatePassword } from '../controllers/userController';
-import { protect, restrictTo } from '../middleware/auth';
+import Joi from 'joi';
+import { protect } from '../middleware/auth';
+import { validate } from '../middleware/validate';
+import { updateMe, updatePassword } from '../controllers/userController';
 
 const router = express.Router();
-
-// All routes require authentication
 router.use(protect);
 
-// Get all users (admin only)
-router.get('/', restrictTo('admin'), getUsers);
-
-// Create user (admin only)
-router.post('/', restrictTo('admin'), createUser);
-
-// Update user (admin or self)
-router.put('/:id', updateUser);
-
-// Delete user (admin only)
-router.delete('/:id', restrictTo('admin'), deleteUser);
-
-// Update password (self only)
-router.put('/me/password', updatePassword);
+router.put(
+    '/me',
+    validate(Joi.object({ name: Joi.string().trim().max(255), email: Joi.string().email() })),
+    updateMe
+);
+router.put(
+    '/me/password',
+    validate(Joi.object({ currentPassword: Joi.string().required(), newPassword: Joi.string().min(8).max(128).required() })),
+    updatePassword
+);
 
 export default router;

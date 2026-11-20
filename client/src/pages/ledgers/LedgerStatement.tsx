@@ -1,10 +1,13 @@
 import React, { useEffect, useState } from 'react';
+import { currentFinancialYear, today, formatDate } from '../../lib/dates';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useCompany } from '../../context/CompanyContext';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
-import { ArrowLeft, Download, Filter, TrendingUp, TrendingDown } from 'lucide-react';
+import { ArrowLeft, Filter, TrendingUp, TrendingDown } from 'lucide-react';
+import { ShareMenu } from '../../components/ShareMenu';
 import api from '../../api/axios';
+import { amount, inr } from '../../lib/format';
 
 interface Transaction {
     id: string;
@@ -37,8 +40,8 @@ export const LedgerStatement: React.FC = () => {
     const [ledger, setLedger] = useState<LedgerInfo | null>(null);
     const [transactions, setTransactions] = useState<Transaction[]>([]);
     const [loading, setLoading] = useState(false);
-    const [startDate, setStartDate] = useState('2024-04-01');
-    const [endDate, setEndDate] = useState('2025-03-31');
+    const [startDate, setStartDate] = useState(currentFinancialYear().startDate);
+    const [endDate, setEndDate] = useState(today() < currentFinancialYear().endDate ? today() : currentFinancialYear().endDate);
 
     const fetchStatement = async () => {
         if (!selectedCompany || !ledgerId) return;
@@ -69,7 +72,7 @@ export const LedgerStatement: React.FC = () => {
 
     return (
         <div className="space-y-6">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-4">
                     <Button variant="secondary" onClick={() => navigate('/ledgers')}>
                         <ArrowLeft className="w-4 h-4" />
@@ -79,10 +82,12 @@ export const LedgerStatement: React.FC = () => {
                         <p className="text-sm text-slate-500">{ledger?.group_name} ({ledger?.group_type})</p>
                     </div>
                 </div>
-                <Button variant="secondary" onClick={() => window.print()}>
-                    <Download className="w-4 h-4" />
-                    Export
-                </Button>
+                {ledgerId && (
+                    <ShareMenu
+                        target={{ kind: 'statement', ledgerId, startDate, endDate, label: 'statement' }}
+                        key={`${startDate}-${endDate}`}
+                    />
+                )}
             </div>
 
             {/* Summary Cards */}
@@ -94,7 +99,7 @@ export const LedgerStatement: React.FC = () => {
                             <TrendingUp className="w-5 h-5 text-blue-500" />
                         </div>
                         <p className="text-2xl font-bold text-slate-800">
-                            ₹{Number(ledger.opening_balance).toLocaleString()}
+                            {inr(Number(ledger.opening_balance))}
                         </p>
                         <p className="text-xs text-slate-500 mt-1">{ledger.opening_balance_type}</p>
                     </div>
@@ -106,7 +111,7 @@ export const LedgerStatement: React.FC = () => {
                         </div>
                         <p className="text-2xl font-bold text-slate-800">{transactions.length}</p>
                         <p className="text-xs text-slate-500 mt-1">
-                            Dr: ₹{totalDebit.toLocaleString()} | Cr: ₹{totalCredit.toLocaleString()}
+                            Dr: {inr(totalDebit)} | Cr: {inr(totalCredit)}
                         </p>
                     </div>
 
@@ -116,7 +121,7 @@ export const LedgerStatement: React.FC = () => {
                             <TrendingUp className="w-5 h-5 text-emerald-500" />
                         </div>
                         <p className="text-2xl font-bold text-slate-800">
-                            ₹{Math.abs(Number(ledger.closing_balance)).toLocaleString()}
+                            {inr(Math.abs(Number(ledger.closing_balance)))}
                         </p>
                         <p className="text-xs text-slate-500 mt-1">{ledger.closing_balance_type}</p>
                     </div>
@@ -169,14 +174,14 @@ export const LedgerStatement: React.FC = () => {
                                     <td className="py-2 px-4 font-medium text-slate-600" colSpan={4}>
                                         Opening Balance
                                     </td>
-                                    <td className="py-2 px-4 text-right font-mono text-slate-700">
-                                        {ledger.opening_balance_type === 'Dr' ? Number(ledger.opening_balance).toLocaleString() : '-'}
+                                    <td className="py-2 px-4 text-right tabular-nums text-slate-700">
+                                        {ledger.opening_balance_type === 'Dr' ? amount(Number(ledger.opening_balance)) : '-'}
                                     </td>
-                                    <td className="py-2 px-4 text-right font-mono text-slate-700">
-                                        {ledger.opening_balance_type === 'Cr' ? Number(ledger.opening_balance).toLocaleString() : '-'}
+                                    <td className="py-2 px-4 text-right tabular-nums text-slate-700">
+                                        {ledger.opening_balance_type === 'Cr' ? amount(Number(ledger.opening_balance)) : '-'}
                                     </td>
                                     <td className="py-2 px-4 text-right font-bold text-slate-800">
-                                        ₹{Number(ledger.opening_balance).toLocaleString()} {ledger.opening_balance_type}
+                                        {inr(Number(ledger.opening_balance))} {ledger.opening_balance_type}
                                     </td>
                                 </tr>
                             )}
@@ -189,7 +194,7 @@ export const LedgerStatement: React.FC = () => {
                                 transactions.map((txn) => (
                                     <tr key={txn.id} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
                                         <td className="py-2 px-4 text-slate-600">
-                                            {new Date(txn.date).toLocaleDateString()}
+                                            {formatDate(txn.date)}
                                         </td>
                                         <td className="py-2 px-4 font-medium text-slate-800">{txn.voucher_number}</td>
                                         <td className="py-2 px-4">
@@ -198,14 +203,14 @@ export const LedgerStatement: React.FC = () => {
                                             </span>
                                         </td>
                                         <td className="py-2 px-4 text-slate-600 max-w-xs truncate">{txn.narration}</td>
-                                        <td className="py-2 px-4 text-right font-mono text-slate-700">
-                                            {txn.debit > 0 ? Number(txn.debit).toLocaleString() : '-'}
+                                        <td className="py-2 px-4 text-right tabular-nums text-slate-700">
+                                            {txn.debit > 0 ? amount(Number(txn.debit)) : '-'}
                                         </td>
-                                        <td className="py-2 px-4 text-right font-mono text-slate-700">
-                                            {txn.credit > 0 ? Number(txn.credit).toLocaleString() : '-'}
+                                        <td className="py-2 px-4 text-right tabular-nums text-slate-700">
+                                            {txn.credit > 0 ? amount(Number(txn.credit)) : '-'}
                                         </td>
                                         <td className="py-2 px-4 text-right font-bold text-slate-800">
-                                            ₹{Math.abs(Number(txn.balance)).toLocaleString()} {txn.balance_type}
+                                            {inr(Math.abs(Number(txn.balance)))} {txn.balance_type}
                                         </td>
                                     </tr>
                                 ))
@@ -218,13 +223,13 @@ export const LedgerStatement: React.FC = () => {
                                         Closing Balance:
                                     </td>
                                     <td className="py-3 px-4 text-right text-slate-900">
-                                        ₹{totalDebit.toLocaleString()}
+                                        {inr(totalDebit)}
                                     </td>
                                     <td className="py-3 px-4 text-right text-slate-900">
-                                        ₹{totalCredit.toLocaleString()}
+                                        {inr(totalCredit)}
                                     </td>
                                     <td className="py-3 px-4 text-right text-slate-900">
-                                        ₹{Math.abs(Number(ledger.closing_balance)).toLocaleString()} {ledger.closing_balance_type}
+                                        {inr(Math.abs(Number(ledger.closing_balance)))} {ledger.closing_balance_type}
                                     </td>
                                 </tr>
                             )}

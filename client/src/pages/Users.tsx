@@ -3,8 +3,10 @@ import { UserPlus, Edit2, Trash2, Shield } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { useAuth } from '../context/AuthContext';
-import api from '../api/axios';
+import { useCompany } from '../context/CompanyContext';
+import api, { apiError } from '../api/axios';
 import { notify } from '../utils/notification';
+import { formatDate } from '../lib/dates';
 
 interface User {
     id: string;
@@ -16,6 +18,7 @@ interface User {
 
 export const Users: React.FC = () => {
     const { user: currentUser } = useAuth();
+    const { selectedCompany, isCompanyAdmin } = useCompany();
     const [users, setUsers] = useState<User[]>([]);
     const [loading, setLoading] = useState(false);
     const [showModal, setShowModal] = useState(false);
@@ -27,13 +30,14 @@ export const Users: React.FC = () => {
         role: 'viewer'
     });
 
-    const isAdmin = currentUser?.role === 'admin';
+    const isAdmin = isCompanyAdmin;
+    const base = `/companies/${selectedCompany?.id}/members`;
 
     const fetchUsers = async () => {
-        if (!isAdmin) return;
+        if (!selectedCompany) return;
         setLoading(true);
         try {
-            const response = await api.get('/users');
+            const response = await api.get(base);
             setUsers(response.data.data.users);
         } catch (error) {
             console.error('Failed to fetch users', error);
@@ -44,28 +48,24 @@ export const Users: React.FC = () => {
 
     useEffect(() => {
         fetchUsers();
-    }, []);
+    }, [selectedCompany?.id]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         try {
             if (editingUser) {
                 // Update user
-                await api.put(`/users/${editingUser.id}`, {
-                    name: formData.name,
-                    email: formData.email,
-                    role: formData.role
-                });
-                notify.success('User updated successfully');
+                await api.put(`${base}/${editingUser.id}`, { role: formData.role });
+                notify.success('Role updated');
             } else {
                 // Create user
-                await api.post('/users', formData);
-                notify.success('User created successfully');
+                await api.post(base, formData);
+                notify.success('User added to company');
             }
             await fetchUsers();
             handleCloseModal();
         } catch (error: any) {
-            notify.error(error.response?.data?.message || 'Failed to save user');
+            notify.error(apiError(error, 'Failed to save user'));
         }
     };
 
@@ -81,16 +81,16 @@ export const Users: React.FC = () => {
     };
 
     const handleDelete = async (userId: string, userName: string) => {
-        if (!window.confirm(`Are you sure you want to delete "${userName}"?`)) {
+        if (!window.confirm(`Remove "${userName}" from ${selectedCompany?.name}? Their login stays, but they lose access to this company.`)) {
             return;
         }
 
         try {
-            await api.delete(`/users/${userId}`);
-            notify.success('User deleted successfully');
+            await api.delete(`${base}/${userId}`);
+            notify.success('User removed from company');
             await fetchUsers();
         } catch (error: any) {
-            notify.error(error.response?.data?.message || 'Failed to delete user');
+            notify.error(apiError(error, 'Failed to remove user'));
         }
     };
 
@@ -124,7 +124,7 @@ export const Users: React.FC = () => {
                     <Shield className="w-16 h-16 text-slate-300 mx-auto mb-4" />
                     <h3 className="text-lg font-semibold text-slate-700 mb-2">Access Restricted</h3>
                     <p className="text-slate-500">
-                        You need admin privileges to manage users.
+                        Only admins of {selectedCompany?.name || 'this company'} can manage its users.
                     </p>
                 </div>
             </div>
@@ -134,7 +134,10 @@ export const Users: React.FC = () => {
     return (
         <div className="space-y-6">
             <div className="flex items-center justify-between">
-                <h1 className="text-2xl font-bold text-slate-800">Users</h1>
+                <div>
+                    <h1 className="text-2xl font-bold text-slate-800">Users</h1>
+                    <p className="text-sm text-slate-500">People who can access {selectedCompany?.name}. Admins manage settings and users, accountants enter transactions, viewers can only read.</p>
+                </div>
                 <Button onClick={() => setShowModal(true)}>
                     <UserPlus className="w-4 h-4" />
                     Add User
@@ -149,7 +152,7 @@ export const Users: React.FC = () => {
                                 <th className="py-3 px-4 font-semibold text-slate-600">Name</th>
                                 <th className="py-3 px-4 font-semibold text-slate-600">Email</th>
                                 <th className="py-3 px-4 font-semibold text-slate-600">Role</th>
-                                <th className="py-3 px-4 font-semibold text-slate-600">Created</th>
+                                <th className="py-3 px-4 font-semibold text-slate-600">Since</th>
                                 <th className="py-3 px-4 font-semibold text-slate-600 text-right">Actions</th>
                             </tr>
                         </thead>
@@ -169,7 +172,7 @@ export const Users: React.FC = () => {
                                             </span>
                                         </td>
                                         <td className="py-3 px-4 text-slate-600 text-sm">
-                                            {new Date(user.created_at).toLocaleDateString()}
+                                            {formatDate(user.created_at)}
                                         </td>
                                         <td className="py-3 px-4 text-right">
                                             <div className="flex items-center justify-end gap-2">
@@ -183,7 +186,7 @@ export const Users: React.FC = () => {
                                                 <button
                                                     onClick={() => handleDelete(user.id, user.name)}
                                                     className="p-1 text-slate-400 hover:text-red-500 transition-colors"
-                                                    title="Delete User"
+                                                    title="Remove from company"
                                                     disabled={user.id === currentUser?.id}
                                                 >
                                                     <Trash2 className="w-4 h-4" />
@@ -203,31 +206,38 @@ export const Users: React.FC = () => {
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
                     <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6">
                         <h2 className="text-xl font-bold text-slate-800 mb-4">
-                            {editingUser ? 'Edit User' : 'Add New User'}
+                            {editingUser ? 'Change Role' : 'Add User to Company'}
                         </h2>
                         <form onSubmit={handleSubmit} className="space-y-4">
-                            <Input
-                                label="Full Name"
-                                value={formData.name}
-                                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                                required
-                            />
-                            <Input
-                                label="Email Address"
-                                type="email"
-                                value={formData.email}
-                                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                                required
-                            />
-                            {!editingUser && (
-                                <Input
-                                    label="Password"
-                                    type="password"
-                                    value={formData.password}
-                                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                                    required
-                                    minLength={6}
-                                />
+                            {editingUser ? (
+                                <p className="text-sm text-slate-600">
+                                    {editingUser.name} ({editingUser.email})
+                                </p>
+                            ) : (
+                                <>
+                                    <Input
+                                        label="Email Address"
+                                        type="email"
+                                        value={formData.email}
+                                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                                        required
+                                    />
+                                    <p className="text-xs text-slate-500 -mt-2">
+                                        If this person already has a CloudLedger login they are simply added. Otherwise fill in the name and an initial password.
+                                    </p>
+                                    <Input
+                                        label="Full Name"
+                                        value={formData.name}
+                                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                                    />
+                                    <Input
+                                        label="Initial Password"
+                                        type="password"
+                                        value={formData.password}
+                                        onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                                        minLength={8}
+                                    />
+                                </>
                             )}
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 mb-1">Role</label>
@@ -248,7 +258,7 @@ export const Users: React.FC = () => {
                                     Cancel
                                 </Button>
                                 <Button type="submit">
-                                    {editingUser ? 'Update User' : 'Create User'}
+                                    {editingUser ? 'Save Role' : 'Add User'}
                                 </Button>
                             </div>
                         </form>

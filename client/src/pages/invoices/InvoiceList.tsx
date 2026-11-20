@@ -1,14 +1,18 @@
 import React, { useEffect, useState } from 'react';
 import { useCompany } from '../../context/CompanyContext';
 import { Button } from '../../components/ui/Button';
-import { Plus, Download, Trash2, Eye, DollarSign, Edit, Mail } from 'lucide-react';
-import api from '../../api/axios';
-import { useNavigate } from 'react-router-dom';
-import { Input } from '../../components/ui/Input';
+import { Plus, Download, Trash2, Eye, IndianRupee, Edit } from 'lucide-react';
+import { ShareMenu } from '../../components/ShareMenu';
+import api, { apiError } from '../../api/axios';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { DOC_TYPES, DocType, docInfo, STATUS_STYLE } from '../../lib/docTypes';
 import { notify } from '../../utils/notification';
+import { inr } from '../../lib/format';
+import { formatDate } from '../../lib/dates';
 
 interface Invoice {
     id: string;
+    is_opening?: boolean;
     invoice_number: string;
     date: string;
     party_name: string;
@@ -17,6 +21,7 @@ interface Invoice {
     paid_amount: number;
     outstanding_amount: number;
     payment_status: string;
+    status?: string;
 }
 
 export const InvoiceList: React.FC = () => {
@@ -24,18 +29,15 @@ export const InvoiceList: React.FC = () => {
     const navigate = useNavigate();
     const [invoices, setInvoices] = useState<Invoice[]>([]);
     const [loading, setLoading] = useState(false);
-    const [filterType, setFilterType] = useState<'SALES' | 'PURCHASE' | 'CREDIT_NOTE' | 'DEBIT_NOTE'>('SALES');
+    const [searchParams, setSearchParams] = useSearchParams();
+    const filterType = (DOC_TYPES.find((d) => d.type === searchParams.get('type'))?.type ?? 'SALES') as DocType;
+    const setFilterType = (t: DocType) => {
+        setPaymentFilter('');
+        setSearchParams({ type: t }, { replace: true });
+    };
+    const info = docInfo(filterType);
     const [paymentFilter, setPaymentFilter] = useState<string>('');
     const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
-    const [emailModal, setEmailModal] = useState<{ id: string, invoiceNumber: string } | null>(null);
-    const [emailForm, setEmailForm] = useState({
-        to: '',
-        cc: '',
-        subject: '',
-        message: ''
-    });
-    const [sendingEmail, setSendingEmail] = useState(false);
-
     const fetchInvoices = async () => {
         if (!selectedCompany) return;
         setLoading(true);
@@ -76,7 +78,7 @@ export const InvoiceList: React.FC = () => {
             link.remove();
         } catch (error) {
             console.error('Failed to download PDF', error);
-            notify.error('Failed to download PDF');
+            notify.error(apiError(error, 'Failed to download PDF'));
         }
     };
 
@@ -88,43 +90,16 @@ export const InvoiceList: React.FC = () => {
             setDeleteConfirm(null);
         } catch (error: any) {
             console.error('Failed to delete invoice', error);
-            notify.error(error.response?.data?.message || 'Failed to delete invoice');
+            notify.error(apiError(error, 'Failed to delete invoice'));
         }
-    };
-
-    const handleSendEmail = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!emailModal) return;
-
-        setSendingEmail(true);
-        try {
-            await api.post(`/invoices/${emailModal.id}/email`, emailForm);
-            notify.success('Email sent successfully!');
-            setEmailModal(null);
-            setEmailForm({ to: '', cc: '', subject: '', message: '' });
-        } catch (error: any) {
-            console.error('Failed to send email', error);
-            notify.error(error.response?.data?.message || 'Failed to send email');
-        } finally {
-            setSendingEmail(false);
-        }
-    };
-
-    const openEmailModal = (invoice: Invoice) => {
-        setEmailModal({ id: invoice.id, invoiceNumber: invoice.invoice_number });
-        setEmailForm({
-            to: '',
-            cc: '',
-            subject: `Invoice #${invoice.invoice_number} from CloudLedger`,
-            message: `Dear Sir/Madam,\n\nPlease find attached the invoice #${invoice.invoice_number}.\n\nRegards,\nCloudLedger`
-        });
     };
 
     const getPaymentStatusBadge = (status: string) => {
         const styles = {
             PAID: 'bg-green-100 text-green-800',
             PARTIAL: 'bg-yellow-100 text-yellow-800',
-            UNPAID: 'bg-red-100 text-red-800'
+            UNPAID: 'bg-red-100 text-red-800',
+            CANCELLED: 'bg-slate-200 text-slate-600 line-through'
         };
         return (
             <span className={`px-2 py-1 rounded-full text-xs font-medium ${styles[status as keyof typeof styles] || styles.UNPAID}`}>
@@ -135,44 +110,31 @@ export const InvoiceList: React.FC = () => {
 
     return (
         <div className="space-y-6">
-            <div className="flex items-center justify-between">
-                <h1 className="text-2xl font-bold text-slate-800">Invoices</h1>
-                <div className="flex gap-2">
-                    <Button
-                        variant={filterType === 'SALES' ? 'primary' : 'secondary'}
-                        onClick={() => setFilterType('SALES')}
-                    >
-                        Sales
-                    </Button>
-                    <Button
-                        variant={filterType === 'PURCHASE' ? 'primary' : 'secondary'}
-                        onClick={() => setFilterType('PURCHASE')}
-                    >
-                        Purchase
-                    </Button>
-                    <Button
-                        variant={filterType === 'CREDIT_NOTE' ? 'primary' : 'secondary'}
-                        onClick={() => setFilterType('CREDIT_NOTE')}
-                    >
-                        Credit Note
-                    </Button>
-                    <Button
-                        variant={filterType === 'DEBIT_NOTE' ? 'primary' : 'secondary'}
-                        onClick={() => setFilterType('DEBIT_NOTE')}
-                    >
-                        Debit Note
-                    </Button>
-
-                    <Button onClick={() => navigate(`/invoices/create/${filterType.toLowerCase().replace('_', '-')}`)}>
-                        <Plus className="w-4 h-4" />
-                        New {filterType === 'SALES' ? 'Sales' : filterType === 'PURCHASE' ? 'Purchase' : filterType === 'CREDIT_NOTE' ? 'Credit Note' : 'Debit Note'}
-                    </Button>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+                <h1 className="text-2xl font-bold text-slate-800">Sales & Purchases</h1>
+                <Button onClick={() => navigate(`/invoices/create/${info.slug}`)}>
+                    <Plus className="w-4 h-4" />
+                    New {info.label}
+                </Button>
+            </div>
+            <div className="-mx-3 overflow-x-auto px-3 sm:mx-0 sm:px-0">
+                <div className="flex w-max gap-1 rounded-xl bg-slate-100 p-1">
+                    {DOC_TYPES.map((d) => (
+                        <button
+                            key={d.type}
+                            onClick={() => setFilterType(d.type)}
+                            className={`whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium ${filterType === d.type ? 'bg-white text-primary shadow' : 'text-slate-600 hover:text-slate-800'}`}
+                        >
+                            {d.plural}
+                        </button>
+                    ))}
                 </div>
             </div>
 
             {/* Payment Status Filter */}
+            {info.posting && (
             <div className="card">
-                <div className="flex gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                     <span className="text-sm font-medium text-slate-700">Filter by Payment:</span>
                     <button
                         onClick={() => setPaymentFilter('')}
@@ -200,6 +162,7 @@ export const InvoiceList: React.FC = () => {
                     </button>
                 </div>
             </div>
+            )}
 
             <div className="card">
                 <div className="overflow-x-auto">
@@ -225,23 +188,34 @@ export const InvoiceList: React.FC = () => {
                                 invoices.map((invoice) => (
                                     <tr key={invoice.id} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
                                         <td className="py-3 px-4 text-slate-600">
-                                            {new Date(invoice.date).toLocaleDateString()}
+                                            {formatDate(invoice.date)}
                                         </td>
                                         <td className="py-3 px-4 font-medium text-slate-800">
                                             {invoice.invoice_number}
+                                            {invoice.is_opening && (
+                                                <span className="ml-2 rounded bg-slate-100 px-1.5 py-0.5 text-xs font-normal text-slate-500" title="Unpaid bill brought forward from your previous software">
+                                                    Opening
+                                                </span>
+                                            )}
                                         </td>
                                         <td className="py-3 px-4 text-slate-600">{invoice.party_name}</td>
-                                        <td className="py-3 px-4 text-right font-mono font-medium text-slate-800">
-                                            ₹{Number(invoice.grand_total).toLocaleString()}
+                                        <td className="py-3 px-4 text-right tabular-nums font-medium text-slate-800">
+                                            {inr(Number(invoice.grand_total))}
                                         </td>
-                                        <td className="py-3 px-4 text-right font-mono text-green-600">
-                                            ₹{Number(invoice.paid_amount || 0).toLocaleString()}
+                                        <td className="py-3 px-4 text-right tabular-nums text-green-600">
+                                            {inr(Number(invoice.paid_amount || 0))}
                                         </td>
-                                        <td className="py-3 px-4 text-right font-mono text-red-600">
-                                            ₹{Number(invoice.outstanding_amount || invoice.grand_total).toLocaleString()}
+                                        <td className="py-3 px-4 text-right tabular-nums text-red-600">
+                                            {inr(Number(invoice.outstanding_amount ?? invoice.grand_total))}
                                         </td>
                                         <td className="py-3 px-4">
-                                            {getPaymentStatusBadge(invoice.payment_status || 'UNPAID')}
+                                            {info.posting ? (
+                                                getPaymentStatusBadge(invoice.payment_status || 'UNPAID')
+                                            ) : (
+                                                <span className={`rounded px-2 py-1 text-xs font-medium ${STATUS_STYLE[invoice.status || ''] || ''}`}>
+                                                    {invoice.status}
+                                                </span>
+                                            )}
                                         </td>
                                         <td className="py-3 px-4 text-right">
                                             <div className="flex gap-2 justify-end">
@@ -264,7 +238,7 @@ export const InvoiceList: React.FC = () => {
                                                     className="p-1 text-slate-400 hover:text-green-600 transition-colors"
                                                     title="Record Payment"
                                                 >
-                                                    <DollarSign className="w-4 h-4" />
+                                                    <IndianRupee className="w-4 h-4" />
                                                 </button>
                                                 <button
                                                     onClick={() => navigate(`/invoices/${invoice.id}/edit`)}
@@ -273,20 +247,17 @@ export const InvoiceList: React.FC = () => {
                                                 >
                                                     <Edit className="w-4 h-4" />
                                                 </button>
-                                                <button
-                                                    onClick={() => openEmailModal(invoice)}
-                                                    className="p-1 text-slate-400 hover:text-purple-600 transition-colors"
-                                                    title="Email Invoice"
-                                                >
-                                                    <Mail className="w-4 h-4" />
-                                                </button>
-                                                <button
-                                                    onClick={() => setDeleteConfirm(invoice.id)}
-                                                    className="p-1 text-slate-400 hover:text-red-600 transition-colors"
-                                                    title="Delete Invoice"
-                                                >
-                                                    <Trash2 className="w-4 h-4" />
-                                                </button>
+                                                <ShareMenu appearance="icon" target={{ kind: 'invoice', id: invoice.id, label: invoice.invoice_number }} />
+                                                {/* Issued invoices and notes are cancelled from their page, never deleted */}
+                                                {(!['SALES', 'CREDIT_NOTE', 'DEBIT_NOTE'].includes(invoice.type) || invoice.is_opening) && (
+                                                    <button
+                                                        onClick={() => setDeleteConfirm(invoice.id)}
+                                                        className="p-1 text-slate-400 hover:text-red-600 transition-colors"
+                                                        title="Delete"
+                                                    >
+                                                        <Trash2 className="w-4 h-4" />
+                                                    </button>
+                                                )}
                                             </div>
                                         </td>
                                     </tr>
@@ -321,55 +292,6 @@ export const InvoiceList: React.FC = () => {
                 </div>
             )}
 
-            {/* Email Modal */}
-            {emailModal && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-xl shadow-xl p-6 max-w-lg w-full">
-                        <h2 className="text-xl font-bold text-slate-800 mb-4">Email Invoice #{emailModal.invoiceNumber}</h2>
-                        <form onSubmit={handleSendEmail} className="space-y-4">
-                            <Input
-                                label="To"
-                                type="email"
-                                value={emailForm.to}
-                                onChange={(e) => setEmailForm({ ...emailForm, to: e.target.value })}
-                                placeholder="recipient@example.com"
-                                required
-                            />
-                            <Input
-                                label="CC"
-                                type="text"
-                                value={emailForm.cc}
-                                onChange={(e) => setEmailForm({ ...emailForm, cc: e.target.value })}
-                                placeholder="cc@example.com, another@example.com"
-                            />
-                            <Input
-                                label="Subject"
-                                value={emailForm.subject}
-                                onChange={(e) => setEmailForm({ ...emailForm, subject: e.target.value })}
-                                required
-                            />
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Message</label>
-                                <textarea
-                                    className="input-field"
-                                    rows={4}
-                                    value={emailForm.message}
-                                    onChange={(e) => setEmailForm({ ...emailForm, message: e.target.value })}
-                                />
-                            </div>
-                            <div className="flex justify-end gap-3">
-                                <Button type="button" variant="secondary" onClick={() => setEmailModal(null)}>
-                                    Cancel
-                                </Button>
-                                <Button type="submit" isLoading={sendingEmail}>
-                                    <Mail className="w-4 h-4 mr-2" />
-                                    Send Email
-                                </Button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            )}
         </div>
     );
 };

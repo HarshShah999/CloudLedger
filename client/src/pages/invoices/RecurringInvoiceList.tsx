@@ -2,17 +2,19 @@ import React, { useEffect, useState } from 'react';
 import { useCompany } from '../../context/CompanyContext';
 import { Button } from '../../components/ui/Button';
 import { Plus, Trash2, Edit, Play } from 'lucide-react';
-import api from '../../api/axios';
+import api, { apiError } from '../../api/axios';
 import { useNavigate } from 'react-router-dom';
 import { notify } from '../../utils/notification';
+import { formatDate } from '../../lib/dates';
 
 interface RecurringInvoice {
     id: string;
     profile_name: string;
-    cron_expression: string;
+    frequency: string;
+    last_error?: string | null;
     next_invoice_date: string;
     is_active: boolean;
-    last_generated_date: string | null;
+    last_generated_at: string | null;
     party_name: string;
     amount: number;
 }
@@ -54,12 +56,12 @@ export const RecurringInvoiceList: React.FC = () => {
 
     const handleToggleStatus = async (id: string, currentStatus: boolean) => {
         try {
-            await api.patch(`/recurring-invoices/${id}`, { is_active: !currentStatus });
+            await api.patch(`/recurring-invoices/${id}`, { isActive: !currentStatus });
             notify.success(`Recurring invoice ${!currentStatus ? 'activated' : 'paused'} successfully`);
             fetchRecurringInvoices();
         } catch (error: any) {
             console.error('Failed to update status', error);
-            notify.error('Failed to update status');
+            notify.error(apiError(error, 'Failed to update status'));
         }
     };
 
@@ -80,7 +82,7 @@ export const RecurringInvoiceList: React.FC = () => {
                             <tr className="border-b border-slate-200">
                                 <th className="py-3 px-4 font-semibold text-slate-600">Profile Name</th>
                                 <th className="py-3 px-4 font-semibold text-slate-600">Party</th>
-                                <th className="py-3 px-4 font-semibold text-slate-600">Frequency (Cron)</th>
+                                <th className="py-3 px-4 font-semibold text-slate-600">Repeats</th>
                                 <th className="py-3 px-4 font-semibold text-slate-600">Next Run</th>
                                 <th className="py-3 px-4 font-semibold text-slate-600">Last Run</th>
                                 <th className="py-3 px-4 font-semibold text-slate-600">Status</th>
@@ -95,14 +97,14 @@ export const RecurringInvoiceList: React.FC = () => {
                             ) : (
                                 recurringInvoices.map((invoice) => (
                                     <tr key={invoice.id} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
-                                        <td className="py-3 px-4 font-medium text-slate-800">{invoice.profile_name}</td>
+                                        <td className="py-3 px-4 font-medium text-slate-800">{invoice.profile_name || invoice.party_name}{invoice.last_error && <span className="block text-xs text-red-600" title={invoice.last_error}>Last run failed</span>}</td>
                                         <td className="py-3 px-4 text-slate-600">{invoice.party_name}</td>
-                                        <td className="py-3 px-4 font-mono text-sm text-slate-600">{invoice.cron_expression}</td>
+                                        <td className="py-3 px-4 text-sm text-slate-600">{({ WEEKLY: 'Weekly', MONTHLY: 'Monthly', QUARTERLY: 'Quarterly', HALF_YEARLY: 'Half-yearly', YEARLY: 'Yearly' } as Record<string, string>)[invoice.frequency] || invoice.frequency}</td>
                                         <td className="py-3 px-4 text-slate-600">
-                                            {new Date(invoice.next_invoice_date).toLocaleDateString()}
+                                            {formatDate(invoice.next_invoice_date)}
                                         </td>
                                         <td className="py-3 px-4 text-slate-600">
-                                            {invoice.last_generated_date ? new Date(invoice.last_generated_date).toLocaleDateString() : '-'}
+                                            {invoice.last_generated_at ? formatDate(invoice.last_generated_at) : '-'}
                                         </td>
                                         <td className="py-3 px-4">
                                             <span className={`px-2 py-1 rounded-full text-xs font-medium ${invoice.is_active ? 'bg-green-100 text-green-800' : 'bg-slate-100 text-slate-800'}`}>

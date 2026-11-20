@@ -4,8 +4,9 @@ import { useCompany } from '../../context/CompanyContext';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Plus, Trash2, Save, ArrowLeft } from 'lucide-react';
-import api from '../../api/axios';
+import api, { apiError } from '../../api/axios';
 import { notify } from '../../utils/notification';
+import { inr } from '../../lib/format';
 
 interface VoucherType {
     id: string;
@@ -107,7 +108,7 @@ export const VoucherEntry: React.FC = () => {
             navigate('/vouchers');
         } catch (error) {
             console.error('Failed to create voucher', error);
-            notify.error('Failed to save voucher');
+            notify.error(apiError(error, 'Failed to save voucher'));
         } finally {
             setLoading(false);
         }
@@ -147,7 +148,7 @@ export const VoucherEntry: React.FC = () => {
                         label="Voucher No"
                         value={formData.voucherNumber}
                         onChange={(e) => setFormData({ ...formData, voucherNumber: e.target.value })}
-                        required
+                        placeholder="Auto"
                     />
                     <Input
                         label="Date"
@@ -160,6 +161,7 @@ export const VoucherEntry: React.FC = () => {
 
                 {/* Entries Table */}
                 <div className="border rounded-lg overflow-hidden mb-6">
+                    <div className="overflow-x-auto">
                     <table className="w-full text-left">
                         <thead className="bg-slate-50 border-b border-slate-200">
                             <tr>
@@ -232,12 +234,13 @@ export const VoucherEntry: React.FC = () => {
                         <tfoot className="bg-slate-50 border-t border-slate-200 font-bold">
                             <tr>
                                 <td colSpan={2} className="py-3 px-4 text-right text-slate-600">Total:</td>
-                                <td className="py-3 px-4 text-right text-slate-800">₹{totalDebit.toLocaleString()}</td>
-                                <td className="py-3 px-4 text-right text-slate-800">₹{totalCredit.toLocaleString()}</td>
+                                <td className="py-3 px-4 text-right text-slate-800">{inr(totalDebit)}</td>
+                                <td className="py-3 px-4 text-right text-slate-800">{inr(totalCredit)}</td>
                                 <td></td>
                             </tr>
                         </tfoot>
                     </table>
+                    </div>
                 </div>
 
                 <div className="flex items-center justify-between mb-6">
@@ -250,7 +253,7 @@ export const VoucherEntry: React.FC = () => {
                         {isBalanced ? (
                             <>Balanced ✅</>
                         ) : (
-                            <>Difference: ₹{Math.abs(totalDebit - totalCredit).toLocaleString()} ⚠️</>
+                            <>Difference: {inr(Math.abs(totalDebit - totalCredit))} ⚠️</>
                         )}
                     </div>
                 </div>

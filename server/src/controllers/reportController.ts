@@ -1,244 +1,64 @@
-import { Request, Response, NextFunction } from 'express';
-import { query } from '../config/db';
+import { Request, Response } from 'express';
 import { AppError } from '../middleware/errorHandler';
+import { balanceSheet, ledgerStatement, profitAndLoss, trialBalance, fyStartFor } from '../services/reportService';
+import { query } from '../config/db';
+import { toDateString } from '../services/financialYear';
+import { ageing, dayBook } from '../services/outstandingService';
+import { stockSummary } from '../services/stockService';
 
-export const getTrialBalance = async (req: Request, res: Response, next: NextFunction) => {
-    const { companyId, startDate, endDate } = req.query;
+const DATE = /^\d{4}-\d{2}-\d{2}$/;
 
-    if (!companyId) {
-        return next(new AppError('Company ID is required', 400));
-    }
-
-    try {
-        // Calculate balances from voucher entries
-        const result = await query(
-            `SELECT 
-         l.id, l.name, lg.name as group_name, lg.type as group_type,
-         l.opening_balance, l.opening_balance_type,
-         COALESCE(SUM(CASE WHEN ve.type = 'Dr' THEN ve.amount ELSE 0 END), 0) as total_debit,
-         COALESCE(SUM(CASE WHEN ve.type = 'Cr' THEN ve.amount ELSE 0 END), 0) as total_credit
-       FROM ledgers l
-       LEFT JOIN ledger_groups lg ON l.group_id = lg.id
-       LEFT JOIN voucher_entries ve ON l.id = ve.ledger_id
-       LEFT JOIN vouchers v ON ve.voucher_id = v.id
-       WHERE l.company_id = $1
-       AND (v.date IS NULL OR (v.date >= $2 AND v.date <= $3))
-       GROUP BY l.id, l.name, lg.name, lg.type, l.opening_balance, l.opening_balance_type
-       ORDER BY lg.type, lg.name, l.name`,
-            [companyId, startDate || '1900-01-01', endDate || '2100-12-31']
-        );
-
-        // Process balances in JS (simplified)
-        const report = result.rows.map(row => {
-            let balance = 0;
-            let balanceType = 'Dr';
-
-            const openDr = row.opening_balance_type === 'Dr' ? Number(row.opening_balance) : 0;
-            const openCr = row.opening_balance_type === 'Cr' ? Number(row.opening_balance) : 0;
-            const currentDr = Number(row.total_debit);
-            const currentCr = Number(row.total_credit);
-
-            const totalDr = openDr + currentDr;
-            const totalCr = openCr + currentCr;
-
-            if (totalDr > totalCr) {
-                balance = totalDr - totalCr;
-                balanceType = 'Dr';
-            } else {
-                balance = totalCr - totalDr;
-                balanceType = 'Cr';
-            }
-
-            return {
-                ...row,
-                closing_balance: balance,
-                closing_balance_type: balanceType
-            };
-        });
-
-        res.status(200).json({
-            status: 'success',
-            data: {
-                report,
-            },
-        });
-    } catch (error) {
-        next(error);
-    }
+/** Reads a period from the query, defaulting to the current financial year to date. */
+export const readPeriod = async (req: Request) => {
+    const to = String(req.query.endDate || req.query.toDate || toDateString(new Date())).slice(0, 10);
+    const from = String(req.query.startDate || req.query.fromDate || (await fyStartFor({ query }, req.company!.id, to))).slice(0, 10);
+    if (!DATE.test(from) || !DATE.test(to)) throw new AppError('Dates must be in YYYY-MM-DD format', 400);
+    if (from > to) throw new AppError('Start date must be before end date', 400);
+    return { from, to };
 };
 
-// Placeholder for P&L and Balance Sheet (similar logic but filtered by Group Type)
-export const getPnL = async (req: Request, res: Response, next: NextFunction) => {
-    const { companyId, startDate, endDate } = req.query;
-
-    if (!companyId || !startDate || !endDate) {
-        return next(new AppError('Company ID, start date, and end date are required', 400));
-    }
-
-    try {
-        // Get all income and expense ledgers with their balances
-        const query_text = `
-            SELECT 
-                lg.name as group_name,
-                lg.type as group_type,
-                l.id as ledger_id,
-                l.name as ledger_name,
-                l.opening_balance,
-                l.opening_balance_type,
-                COALESCE(SUM(CASE WHEN ve.type = 'Dr' THEN ve.amount ELSE 0 END), 0) as total_debit,
-                COALESCE(SUM(CASE WHEN ve.type = 'Cr' THEN ve.amount ELSE 0 END), 0) as total_credit
-            FROM ledgers l
-            LEFT JOIN ledger_groups lg ON l.group_id = lg.id
-            LEFT JOIN voucher_entries ve ON l.id = ve.ledger_id
-            LEFT JOIN vouchers v ON ve.voucher_id = v.id
-            WHERE l.company_id = $1
-            AND lg.type IN ('Income', 'Expense')
-            AND (v.date IS NULL OR (v.date >= $2 AND v.date <= $3))
-            GROUP BY lg.name, lg.type, l.id, l.name, l.opening_balance, l.opening_balance_type
-            ORDER BY lg.type, l.name
-        `;
-
-        const result = await query(query_text, [companyId, startDate, endDate]);
-
-        // Calculate balances for each ledger
-        const ledgers = result.rows.map((row: any) => {
-            const debit = parseFloat(row.total_debit);
-            const credit = parseFloat(row.total_credit);
-
-            // For Income: Credit increases, Debit decreases
-            // For Expense: Debit increases, Credit decreases
-            let balance = 0;
-            if (row.group_type === 'Income') {
-                balance = credit - debit;
-            } else {
-                balance = debit - credit;
-            }
-
-            return {
-                group_name: row.group_name,
-                group_type: row.group_type,
-                ledger_name: row.ledger_name,
-                // Keep signed balance for accurate totals, but maybe client wants absolute?
-                // The client P&L just blindly sums them if we returned absolute 
-                // but we are returning the individual items. 
-                // If we return negative balance, frontend will show negative, which is correct for returns.
-                balance: balance,
-                balance_type: balance >= 0 ? (row.group_type === 'Income' ? 'Cr' : 'Dr') : (row.group_type === 'Income' ? 'Dr' : 'Cr')
-            };
-        });
-
-        // Group by type
-        const income = ledgers.filter((l: any) => l.group_type === 'Income');
-        const expenses = ledgers.filter((l: any) => l.group_type === 'Expense');
-
-        // Calculate totals
-        const totalIncome = income.reduce((sum: number, l: any) => sum + l.balance, 0);
-        const totalExpenses = expenses.reduce((sum: number, l: any) => sum + l.balance, 0);
-        const netProfit = totalIncome - totalExpenses;
-
-        res.status(200).json({
-            status: 'success',
-            data: {
-                income,
-                expenses,
-                totalIncome,
-                totalExpenses,
-                netProfit,
-                netProfitType: netProfit >= 0 ? 'Profit' : 'Loss'
-            }
-        });
-    } catch (error) {
-        console.error('❌ P&L error:', error);
-        next(error);
-    }
+export const getTrialBalance = async (req: Request, res: Response) => {
+    const { from, to } = await readPeriod(req);
+    const tb = await trialBalance(req.company!.id, from, to);
+    res.status(200).json({ status: 'success', data: { ...tb, period: { from, to } } });
 };
 
-export const getBalanceSheet = async (req: Request, res: Response, next: NextFunction) => {
-    const { companyId, asOfDate } = req.query;
+export const getPnL = async (req: Request, res: Response) => {
+    const { from, to } = await readPeriod(req);
+    res.status(200).json({ status: 'success', data: { ...(await profitAndLoss(req.company!.id, from, to)), period: { from, to } } });
+};
 
-    if (!companyId || !asOfDate) {
-        return next(new AppError('Company ID and as-of date are required', 400));
-    }
+export const getBalanceSheet = async (req: Request, res: Response) => {
+    const asOf = String(req.query.asOfDate || toDateString(new Date())).slice(0, 10);
+    if (!DATE.test(asOf)) throw new AppError('asOfDate must be in YYYY-MM-DD format', 400);
+    res.status(200).json({ status: 'success', data: { ...(await balanceSheet(req.company!.id, asOf)), asOfDate: asOf } });
+};
 
-    try {
-        // Get all asset and liability ledgers with their balances
-        const query_text = `
-            SELECT 
-                lg.name as group_name,
-                lg.type as group_type,
-                l.id as ledger_id,
-                l.name as ledger_name,
-                l.opening_balance,
-                l.opening_balance_type,
-                COALESCE(SUM(CASE WHEN ve.type = 'Dr' THEN ve.amount ELSE 0 END), 0) as total_debit,
-                COALESCE(SUM(CASE WHEN ve.type = 'Cr' THEN ve.amount ELSE 0 END), 0) as total_credit
-            FROM ledgers l
-            LEFT JOIN ledger_groups lg ON l.group_id = lg.id
-            LEFT JOIN voucher_entries ve ON l.id = ve.ledger_id
-            LEFT JOIN vouchers v ON ve.voucher_id = v.id
-            WHERE l.company_id = $1
-            AND lg.type IN ('Asset', 'Liability')
-            AND (v.date IS NULL OR v.date <= $2)
-            GROUP BY lg.name, lg.type, l.id, l.name, l.opening_balance, l.opening_balance_type
-            ORDER BY lg.type, l.name
-        `;
+export const getLedgerStatement = async (req: Request, res: Response) => {
+    const from = req.query.startDate ? String(req.query.startDate).slice(0, 10) : null;
+    const to = req.query.endDate ? String(req.query.endDate).slice(0, 10) : null;
+    const result = await ledgerStatement(req.company!.id, req.params.ledgerId, from, to);
+    if (!result) throw new AppError('Ledger not found', 404);
+    res.status(200).json({ status: 'success', data: result });
+};
 
-        const result = await query(query_text, [companyId, asOfDate]);
+export const getAgeing = async (req: Request, res: Response) => {
+    const kind = String(req.query.kind || 'receivable');
+    if (kind !== 'receivable' && kind !== 'payable') throw new AppError('kind must be receivable or payable', 400);
+    const asOf = String(req.query.asOfDate || toDateString(new Date())).slice(0, 10);
+    if (!DATE.test(asOf)) throw new AppError('asOfDate must be in YYYY-MM-DD format', 400);
+    res.json({ status: 'success', data: await ageing(req.company!.id, kind, asOf) });
+};
 
-        // Calculate balances for each ledger
-        const ledgers = result.rows.map((row: any) => {
-            const openingBalance = parseFloat(row.opening_balance) || 0;
-            // Normalize opening balance to signed value (Dr positive, Cr negative for Asset context? No, keep standard)
-            // Let's standardize: Dr is Positive, Cr is Negative globally for calculation?
-            // Or stick to Group context:
-            // Asset: Dr +, Cr -
-            // Liability: Cr +, Dr -
+export const getDayBook = async (req: Request, res: Response) => {
+    const { from, to } = await readPeriod(req);
+    const vt = req.query.voucherTypeId ? String(req.query.voucherTypeId) : undefined;
+    res.json({ status: 'success', data: await dayBook(req.company!.id, from, to, vt) });
+};
 
-            let balance = 0;
-
-            // Initial Balance (based on group logic)
-            if (row.group_type === 'Asset') {
-                // Asset: Debit is normal (positive)
-                let open = row.opening_balance_type === 'Dr' ? openingBalance : -openingBalance;
-                balance = open + parseFloat(row.total_debit) - parseFloat(row.total_credit);
-            } else {
-                // Liability: Credit is normal (positive)
-                let open = row.opening_balance_type === 'Cr' ? openingBalance : -openingBalance;
-                balance = open + parseFloat(row.total_credit) - parseFloat(row.total_debit);
-            }
-
-            return {
-                group_name: row.group_name,
-                group_type: row.group_type,
-                ledger_name: row.ledger_name,
-                balance: balance, // Allow negative for contra items
-                balance_type: balance >= 0 ?
-                    (row.group_type === 'Asset' ? 'Dr' : 'Cr') :
-                    (row.group_type === 'Asset' ? 'Cr' : 'Dr')
-            };
-        });
-
-        // Group by type
-        const assets = ledgers.filter((l: any) => l.group_type === 'Asset');
-        const liabilities = ledgers.filter((l: any) => l.group_type === 'Liability');
-
-        // Calculate totals
-        const totalAssets = assets.reduce((sum: number, l: any) => sum + l.balance, 0);
-        const totalLiabilities = liabilities.reduce((sum: number, l: any) => sum + l.balance, 0);
-        const difference = totalAssets - totalLiabilities;
-
-        res.status(200).json({
-            status: 'success',
-            data: {
-                assets,
-                liabilities,
-                totalAssets,
-                totalLiabilities,
-                difference
-            }
-        });
-    } catch (error) {
-        console.error('❌ Balance Sheet error:', error);
-        next(error);
-    }
+/** GET /api/reports/stock-summary?asOfDate= — quantity, average cost and value per item. */
+export const getStockSummary = async (req: Request, res: Response) => {
+    const asOf = String(req.query.asOfDate || toDateString(new Date())).slice(0, 10);
+    if (!DATE.test(asOf)) throw new AppError('asOfDate must be in YYYY-MM-DD format', 400);
+    res.json({ status: 'success', data: await stockSummary(req.company!.id, asOf) });
 };

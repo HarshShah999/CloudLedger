@@ -3,8 +3,9 @@ import { useCompany } from '../../context/CompanyContext';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Plus, Edit2, Package } from 'lucide-react';
-import api from '../../api/axios';
+import api, { apiError } from '../../api/axios';
 import { notify } from '../../utils/notification';
+import { inr } from '../../lib/format';
 
 interface Unit {
     id: string;
@@ -16,12 +17,15 @@ interface Item {
     id: string;
     name: string;
     hsn_code: string;
+    item_type?: string;
     unit_id: string;
     unit_symbol: string;
     tax_rate: number;
     sales_rate: number;
     purchase_rate: number;
     current_quantity: number;
+    opening_quantity?: number;
+    opening_rate?: number;
 }
 
 export const ItemMaster: React.FC = () => {
@@ -36,11 +40,13 @@ export const ItemMaster: React.FC = () => {
     const [formData, setFormData] = useState({
         name: '',
         hsnCode: '',
+        itemType: 'GOODS',
         unitId: '',
         taxRate: 18,
         salesRate: 0,
         purchaseRate: 0,
-        openingQuantity: 0
+        openingQuantity: 0,
+        openingRate: 0
     });
 
     const [unitFormData, setUnitFormData] = useState({
@@ -80,12 +86,16 @@ export const ItemMaster: React.FC = () => {
             if (editingItem) {
                 await api.put(`/inventory/items/${editingItem.id}`, {
                     ...formData,
+                    // Blank opening rate: the server uses the purchase rate
+                    openingRate: formData.openingRate || null,
                     companyId: selectedCompany.id
                 });
                 notify.success('Item updated successfully');
             } else {
                 await api.post('/inventory/items', {
                     ...formData,
+                    // Blank opening rate: the server uses the purchase rate
+                    openingRate: formData.openingRate || null,
                     companyId: selectedCompany.id
                 });
                 notify.success('Item created successfully');
@@ -94,7 +104,7 @@ export const ItemMaster: React.FC = () => {
             handleCloseModal();
         } catch (error) {
             console.error('Failed to save item', error);
-            notify.error('Failed to save item');
+            notify.error(apiError(error, 'Failed to save item'));
         }
     };
 
@@ -116,7 +126,7 @@ export const ItemMaster: React.FC = () => {
             notify.success('Unit created successfully!');
         } catch (error) {
             console.error('Failed to create unit', error);
-            notify.error('Failed to create unit');
+            notify.error(apiError(error, 'Failed to create unit'));
         }
     };
 
@@ -126,11 +136,13 @@ export const ItemMaster: React.FC = () => {
         setFormData({
             name: '',
             hsnCode: '',
+        itemType: 'GOODS',
             unitId: units[0]?.id || '',
             taxRate: 18,
             salesRate: 0,
             purchaseRate: 0,
-            openingQuantity: 0
+            openingQuantity: 0,
+            openingRate: 0
         });
     };
 
@@ -139,11 +151,13 @@ export const ItemMaster: React.FC = () => {
         setFormData({
             name: item.name,
             hsnCode: item.hsn_code,
+            itemType: item.item_type || 'GOODS',
             unitId: item.unit_id,
             taxRate: Number(item.tax_rate),
             salesRate: Number(item.sales_rate),
             purchaseRate: Number(item.purchase_rate),
-            openingQuantity: 0 // Cannot edit opening qty after creation usually
+            openingQuantity: Number(item.opening_quantity || 0),
+            openingRate: Number(item.opening_rate || 0)
         });
         setShowModal(true);
     };
@@ -159,6 +173,7 @@ export const ItemMaster: React.FC = () => {
             </div>
 
             <div className="card overflow-hidden">
+                <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">
                     <thead>
                         <tr className="border-b border-slate-200 bg-slate-50">
@@ -182,11 +197,11 @@ export const ItemMaster: React.FC = () => {
                                         </div>
                                     </td>
                                     <td className="py-3 px-4 text-slate-600">{item.hsn_code}</td>
-                                    <td className="py-3 px-4 text-right font-mono">
+                                    <td className="py-3 px-4 text-right tabular-nums">
                                         {Number(item.current_quantity)} {item.unit_symbol}
                                     </td>
-                                    <td className="py-3 px-4 text-right font-mono">
-                                        ₹{Number(item.sales_rate).toLocaleString()}
+                                    <td className="py-3 px-4 text-right tabular-nums">
+                                        {inr(Number(item.sales_rate))}
                                     </td>
                                     <td className="py-3 px-4 text-right">
                                         <button onClick={() => handleEdit(item)} className="p-1 text-slate-400 hover:text-primary">
@@ -198,6 +213,7 @@ export const ItemMaster: React.FC = () => {
                         )}
                     </tbody>
                 </table>
+                </div>
             </div>
 
             {/* Item Modal */}
@@ -208,7 +224,7 @@ export const ItemMaster: React.FC = () => {
                             {editingItem ? 'Edit Item' : 'Create New Item'}
                         </h2>
                         <form onSubmit={handleSubmit} className="space-y-4">
-                            <div className="grid grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <div className="col-span-2">
                                     <Input
                                         label="Item Name"
@@ -222,6 +238,13 @@ export const ItemMaster: React.FC = () => {
                                     value={formData.hsnCode}
                                     onChange={(e) => setFormData({ ...formData, hsnCode: e.target.value })}
                                 />
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 mb-1">Type</label>
+                                    <select className="input-field" value={formData.itemType} onChange={(e) => setFormData({ ...formData, itemType: e.target.value })}>
+                                        <option value="GOODS">Goods (HSN)</option>
+                                        <option value="SERVICES">Services (SAC)</option>
+                                    </select>
+                                </div>
                                 <div>
                                     <label className="block text-sm font-medium text-slate-700 mb-1">Unit</label>
                                     <div className="flex gap-2">
@@ -264,13 +287,22 @@ export const ItemMaster: React.FC = () => {
                                     value={formData.purchaseRate}
                                     onChange={(e) => setFormData({ ...formData, purchaseRate: Number(e.target.value) })}
                                 />
-                                {!editingItem && (
-                                    <Input
-                                        label="Opening Quantity"
-                                        type="number"
-                                        value={formData.openingQuantity}
-                                        onChange={(e) => setFormData({ ...formData, openingQuantity: Number(e.target.value) })}
-                                    />
+                                {formData.itemType !== 'SERVICES' && (
+                                    <>
+                                        <Input
+                                            label="Opening Quantity"
+                                            type="number"
+                                            value={formData.openingQuantity}
+                                            onChange={(e) => setFormData({ ...formData, openingQuantity: Number(e.target.value) })}
+                                        />
+                                        <Input
+                                            label="Opening Rate (cost per unit)"
+                                            type="number"
+                                            placeholder={String(formData.purchaseRate || 0)}
+                                            value={formData.openingRate || ''}
+                                            onChange={(e) => setFormData({ ...formData, openingRate: Number(e.target.value) })}
+                                        />
+                                    </>
                                 )}
                             </div>
 

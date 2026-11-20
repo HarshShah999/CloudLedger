@@ -6,6 +6,8 @@ import { Plus, Search, Edit2, Trash2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import api from '../../api/axios';
 import { notify } from '../../utils/notification';
+import { inr } from '../../lib/format';
+import { formatDate } from '../../lib/dates';
 
 interface Voucher {
     id: string;
@@ -104,7 +106,7 @@ export const VoucherList: React.FC = () => {
                                 filteredVouchers.map((voucher) => (
                                     <tr key={voucher.id} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
                                         <td className="py-3 px-4 text-slate-600">
-                                            {new Date(voucher.date).toLocaleDateString()}
+                                            {formatDate(voucher.date)}
                                         </td>
                                         <td className="py-3 px-4 font-medium text-slate-800">{voucher.voucher_number}</td>
                                         <td className="py-3 px-4 text-slate-600">
@@ -114,7 +116,7 @@ export const VoucherList: React.FC = () => {
                                         </td>
                                         <td className="py-3 px-4 text-slate-600 truncate max-w-xs">{voucher.narration}</td>
                                         <td className="py-3 px-4 text-right font-bold text-slate-800">
-                                            ₹{Number(voucher.total_amount).toLocaleString()}
+                                            {inr(Number(voucher.total_amount))}
                                         </td>
                                         <td className="py-3 px-4 text-right">
                                             <div className="flex items-center justify-end gap-2">

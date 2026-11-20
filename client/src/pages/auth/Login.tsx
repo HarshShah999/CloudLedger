@@ -19,7 +19,7 @@ export const Login: React.FC = () => {
 
         try {
             const response = await api.post('/auth/login', { email, password });
-            login(response.data.token, response.data.data.user);
+            login(response.data.data.user);
         } catch (err: any) {
             setError(err.response?.data?.message || 'Login failed');
         } finally {
