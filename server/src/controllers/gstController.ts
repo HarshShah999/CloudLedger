@@ -1,8 +1,7 @@
 import { Request, Response } from 'express';
 import { AppError } from '../middleware/errorHandler';
 import { buildGstr1, buildGstr3b, tdsRegister } from '../services/gstReturns';
-import { reconcileGstr2b, saveGstr2b } from '../services/gstr2bService';
-import { query } from '../config/db';
+import { reconcileGstr2b, saveGstr2b, listGstr2bImports } from '../services/gstr2bService';
 
 const period = (req: Request) => {
     const from = String(req.query.fromDate || req.query.startDate || '').slice(0, 10);
@@ -46,12 +45,7 @@ export const uploadGSTR2B = async (req: Request, res: Response) => {
 };
 
 export const listGSTR2B = async (req: Request, res: Response) => {
-    const r = await query(
-        `SELECT return_period, file_name, jsonb_array_length(documents) AS documents, created_at
-         FROM gstr2b_imports WHERE company_id = $1 ORDER BY substring(return_period from 3) DESC, substring(return_period from 1 for 2) DESC`,
-        [req.company!.id]
-    );
-    res.json({ status: 'success', data: { imports: r.rows } });
+    res.json({ status: 'success', data: { imports: await listGstr2bImports(req.company!.id) } });
 };
 
 export const reconcileGSTR2B = async (req: Request, res: Response) => {

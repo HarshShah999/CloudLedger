@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import QRCode from 'qrcode';
-import { query } from '../config/db';
+import { partyContact } from '../services/ledgerService';
 import { AppError } from '../middleware/errorHandler';
 import { resolveShareToken } from '../services/shareService';
 import { loadCompanyProfile, loadInvoiceDocument, CompanyProfile } from '../services/documentService';
@@ -30,7 +30,7 @@ const publicCompany = (c: CompanyProfile) => ({
 export const loadStatementForShare = async (companyId: string, ledgerId: string, from: string, to: string) => {
     const data = await ledgerStatement(companyId, ledgerId, from, to);
     if (!data) throw new AppError('Statement not found', 404);
-    const party = (await query('SELECT gstin, address, phone FROM ledgers WHERE id = $1', [ledgerId])).rows[0];
+    const party = await partyContact(ledgerId);
     return { ...data, party };
 };
 

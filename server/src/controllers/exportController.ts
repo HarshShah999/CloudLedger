@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import ExcelJS from 'exceljs';
-import { query } from '../config/db';
+import { companyBasics } from '../services/companyService';
 import { balanceSheet, profitAndLoss, trialBalance } from '../services/reportService';
 import { readPeriod } from './reportController';
 import { toDateString } from '../services/financialYear';
@@ -8,7 +8,7 @@ import { toDateString } from '../services/financialYear';
 const INR_FMT = '#,##,##0.00';
 
 const newSheet = async (companyId: string, title: string, subtitle: string) => {
-    const company = (await query('SELECT name, gstin FROM companies WHERE id = $1', [companyId])).rows[0];
+    const company = await companyBasics(companyId);
     const wb = new ExcelJS.Workbook();
     wb.creator = 'CloudLedger';
     const ws = wb.addWorksheet(title);

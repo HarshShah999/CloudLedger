@@ -1,3 +1,4 @@
+import { query as dbQuery } from '../config/db';
 import { AppError } from '../middleware/errorHandler';
 import { exec } from 'child_process';
 import { promisify } from 'util';
@@ -291,4 +292,33 @@ export const safeBackupName = (filename: string): string => {
 export const getBackupPath = (filename: string, type: 'full' | 'company' = 'full'): string => {
     const dir = type === 'full' ? FULL_BACKUP_DIR : COMPANY_BACKUP_DIR;
     return path.join(dir, safeBackupName(filename));
+};
+
+/* ---------- Backup and restore log (backup_logs / restore_logs) ---------- */
+
+export const logBackup = async (entry: { status: 'SUCCESS' | 'FAILED'; filename?: string; size?: number; error?: string; userId?: string | null }) => {
+    await dbQuery(
+        `INSERT INTO backup_logs (type, filename, file_size, status, error_message, created_by, storage_location)
+         VALUES ('FULL', $1, $2, $3, $4, $5, 'local')`,
+        [entry.filename ?? null, entry.size ?? null, entry.status, entry.error ?? null, entry.userId ?? null]
+    );
+};
+
+export const listBackupLogs = async () =>
+    (
+        await dbQuery(
+            `SELECT bl.*, u.name as created_by_name
+             FROM backup_logs bl
+             LEFT JOIN users u ON bl.created_by = u.id
+             WHERE bl.type = 'FULL'
+             ORDER BY bl.created_at DESC
+             LIMIT 50`
+        )
+    ).rows;
+
+export const logRestore = async (entry: { filename: string; status: 'SUCCESS' | 'FAILED'; error?: string; userId: string }) => {
+    await dbQuery(
+        `INSERT INTO restore_logs (backup_filename, type, status, error_message, restored_by) VALUES ($1, 'FULL', $2, $3, $4)`,
+        [entry.filename, entry.status, entry.error ?? null, entry.userId]
+    );
 };

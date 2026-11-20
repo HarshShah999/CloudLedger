@@ -175,3 +175,11 @@ export const runRecurringInvoices = async (today = toDateString(new Date())) => 
     }
     return total;
 };
+
+/** Pauses or resumes a recurring invoice template. */
+export const setTemplateActive = async (id: string, isActive: boolean) =>
+    (await query('UPDATE recurring_invoices SET is_active = $1, updated_at = NOW() WHERE id = $2 RETURNING *', [isActive, id])).rows[0];
+
+export const deleteTemplate = async (id: string) => {
+    await query('DELETE FROM recurring_invoices WHERE id = $1', [id]);
+};

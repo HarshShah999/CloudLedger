@@ -196,3 +196,13 @@ export const reconcileGstr2b = async (companyId: string, period: string) => {
         notes: docs.filter((x) => x.kind !== 'INVOICE'),
     };
 };
+
+/** Uploaded GSTR-2B files, latest period first. */
+export const listGstr2bImports = async (companyId: string) =>
+    (
+        await query(
+            `SELECT return_period, file_name, jsonb_array_length(documents) AS documents, created_at
+             FROM gstr2b_imports WHERE company_id = $1 ORDER BY substring(return_period from 3) DESC, substring(return_period from 1 for 2) DESC`,
+            [companyId]
+        )
+    ).rows;

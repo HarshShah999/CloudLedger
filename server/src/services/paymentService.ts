@@ -1,4 +1,4 @@
-import { Queryable } from '../config/db';
+import { Queryable, query } from '../config/db';
 import { AppError } from '../middleware/errorHandler';
 import { fromPaise, toPaise } from '../utils/money';
 import { toDateString } from './financialYear';
@@ -124,4 +124,20 @@ export const deletePayment = async (db: Queryable, companyId: string, paymentId:
     await db.query('DELETE FROM payments WHERE id = $1', [paymentId]);
     if (payment.voucher_id) await removeVoucher(db, companyId, payment.voucher_id);
     await refreshInvoicePaymentStatus(db, payment.invoice_id);
+};
+
+/** Payments recorded against invoices, newest first. */
+export const listPayments = async (companyId: string, invoiceId?: string) => {
+    const params: any[] = [companyId];
+    let sql = `SELECT p.*, i.invoice_number, l.name AS deposit_ledger_name
+               FROM payments p
+               LEFT JOIN invoices i ON i.id = p.invoice_id
+               LEFT JOIN ledgers l ON l.id = p.deposit_ledger_id
+               WHERE p.company_id = $1`;
+    if (invoiceId) {
+        params.push(invoiceId);
+        sql += ` AND p.invoice_id = $${params.length}`;
+    }
+    sql += ' ORDER BY p.payment_date DESC, p.created_at DESC';
+    return (await query(sql, params)).rows;
 };

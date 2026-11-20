@@ -138,3 +138,7 @@ export const deleteLedger = async (companyId: string, id: string) => {
     }
     await query('DELETE FROM ledgers WHERE id = $1 AND company_id = $2', [id, companyId]);
 };
+
+/** Contact details printed on a shared statement. */
+export const partyContact = async (ledgerId: string) =>
+    (await query('SELECT gstin, address, phone FROM ledgers WHERE id = $1', [ledgerId])).rows[0];

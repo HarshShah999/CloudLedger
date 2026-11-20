@@ -126,3 +126,9 @@ export const getUser = async (id: string) => {
     if (!r.rows.length) throw new AppError('User not found', 404);
     return r.rows[0];
 };
+
+/** Re-checks the signed-in user's password before a dangerous action (e.g. restoring a backup). */
+export const verifyPassword = async (userId: string, password: string) => {
+    const r = await query('SELECT password FROM users WHERE id = $1', [userId]);
+    if (!r.rows.length || !(await comparePassword(password, r.rows[0].password))) throw new AppError('Invalid password confirmation', 401);
+};

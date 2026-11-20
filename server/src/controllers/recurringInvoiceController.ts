@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
-import { query, withTransaction } from '../config/db';
+import { withTransaction } from '../config/db';
 import { AppError } from '../middleware/errorHandler';
-import { generateDueInvoices, listRecurring, saveRecurring } from '../services/recurringService';
+import { generateDueInvoices, listRecurring, saveRecurring, setTemplateActive, deleteTemplate } from '../services/recurringService';
 
 export const getRecurringInvoices = async (req: Request, res: Response) => {
     res.status(200).json({ status: 'success', data: { recurringInvoices: await listRecurring(req.company!.id) } });
@@ -27,15 +27,11 @@ export const updateRecurringInvoice = async (req: Request, res: Response) => {
 export const setRecurringActive = async (req: Request, res: Response) => {
     const isActive = req.body.isActive ?? req.body.is_active;
     if (typeof isActive !== 'boolean') throw new AppError('isActive must be true or false', 400);
-    const r = await query('UPDATE recurring_invoices SET is_active = $1, updated_at = NOW() WHERE id = $2 RETURNING *', [
-        isActive,
-        req.params.id,
-    ]);
-    res.status(200).json({ status: 'success', data: { recurringInvoice: r.rows[0] } });
+    res.status(200).json({ status: 'success', data: { recurringInvoice: await setTemplateActive(req.params.id, isActive) } });
 };
 
 export const deleteRecurringInvoice = async (req: Request, res: Response) => {
-    await query('DELETE FROM recurring_invoices WHERE id = $1', [req.params.id]);
+    await deleteTemplate(req.params.id);
     res.status(204).send();
 };
 
