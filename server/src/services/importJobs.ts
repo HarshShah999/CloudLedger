@@ -51,7 +51,8 @@ export const startImportJob = async (
         const now = Date.now();
         if (now - last < PROGRESS_EVERY_MS) return;
         last = now;
-        query('UPDATE import_jobs SET done = $2, total = $3, updated_at = now() WHERE id = $1', [id, done, total]).catch(() => undefined);
+        // Progress writes are not awaited; never let a late one overwrite the final result
+        query(`UPDATE import_jobs SET done = $2, total = $3, updated_at = now() WHERE id = $1 AND status = 'RUNNING'`, [id, done, total]).catch(() => undefined);
     };
 
     work(onProgress)
