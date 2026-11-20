@@ -20,6 +20,10 @@ export const env = {
     port: Number(process.env.PORT) || 8000,
     clientUrl: process.env.CLIENT_URL || 'http://localhost:5173',
     jwtSecret,
-    jwtExpiresIn: process.env.JWT_EXPIRES_IN || '1d',
+    /** Access tokens are short-lived; the refresh cookie renews them quietly. */
+    accessTokenMinutes: Number(process.env.ACCESS_TOKEN_MINUTES) || 15,
+    refreshTokenDays: Number(process.env.REFRESH_TOKEN_DAYS) || 30,
+    /** Cookies only over HTTPS in production (set COOKIE_SECURE=false only for local HTTP testing). */
+    cookieSecure: process.env.COOKIE_SECURE ? process.env.COOKIE_SECURE === 'true' : (process.env.NODE_ENV || 'development') === 'production',
     runMigrations: process.env.RUN_MIGRATIONS !== 'false',
 };

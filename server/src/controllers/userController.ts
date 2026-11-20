@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { query, withTransaction } from '../config/db';
 import { hashPassword, comparePassword } from '../utils/authUtils';
 import { AppError } from '../middleware/errorHandler';
+import { revokeUserSessions } from '../services/sessionService';
 
 /* ---------- Own profile ---------- */
 
@@ -35,6 +36,8 @@ export const updatePassword = async (req: Request, res: Response, next: NextFunc
             return next(new AppError('Current password is incorrect', 401));
         }
         await query('UPDATE users SET password = $1 WHERE id = $2', [await hashPassword(newPassword), req.user!.id]);
+        // Anyone signed in elsewhere with the old password is signed out
+        await revokeUserSessions(req.user!.id, req.user!.sessionId ?? null);
         res.status(200).json({ status: 'success', message: 'Password updated successfully' });
     } catch (error) {
         next(error);

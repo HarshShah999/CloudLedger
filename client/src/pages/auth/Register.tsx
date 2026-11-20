@@ -22,7 +22,7 @@ export const Register: React.FC = () => {
         try {
             const response = await api.post('/auth/register', { name, email, password });
             console.log('✅ Registration successful:', response.data);
-            login(response.data.token, response.data.data.user);
+            login(response.data.data.user);
         } catch (err: any) {
             console.error('❌ Registration failed:', err);
             console.error('Error response:', err.response);
