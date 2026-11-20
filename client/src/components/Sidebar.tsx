@@ -17,6 +17,7 @@ import {
     Database,
     ShieldCheck,
     Wallet,
+    Upload,
 } from 'lucide-react';
 
 const mainNavItems = [
@@ -44,6 +45,7 @@ const reportItems = [
 ];
 
 const bottomNavItems = [
+    { label: 'Import', icon: Upload, path: '/import' },
     { label: 'Backup', icon: Database, path: '/backup' },
     { label: 'Users', icon: Users, path: '/users' },
     { label: 'Audit Trail', icon: ShieldCheck, path: '/audit' },

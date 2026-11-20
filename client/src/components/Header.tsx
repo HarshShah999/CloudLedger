@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
 import { useCompany } from '../context/CompanyContext';
-import { LogOut, User as UserIcon, ChevronDown, Menu } from 'lucide-react';
+import { LogOut, User as UserIcon, ChevronDown, Menu, Search } from 'lucide-react';
 
 export const Header: React.FC<{ onMenu?: () => void }> = ({ onMenu }) => {
     const { user, logout } = useAuth();
@@ -53,6 +53,15 @@ export const Header: React.FC<{ onMenu?: () => void }> = ({ onMenu }) => {
             </div>
 
             <div className="flex items-center gap-2 sm:gap-4 shrink-0">
+                <button
+                    onClick={() => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', ctrlKey: true }))}
+                    className="flex items-center gap-2 rounded-lg border border-slate-200 px-2 py-1.5 text-sm text-slate-500 hover:border-slate-300 hover:text-slate-700"
+                    title="Search (Ctrl+K)"
+                >
+                    <Search className="h-4 w-4" />
+                    <span className="hidden lg:inline">Search</span>
+                    <kbd className="hidden rounded bg-slate-100 px-1.5 font-mono text-xs lg:inline">Ctrl K</kbd>
+                </button>
                 <div className="flex items-center gap-3">
                     <div className="w-8 h-8 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center" title={user?.name}>
                         <UserIcon className="w-4 h-4" />

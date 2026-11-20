@@ -6,6 +6,7 @@ import { SharedDocument } from './pages/public/SharedDocument';
 import { AuditTrail } from './pages/AuditTrail';
 import { DOC_TYPES } from './lib/docTypes';
 import { ReceiptsPayments } from './pages/banking/ReceiptsPayments';
+import { ImportData } from './pages/ImportData';
 import { Ageing } from './pages/reports/Ageing';
 import { DayBook } from './pages/reports/DayBook';
 import { CashBankBook } from './pages/reports/CashBankBook';
@@ -87,6 +88,7 @@ function App() {
                         <Route path="/settings" element={<Settings />} />
                         <Route path="/audit" element={<AuditTrail />} />
                         <Route path="/receipts" element={<ReceiptsPayments />} />
+                        <Route path="/import" element={<ImportData />} />
                         <Route path="/reports/outstanding" element={<Ageing />} />
                         <Route path="/reports/day-book" element={<DayBook />} />
                         <Route path="/reports/cash-bank-book" element={<CashBankBook />} />

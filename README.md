@@ -45,6 +45,15 @@ Cloud accounting for Indian businesses: double-entry books, GST invoicing, payme
 - **Reports**: Trial Balance, Profit & Loss (with gross profit), Balance Sheet (always balances: includes current profit and any opening-balance difference), Ledger Statement with running balance, GSTR-1, GSTR-3B and Excel export.
 - **Recurring invoices**: weekly, monthly, quarterly, half-yearly or yearly, with catch-up for missed periods.
 - **Multi-company with per-company roles**: admin, accountant or viewer, enforced by the server on every request.
+- **Switch from Tally or Excel** (Import page, admins only):
+  - **Tally**: export *List of Accounts* (groups, ledgers with opening balances, units, stock items) and the *Day Book* as XML (Alt+E), then upload the masters first and the Day Book second.
+  - **Excel**: download the parties/ledgers or items template, fill it in and upload it.
+  - Every import is previewed first and nothing is saved until you press **Import now**. Bad rows (e.g. an invalid GSTIN) are listed and skipped. Re-uploading the same Tally file never creates duplicates.
+- **Keyboard first**, like Tally:
+  - **Ctrl+K** searches pages, parties, ledgers and invoices.
+  - **Alt+S** sales invoice, **Alt+P** purchase bill, **Alt+Q** quotation, **Alt+R** receipt/payment, **Alt+J** journal, **Alt+L** ledgers, **Alt+I** items, **Alt+O** outstanding, **Alt+D** Day Book, **Alt+B** balance sheet, **Alt+T** trial balance, **Alt+G** GST returns.
+  - **Ctrl+Enter** saves the form you are on; **?** shows all shortcuts.
+- **Installable app**: on a phone, open CloudLedger in Chrome and choose *Add to Home screen* (Safari: *Share → Add to Home Screen*); on a desktop, use the install icon in the address bar. It opens full screen like a native app. Accounting data is never cached on the device; it always comes fresh from the server.
 - Works on phones: responsive layout with a slide-out menu.
 - Bank reconciliation, inventory quantities, email invoices with PDF, company export/import and full database backups.
 
