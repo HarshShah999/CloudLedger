@@ -43,8 +43,8 @@ router.get('/', requireCompany('viewer'), getRecurringInvoices);
 router.post('/', validate(Joi.object({ companyId: uuid().required(), ...fields })), requireCompany('accountant'), createRecurringInvoice);
 router.get('/:id', requireResource('recurring_invoices', 'viewer'), getRecurringInvoice);
 router.put('/:id', validate(Joi.object({ companyId: uuid(), ...fields })), requireResource('recurring_invoices', 'accountant'), updateRecurringInvoice);
-router.patch('/:id', requireResource('recurring_invoices', 'accountant'), setRecurringActive);
+router.patch('/:id', validate(Joi.object({ companyId: uuid(), isActive: Joi.boolean(), is_active: Joi.boolean() }).or('isActive', 'is_active')), requireResource('recurring_invoices', 'accountant'), setRecurringActive);
 router.delete('/:id', requireResource('recurring_invoices', 'accountant'), deleteRecurringInvoice);
-router.post('/:id/run', requireResource('recurring_invoices', 'accountant'), runRecurringNow);
+router.post('/:id/run', validate(Joi.object({ companyId: uuid() })), requireResource('recurring_invoices', 'accountant'), runRecurringNow);
 
 export default router;

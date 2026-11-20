@@ -26,9 +26,9 @@ router.delete('/:id', requireResource('invoices', 'accountant'), deleteInvoice);
 router.post('/:id/cancel', validate(Joi.object({ companyId: uuid(), reason: Joi.string().trim().max(255).allow('', null) })), requireResource('invoices', 'accountant'), cancelInvoice);
 router.get('/:id/pdf', requireResource('invoices', 'viewer'), downloadInvoicePDF);
 router.post('/:id/email', validate(emailSchema), requireResource('invoices', 'viewer'), sendInvoiceEmail);
-router.post('/:id/share', requireResource('invoices', 'viewer'), createInvoiceShare);
+router.post('/:id/share', validate(Joi.object({ companyId: uuid() })), requireResource('invoices', 'viewer'), createInvoiceShare);
 router.delete('/:id/share', requireResource('invoices', 'accountant'), revokeInvoiceShares);
-router.post('/:id/share-log', requireResource('invoices', 'viewer'), logInvoiceShare);
+router.post('/:id/share-log', validate(Joi.object({ companyId: uuid(), channel: Joi.string().trim().uppercase().valid('EMAIL', 'WHATSAPP', 'LINK', 'NATIVE', 'DOWNLOAD', 'PRINT', 'SMS').required(), recipient: Joi.string().trim().max(255).allow('', null) })), requireResource('invoices', 'viewer'), logInvoiceShare);
 router.get('/:id/communications', requireResource('invoices', 'viewer'), getInvoiceCommunications);
 router.post(
     '/:id/convert',
@@ -55,7 +55,7 @@ router.post(
     requireResource('invoices', 'accountant'),
     postIrn
 );
-router.post('/:id/irn/cancel', requireResource('invoices', 'admin'), postCancelIrn);
+router.post('/:id/irn/cancel', validate(Joi.object({ companyId: uuid() })), requireResource('invoices', 'admin'), postCancelIrn);
 router.get('/:id/ewaybill', requireResource('invoices', 'viewer'), getEwayBill);
 router.post(
     '/:id/ewaybill',

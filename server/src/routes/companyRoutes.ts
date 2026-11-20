@@ -2,7 +2,7 @@ import express from 'express';
 import Joi from 'joi';
 import { protect } from '../middleware/auth';
 import { requireCompany } from '../middleware/companyAccess';
-import { validate, gstin, isoDate, addMemberSchema, updateMemberSchema } from '../middleware/validate';
+import { validate, gstin, isoDate, addMemberSchema, updateMemberSchema, uuid } from '../middleware/validate';
 import {
     createCompany, getCompanies, getCompany, updateCompany, uploadCompanyAsset, removeCompanyAsset, getCompanyAsset,
 } from '../controllers/companyController';
@@ -67,7 +67,13 @@ router.put('/:companyId', validate(updateCompanySchema), requireCompany('admin')
 
 // Logo and signature images printed on invoices
 router.get('/:companyId/assets/:kind', requireCompany('viewer'), getCompanyAsset);
-router.put('/:companyId/assets/:kind', requireCompany('admin'), uploadCompanyAsset);
+router.put(
+    '/:companyId/assets/:kind',
+    // An image as a data URL, at most ~1.5 MB once decoded
+    validate(Joi.object({ companyId: uuid(), dataUrl: Joi.string().max(2_100_000).pattern(/^data:image\/(png|jpe?g|webp);base64,/).allow(null, '') })),
+    requireCompany('admin'),
+    uploadCompanyAsset
+);
 router.delete('/:companyId/assets/:kind', requireCompany('admin'), removeCompanyAsset);
 
 // Members (people who can access this company)

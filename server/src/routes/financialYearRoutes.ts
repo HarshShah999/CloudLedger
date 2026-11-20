@@ -22,9 +22,9 @@ router.use(protect);
 router.get('/', requireCompany('viewer'), getFinancialYears);
 router.get('/active', requireCompany('viewer'), getActiveFinancialYear);
 router.post('/', validate(createSchema), requireCompany('accountant'), createFinancialYear);
-router.put('/:id/activate', requireResource('financial_years', 'admin'), activateFinancialYear);
-router.put('/:id/close', requireResource('financial_years', 'admin'), closeFinancialYear);
-router.put('/:id/reopen', requireResource('financial_years', 'admin'), reopenFinancialYear);
+router.put('/:id/activate', validate(Joi.object({ companyId: uuid() })), requireResource('financial_years', 'admin'), activateFinancialYear);
+router.put('/:id/close', validate(Joi.object({ companyId: uuid() })), requireResource('financial_years', 'admin'), closeFinancialYear);
+router.put('/:id/reopen', validate(Joi.object({ companyId: uuid() })), requireResource('financial_years', 'admin'), reopenFinancialYear);
 router.delete('/:id', requireResource('financial_years', 'admin'), deleteFinancialYear);
 
 export default router;
