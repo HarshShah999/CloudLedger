@@ -24,6 +24,8 @@ const ledgerFields = {
     email: Joi.string().trim().email().allow('', null),
     phone: Joi.string().trim().max(30).allow('', null),
     address: Joi.string().max(1000).allow('', null),
+    gstRegistrationType: Joi.string().valid('REGULAR', 'COMPOSITION', 'UNREGISTERED', 'CONSUMER', 'SEZ', 'OVERSEAS').allow('', null),
+    pan: Joi.string().trim().uppercase().pattern(/^[A-Z]{5}[0-9]{4}[A-Z]$/).allow('', null).messages({ 'string.pattern.base': 'Invalid PAN' }),
 };
 
 const createLedgerSchema = Joi.object({

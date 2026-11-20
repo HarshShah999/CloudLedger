@@ -9,6 +9,8 @@ import { ReceiptsPayments } from './pages/banking/ReceiptsPayments';
 import { Ageing } from './pages/reports/Ageing';
 import { DayBook } from './pages/reports/DayBook';
 import { CashBankBook } from './pages/reports/CashBankBook';
+import { GSTR2B } from './pages/reports/GSTR2B';
+import { TdsRegister } from './pages/reports/TdsRegister';
 import { Login } from './pages/auth/Login';
 import { Register } from './pages/auth/Register';
 import { MainLayout } from './layouts/MainLayout';
@@ -88,6 +90,8 @@ function App() {
                         <Route path="/reports/outstanding" element={<Ageing />} />
                         <Route path="/reports/day-book" element={<DayBook />} />
                         <Route path="/reports/cash-bank-book" element={<CashBankBook />} />
+                        <Route path="/reports/gstr-2b" element={<GSTR2B />} />
+                        <Route path="/reports/tds" element={<TdsRegister />} />
                     </Route>
 
                     <Route path="*" element={<Navigate to="/login" replace />} />

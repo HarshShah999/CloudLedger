@@ -124,7 +124,8 @@ export const loadInvoiceDocument = async (invoiceId: string): Promise<InvoiceDoc
 
     const grandTotal = Number(invoice.grand_total);
     const paid = Number(invoice.paid_amount || 0);
-    const balance = Math.max(fromPaise(toPaise(grandTotal) - toPaise(paid)), 0);
+    const tds = Number(invoice.tds_amount || 0);
+    const balance = Math.max(fromPaise(toPaise(grandTotal) - toPaise(tds) - toPaise(paid)), 0);
     const receivable = invoice.type === 'SALES' || invoice.type === 'DEBIT_NOTE';
 
     return {

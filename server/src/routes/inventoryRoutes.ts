@@ -13,6 +13,7 @@ const unitSchema = Joi.object({
     companyId: uuid().required(),
     name: Joi.string().trim().max(50).required(),
     symbol: Joi.string().trim().max(20).required(),
+    uqc: Joi.string().trim().uppercase().max(3).allow('', null),
 });
 
 const itemFields = {
@@ -23,6 +24,7 @@ const itemFields = {
     salesRate: money().default(0),
     purchaseRate: money().default(0),
     description: Joi.string().max(1000).allow('', null),
+    itemType: Joi.string().valid('GOODS', 'SERVICES').default('GOODS'),
 };
 const createItemSchema = Joi.object({
     companyId: uuid().required(),

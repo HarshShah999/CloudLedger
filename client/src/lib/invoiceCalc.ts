@@ -74,11 +74,12 @@ export interface CalcResult {
  *   discounted (taxable) value, as the GST law requires for discounts shown on
  *   the invoice.
  * - Intra-state: CGST = SGST = rate/2. Inter-state: IGST = rate.
+ * - Zero-rated supplies without payment (exports/SEZ under LUT) carry no tax.
  * - Optional rounding of the grand total to the nearest rupee.
  */
 export const calculateInvoice = (
     items: CalcLineInput[],
-    opts: { invoiceDiscountPercent?: number | string; isInterState: boolean; roundOff?: boolean }
+    opts: { invoiceDiscountPercent?: number | string; isInterState: boolean; roundOff?: boolean; withoutPayment?: boolean }
 ): CalcResult => {
     const invPct = Number(opts.invoiceDiscountPercent || 0);
     if (invPct < 0 || invPct > 100) throw new Error('Invoice discount must be between 0 and 100%');
@@ -110,7 +111,9 @@ export const calculateInvoice = (
         let c = 0;
         let s = 0;
         let i = 0;
-        if (opts.isInterState) {
+        if (opts.withoutPayment) {
+            // Zero-rated supply under LUT/bond: rate is shown, no tax is charged
+        } else if (opts.isInterState) {
             i = percentOf(taxableP, taxRate);
         } else {
             c = percentOf(taxableP, taxRate / 2);

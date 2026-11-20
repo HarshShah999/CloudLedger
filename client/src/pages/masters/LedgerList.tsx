@@ -4,6 +4,7 @@ import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Plus, Search, Edit2, Trash2, Eye } from 'lucide-react';
 import api, { apiError } from '../../api/axios';
+import { stateFromGstin, useGstMeta } from '../../lib/gstMeta';
 import { useNavigate } from 'react-router-dom';
 import { notify } from '../../utils/notification';
 
@@ -19,6 +20,8 @@ interface Ledger {
     phone?: string;
     email?: string;
     address?: string;
+    gst_registration_type?: string;
+    pan?: string;
 }
 
 interface Group {
@@ -35,6 +38,7 @@ export const LedgerList: React.FC = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [showModal, setShowModal] = useState(false);
     const [editingLedger, setEditingLedger] = useState<Ledger | null>(null);
+    const gstMeta = useGstMeta();
     const [formData, setFormData] = useState({
         name: '',
         groupId: '',
@@ -44,7 +48,9 @@ export const LedgerList: React.FC = () => {
         gstin: '',
         phone: '',
         email: '',
-        address: ''
+        address: '',
+        gstRegistrationType: '',
+        pan: ''
     });
 
     const fetchLedgers = async () => {
@@ -110,7 +116,9 @@ export const LedgerList: React.FC = () => {
             gstin: ledger.gstin || '',
             phone: ledger.phone || '',
             email: ledger.email || '',
-            address: ledger.address || ''
+            address: ledger.address || '',
+            gstRegistrationType: ledger.gst_registration_type || '',
+            pan: ledger.pan || ''
         });
         setShowModal(true);
     };
@@ -141,7 +149,9 @@ export const LedgerList: React.FC = () => {
             gstin: '',
             phone: '',
             email: '',
-            address: ''
+            address: '',
+            gstRegistrationType: '',
+            pan: ''
         });
     };
 
@@ -279,17 +289,48 @@ export const LedgerList: React.FC = () => {
 
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <Input
-                                    label="State"
-                                    placeholder="e.g. Maharashtra"
-                                    value={formData.state}
-                                    onChange={(e) => setFormData({ ...formData, state: e.target.value })}
-                                />
-                                <Input
                                     label="GSTIN"
-                                    placeholder="27ABCDE1234F1Z5"
+                                    placeholder="27ABCDE1234F1Z0"
                                     value={formData.gstin}
-                                    onChange={(e) => setFormData({ ...formData, gstin: e.target.value.toUpperCase() })}
+                                    onChange={(e) => {
+                                        const gstin = e.target.value.toUpperCase();
+                                        const st = stateFromGstin(gstin, gstMeta.states);
+                                        setFormData({
+                                            ...formData,
+                                            gstin,
+                                            state: st || formData.state,
+                                            gstRegistrationType: gstin && ['', 'UNREGISTERED', 'CONSUMER'].includes(formData.gstRegistrationType) ? 'REGULAR' : formData.gstRegistrationType,
+                                        });
+                                    }}
                                     maxLength={15}
+                                />
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 mb-1">State</label>
+                                    <select className="input-field" value={formData.state} onChange={(e) => setFormData({ ...formData, state: e.target.value })}>
+                                        <option value="">Select state</option>
+                                        {gstMeta.states.map((st) => (
+                                            <option key={st.code} value={st.name}>{st.code} – {st.name}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 mb-1">GST registration</label>
+                                    <select className="input-field" value={formData.gstRegistrationType} onChange={(e) => setFormData({ ...formData, gstRegistrationType: e.target.value })}>
+                                        <option value="">Not applicable</option>
+                                        <option value="REGULAR">Registered – regular</option>
+                                        <option value="COMPOSITION">Registered – composition</option>
+                                        <option value="UNREGISTERED">Unregistered business</option>
+                                        <option value="CONSUMER">Consumer</option>
+                                        <option value="SEZ">SEZ unit / developer</option>
+                                        <option value="OVERSEAS">Overseas (export / import)</option>
+                                    </select>
+                                </div>
+                                <Input
+                                    label="PAN (for TDS)"
+                                    placeholder="ABCDE1234F"
+                                    value={formData.pan}
+                                    maxLength={10}
+                                    onChange={(e) => setFormData({ ...formData, pan: e.target.value.toUpperCase() })}
                                 />
                             </div>
 

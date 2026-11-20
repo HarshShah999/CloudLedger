@@ -1,6 +1,31 @@
 import { Request, Response } from 'express';
 import { query } from '../config/db';
 import { AppError } from '../middleware/errorHandler';
+import { stateCode, stateName, validateGstin } from '../utils/gst';
+
+/**
+ * Normalises a party's GST profile: state from GSTIN, registration type defaults,
+ * and consistency checks (a GSTIN's state code must match the state).
+ */
+const gstProfile = (b: any) => {
+    const gstin = b.gstin ? String(b.gstin).toUpperCase() : null;
+    let state = b.state || null;
+    let type = b.gstRegistrationType || null;
+    if (gstin) {
+        const check = validateGstin(gstin);
+        if (!check.valid) throw new AppError(check.reason, 400);
+        const fromGstin = stateName(check.stateCode);
+        if (!state) state = fromGstin;
+        else if (stateCode(state) && stateCode(state) !== check.stateCode) {
+            throw new AppError(`GSTIN belongs to ${fromGstin}, but the state is ${state}`, 400);
+        }
+        if (type === 'UNREGISTERED' || type === 'CONSUMER') throw new AppError('A party with a GSTIN cannot be unregistered', 400);
+        if (!type) type = 'REGULAR';
+    } else if (type === 'REGULAR' || type === 'COMPOSITION' || type === 'SEZ') {
+        throw new AppError('Enter the GSTIN for a registered party', 400);
+    }
+    return { gstin, state, type, pan: b.pan ? String(b.pan).toUpperCase() : gstin ? gstin.slice(2, 12) : null };
+};
 
 const assertGroupInCompany = async (companyId: string, groupId: string | null | undefined) => {
     if (!groupId) return;
@@ -57,16 +82,17 @@ export const getLedgers = async (req: Request, res: Response) => {
 
 export const createLedger = async (req: Request, res: Response) => {
     const companyId = req.company!.id;
-    const { groupId, name, openingBalance, openingBalanceType, state, gstin, email, phone, address } = req.body;
+    const { groupId, name, openingBalance, openingBalanceType, email, phone, address } = req.body;
     await assertGroupInCompany(companyId, groupId);
     await assertUniqueName(companyId, name);
+    const g = gstProfile(req.body);
     const result = await query(
         `INSERT INTO ledgers (company_id, group_id, name, opening_balance, opening_balance_type, current_balance,
-                              state, gstin, email, phone, address)
-         VALUES ($1, $2, $3, $4, $5, $4, $6, $7, $8, $9, $10) RETURNING *`,
+                              state, gstin, email, phone, address, gst_registration_type, pan)
+         VALUES ($1, $2, $3, $4, $5, $4, $6, $7, $8, $9, $10, $11, $12) RETURNING *`,
         [
             companyId, groupId, name.trim(), openingBalance || 0, openingBalanceType || 'Dr',
-            state || null, gstin || null, email || null, phone || null, address || null,
+            g.state, g.gstin, email || null, phone || null, address || null, g.type, g.pan,
         ]
     );
     res.status(201).json({ status: 'success', data: { ledger: result.rows[0] } });
@@ -75,19 +101,28 @@ export const createLedger = async (req: Request, res: Response) => {
 export const updateLedger = async (req: Request, res: Response) => {
     const companyId = req.company!.id;
     const { id } = req.params;
-    const { name, groupId, openingBalance, openingBalanceType, state, gstin, email, phone, address } = req.body;
+    const { name, groupId, openingBalance, openingBalanceType, email, phone, address } = req.body;
     await assertGroupInCompany(companyId, groupId);
     if (name) await assertUniqueName(companyId, name, id);
+    // Fields not sent keep their current values
+    const cur = (await query('SELECT * FROM ledgers WHERE id = $1 AND company_id = $2', [id, companyId])).rows[0];
+    if (!cur) throw new AppError('Ledger not found', 404);
+    const pick = (k: string, col: string) => (k in req.body ? req.body[k] : cur[col]);
+    const g = gstProfile({
+        gstin: pick('gstin', 'gstin'), state: pick('state', 'state'),
+        gstRegistrationType: pick('gstRegistrationType', 'gst_registration_type'), pan: pick('pan', 'pan'),
+    });
 
     const result = await query(
         `UPDATE ledgers SET
             name = COALESCE($1, name), group_id = COALESCE($2, group_id),
             opening_balance = COALESCE($3, opening_balance), opening_balance_type = COALESCE($4, opening_balance_type),
-            state = $5, gstin = $6, email = $7, phone = $8, address = $9
+            state = $5, gstin = $6, email = $7, phone = $8, address = $9, gst_registration_type = $12, pan = $13
          WHERE id = $10 AND company_id = $11 RETURNING *`,
         [
             name?.trim() || null, groupId || null, openingBalance ?? null, openingBalanceType || null,
-            state || null, gstin || null, email || null, phone || null, address || null, id, companyId,
+            g.state, g.gstin, pick('email', 'email') || null, pick('phone', 'phone') || null, pick('address', 'address') || null,
+            id, companyId, g.type, g.pan,
         ]
     );
     if (!result.rows.length) throw new AppError('Ledger not found', 404);

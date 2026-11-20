@@ -5,6 +5,8 @@ import { resolveFinancialYear, toDateString } from './financialYear';
 import { ensureSystemLedger } from './companySetup';
 import { postVoucher, removeVoucher, assertPeriodOpen, DrCr, EntryInput } from './posting';
 import { reserveNumber } from './numberSeries';
+import { fromPaise, toPaise } from '../utils/money';
+import { SupplyType, isAlwaysInterState, isWithoutPayment, stateCode, stateName } from '../utils/gst';
 
 /** Documents that post to the books and move stock. */
 export type PostingType = 'SALES' | 'PURCHASE' | 'CREDIT_NOTE' | 'DEBIT_NOTE';
@@ -48,7 +50,23 @@ export interface InvoiceInput {
     status?: string | null;
     validUntil?: string | Date | null;
     sourceDocumentId?: string | null;
+    /** GST supply type: NORMAL, SEZ_WPAY, SEZ_WOPAY, EXPORT_WPAY, EXPORT_WOPAY, DEEMED_EXPORT */
+    supplyType?: string | null;
+    /** Purchase under reverse charge (we pay the GST) */
+    reverseCharge?: boolean;
+    /** Income-tax TDS deducted on a purchase bill */
+    tdsSection?: string | null;
+    tdsRate?: number | null;
+    shippingBillNumber?: string | null;
+    shippingBillDate?: string | Date | null;
+    portCode?: string | null;
 }
+
+/** Values for supply_type .. port_code, in column order. */
+const gstColumns = (input: InvoiceInput, doc: { supply: string; rcm: boolean; tdsRate: number; tdsAmount: number }) => [
+    doc.supply, doc.rcm, doc.tdsRate ? input.tdsSection || null : null, doc.tdsRate, doc.tdsAmount,
+    input.shippingBillNumber || null, input.shippingBillDate ? toDateString(input.shippingBillDate) : null, input.portCode || null,
+];
 
 const orderStatus = (type: InvoiceType, requested?: string | null): string | null => {
     if (isPosting(type)) return null;
@@ -83,28 +101,37 @@ const STOCK_SIGN: Record<PostingType, number> = { SALES: -1, PURCHASE: 1, CREDIT
 
 const opposite = (t: DrCr): DrCr => (t === 'Dr' ? 'Cr' : 'Dr');
 
-/** Builds balanced voucher entries for an invoice. */
+/**
+ * Builds balanced voucher entries for an invoice.
+ *  - Reverse charge (purchases): the supplier is paid without GST; we book the
+ *    input tax (ITC) and an equal "GST payable under RCM" liability.
+ *  - TDS (purchases): the supplier is credited net of TDS; TDS Payable is credited.
+ */
 export const buildInvoiceEntries = async (
     db: Queryable,
     companyId: string,
     type: PostingType,
     partyLedgerId: string,
     accountLedgerId: string,
-    calc: CalcResult
+    calc: CalcResult,
+    opts: { reverseCharge?: boolean; tdsAmount?: number } = {}
 ): Promise<EntryInput[]> => {
     const side = SIDES[type];
+    const tds = opts.tdsAmount || 0;
     const entries: EntryInput[] = [
-        { ledgerId: partyLedgerId, amount: calc.grandTotal, type: side.party },
+        { ledgerId: partyLedgerId, amount: fromPaise(toPaise(calc.grandTotal) - toPaise(tds)), type: side.party },
         { ledgerId: accountLedgerId, amount: calc.subtotal, type: side.account },
     ];
     const taxes: [string, number][] = [
-        [`${side.tax}_CGST`, calc.cgst],
-        [`${side.tax}_SGST`, calc.sgst],
-        [`${side.tax}_IGST`, calc.igst],
+        ['CGST', calc.cgst],
+        ['SGST', calc.sgst],
+        ['IGST', calc.igst],
     ];
-    for (const [code, amount] of taxes) {
-        if (amount !== 0) {
-            entries.push({ ledgerId: await ensureSystemLedger(db, companyId, code), amount, type: side.account });
+    for (const [tax, amount] of taxes) {
+        if (amount === 0) continue;
+        entries.push({ ledgerId: await ensureSystemLedger(db, companyId, `${side.tax}_${tax}`), amount, type: side.account });
+        if (opts.reverseCharge) {
+            entries.push({ ledgerId: await ensureSystemLedger(db, companyId, `RCM_${tax}`), amount, type: opposite(side.account) });
         }
     }
     if (calc.roundOff !== 0) {
@@ -115,14 +142,56 @@ export const buildInvoiceEntries = async (
             type: calc.roundOff > 0 ? side.account : opposite(side.account),
         });
     }
+    if (tds > 0) {
+        entries.push({ ledgerId: await ensureSystemLedger(db, companyId, 'TDS_PAYABLE'), amount: tds, type: side.party });
+    }
     return entries;
+};
+
+/**
+ * Totals for a document, applying the supply type (exports/SEZ always IGST;
+ * zero-rated without payment carries no tax), reverse charge and TDS.
+ */
+const computeDocument = (input: InvoiceInput, type: InvoiceType, ctx: Awaited<ReturnType<typeof loadContext>>) => {
+    const salesSide = ['SALES', 'CREDIT_NOTE', 'DEBIT_NOTE', 'QUOTATION', 'SALES_ORDER'].includes(type);
+    const supply = (input.supplyType ||
+        (salesSide && ctx.partyRegistration === 'SEZ' ? 'SEZ_WPAY' : salesSide && ctx.partyRegistration === 'OVERSEAS' ? 'EXPORT_WPAY' : 'NORMAL')) as SupplyType;
+    const rcm = !!input.reverseCharge;
+    if (rcm && type !== 'PURCHASE') throw new AppError('Reverse charge applies to purchase bills only', 400);
+    if (supply !== 'NORMAL' && !salesSide) {
+        throw new AppError('Export / SEZ supply types apply to sales documents', 400);
+    }
+    let calc: CalcResult;
+    try {
+        calc = calculateInvoice(input.items, {
+            invoiceDiscountPercent: input.discountPercent,
+            isInterState: isAlwaysInterState(supply) || ctx.isInterState,
+            withoutPayment: isWithoutPayment(supply),
+            // Under reverse charge the supplier's bill excludes tax: round what is actually payable
+            roundOff: ctx.company.round_off_invoices && !rcm,
+        });
+    } catch (e) {
+        throw new AppError((e as Error).message, 400);
+    }
+    if (rcm) {
+        const payableP = toPaise(calc.subtotal);
+        const rounded = ctx.company.round_off_invoices ? Math.round(payableP / 100) * 100 : payableP;
+        calc = { ...calc, roundOff: fromPaise(rounded - payableP), grandTotal: fromPaise(rounded) };
+    }
+
+    const tdsRate = Number(input.tdsRate || 0);
+    if (tdsRate && type !== 'PURCHASE') throw new AppError('TDS can be deducted on purchase bills only', 400);
+    if (tdsRate < 0 || tdsRate > 30) throw new AppError('Invalid TDS rate', 400);
+    // TDS is on the value excluding GST, rounded to the rupee (section 288B)
+    const tdsAmount = tdsRate ? Math.round((calc.subtotal * tdsRate) / 100) : 0;
+    return { calc, supply, rcm, tdsRate, tdsAmount, isInterState: isAlwaysInterState(supply) || ctx.isInterState };
 };
 
 const loadContext = async (db: Queryable, companyId: string, input: InvoiceInput) => {
     const company = (await db.query('SELECT state, round_off_invoices FROM companies WHERE id = $1', [companyId])).rows[0];
     if (!company) throw new AppError('Company not found', 404);
 
-    const ledgers = await db.query('SELECT id, state FROM ledgers WHERE company_id = $1 AND id = ANY($2::uuid[])', [
+    const ledgers = await db.query('SELECT id, state, gst_registration_type FROM ledgers WHERE company_id = $1 AND id = ANY($2::uuid[])', [
         companyId,
         [input.partyLedgerId, input.salesLedgerId],
     ]);
@@ -142,10 +211,14 @@ const loadContext = async (db: Queryable, companyId: string, input: InvoiceInput
         if (found.rows.length !== unique.length) throw new AppError('One or more items do not belong to this company', 400);
     }
 
-    const placeOfSupply = input.placeOfSupply || party.state || company.state || null;
+    // Exports go to "Foreign Country"; otherwise the buyer's state (or our own for walk-in sales)
+    const isExport = (input.supplyType || '').startsWith('EXPORT') || (!input.supplyType && party.gst_registration_type === 'OVERSEAS');
+    const rawPos = input.placeOfSupply || (isExport ? '96' : party.state || company.state || null);
+    const placeOfSupply = rawPos ? stateName(stateCode(rawPos)) ?? rawPos : null;
     return {
         company,
         placeOfSupply,
+        partyRegistration: party.gst_registration_type as string | null,
         isInterState: isInterStateSupply(company.state, placeOfSupply),
     };
 };
@@ -209,16 +282,8 @@ export const createInvoice = async (db: Queryable, companyId: string, input: Inv
     const date = toDateString(input.date);
     const fy = await resolveFinancialYear(db, companyId, date);
 
-    let calc: CalcResult;
-    try {
-        calc = calculateInvoice(input.items, {
-            invoiceDiscountPercent: input.discountPercent,
-            isInterState: ctx.isInterState,
-            roundOff: ctx.company.round_off_invoices,
-        });
-    } catch (e) {
-        throw new AppError((e as Error).message, 400);
-    }
+    const doc = computeDocument(input, type, ctx);
+    const calc = doc.calc;
 
     const number = await reserveNumber(db, companyId, type, fy, input.invoiceNumber);
     await assertUniqueNumber(db, companyId, type, fy.id, number);
@@ -232,7 +297,7 @@ export const createInvoice = async (db: Queryable, companyId: string, input: Inv
                   voucherNumber: number,
                   date,
                   narration: narrationFor(type, number, input.notes),
-                  entries: await buildInvoiceEntries(db, companyId, type, input.partyLedgerId, input.salesLedgerId, calc),
+                  entries: await buildInvoiceEntries(db, companyId, type, input.partyLedgerId, input.salesLedgerId, calc, { reverseCharge: doc.rcm, tdsAmount: doc.tdsAmount }),
               },
               undefined,
               { fy, numberDocType: type }
@@ -245,8 +310,11 @@ export const createInvoice = async (db: Queryable, companyId: string, input: Inv
                 company_id, voucher_id, party_ledger_id, sales_ledger_id, invoice_number, date, due_date, type,
                 subtotal, tax_total, grand_total, notes, discount_percent, discount_amount, paid_amount,
                 outstanding_amount, payment_status, original_invoice_number, original_invoice_date,
-                financial_year_id, place_of_supply, round_off, status, valid_until, source_document_id
-            ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,0,$23,$24,$15,$16,$17,$18,$19,$20,$21,$22)
+                financial_year_id, place_of_supply, round_off, status, valid_until, source_document_id,
+                supply_type, reverse_charge, tds_section, tds_rate, tds_amount, shipping_bill_number,
+                shipping_bill_date, port_code
+            ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,0,$23,$24,$15,$16,$17,$18,$19,$20,$21,$22,
+                      $25,$26,$27,$28,$29,$30,$31,$32)
             RETURNING *`,
             [
                 companyId, voucher?.id ?? null, input.partyLedgerId, input.salesLedgerId, number, date,
@@ -257,7 +325,8 @@ export const createInvoice = async (db: Queryable, companyId: string, input: Inv
                 fy.id, ctx.placeOfSupply, calc.roundOff, status,
                 input.validUntil ? toDateString(input.validUntil) : null, input.sourceDocumentId ?? null,
                 // Quotations and orders are never "owed": no outstanding, no payment status
-                isPosting(type) ? calc.grandTotal : 0, isPosting(type) ? 'UNPAID' : null,
+                isPosting(type) ? fromPaise(toPaise(calc.grandTotal) - toPaise(doc.tdsAmount)) : 0, isPosting(type) ? 'UNPAID' : null,
+                ...gstColumns(input, doc),
             ]
         )
     ).rows[0];
@@ -288,16 +357,8 @@ export const updateInvoice = async (db: Queryable, companyId: string, id: string
     const date = toDateString(input.date);
     const fy = await resolveFinancialYear(db, companyId, date);
 
-    let calc: CalcResult;
-    try {
-        calc = calculateInvoice(input.items, {
-            invoiceDiscountPercent: input.discountPercent,
-            isInterState: ctx.isInterState,
-            roundOff: ctx.company.round_off_invoices,
-        });
-    } catch (e) {
-        throw new AppError((e as Error).message, 400);
-    }
+    const doc = computeDocument(input, type, ctx);
+    const calc = doc.calc;
 
     const number = input.invoiceNumber?.trim() || existing.invoice_number;
     await assertUniqueNumber(db, companyId, type, fy.id, number, id);
@@ -315,7 +376,7 @@ export const updateInvoice = async (db: Queryable, companyId: string, id: string
             voucherNumber: number,
             date,
             narration: narrationFor(type, number, input.notes),
-            entries: await buildInvoiceEntries(db, companyId, type, input.partyLedgerId, input.salesLedgerId, calc),
+            entries: await buildInvoiceEntries(db, companyId, type, input.partyLedgerId, input.salesLedgerId, calc, { reverseCharge: doc.rcm, tdsAmount: doc.tdsAmount }),
         };
         voucher = existing.voucher_id
             ? await postVoucher(db, voucherInput, existing.voucher_id, { fy })
@@ -329,6 +390,8 @@ export const updateInvoice = async (db: Queryable, companyId: string, id: string
                 due_date = $6, subtotal = $7, tax_total = $8, grand_total = $9, notes = $10,
                 discount_percent = $11, discount_amount = $12, paid_amount = 0,
                 outstanding_amount = $20, payment_status = $21,
+                supply_type = $22, reverse_charge = $23, tds_section = $24, tds_rate = $25, tds_amount = $26,
+                shipping_bill_number = $27, shipping_bill_date = $28, port_code = $29,
                 original_invoice_number = $13, original_invoice_date = $14,
                 financial_year_id = $15, place_of_supply = $16, round_off = $17,
                 valid_until = COALESCE($19, valid_until)
@@ -341,7 +404,8 @@ export const updateInvoice = async (db: Queryable, companyId: string, id: string
                 input.originalInvoiceDate ? toDateString(input.originalInvoiceDate) : null,
                 fy.id, ctx.placeOfSupply, calc.roundOff, id,
                 input.validUntil ? toDateString(input.validUntil) : null,
-                isPosting(type) ? calc.grandTotal : 0, isPosting(type) ? 'UNPAID' : null,
+                isPosting(type) ? fromPaise(toPaise(calc.grandTotal) - toPaise(doc.tdsAmount)) : 0, isPosting(type) ? 'UNPAID' : null,
+                ...gstColumns(input, doc),
             ]
         )
     ).rows[0];

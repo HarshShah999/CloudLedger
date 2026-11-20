@@ -21,6 +21,18 @@ Cloud accounting for Indian businesses: double-entry books, GST invoicing, payme
 - **Outstanding (ageing)**: receivables and payables by not due / 1–30 / 31–60 / 61–90 / 90+ days, with a one-tap WhatsApp payment reminder per customer.
 - **Books**: Day Book and Cash / Bank Book.
 - **Quotation → Sales Order → Invoice** and **Purchase Order → Purchase Bill**, converted with one click. Quotations and orders never touch the books or stock until they become a bill.
+- **GST compliance**:
+  - GSTIN checksum validation, with state and PAN filled in from the GSTIN.
+  - Registration types: regular, composition, unregistered, consumer, SEZ, overseas.
+  - Place of supply by GST state code.
+  - Exports and SEZ supplies, with or without payment (LUT), including shipping bill details.
+  - Reverse charge on purchases.
+  - TDS deducted on purchase bills, with the supplier owed the net amount.
+- **GST returns**:
+  - **GSTR-1 JSON** ready to upload on the GST portal: B2B, B2CL, B2CS, credit notes, exports, HSN summary split B2B/B2C, documents issued.
+  - **GSTR-3B** tables 3.1 and 4 from your books.
+  - **GSTR-2B upload and matching** against purchase bills, showing ITC at risk.
+  - **TDS register** by section.
 - **Payments** against invoices into a chosen cash or bank account, with paid/partial/outstanding tracking.
 - **Financial years**: the Indian April–March year is created automatically. A closed year is locked: nothing can be posted, edited or deleted in it.
 - **Reports**: Trial Balance, Profit & Loss (with gross profit), Balance Sheet (always balances: includes current profit and any opening-balance difference), Ledger Statement with running balance, GSTR-1, GSTR-3B and Excel export.

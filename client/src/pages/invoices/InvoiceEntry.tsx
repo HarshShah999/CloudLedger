@@ -7,12 +7,14 @@ import api, { apiError } from '../../api/axios';
 import { useNavigate, useParams } from 'react-router-dom';
 import { calculateInvoice, isInterStateSupply } from '../../lib/invoiceCalc';
 import { DocType, docInfo } from '../../lib/docTypes';
+import { useGstMeta } from '../../lib/gstMeta';
 import { notify } from '../../utils/notification';
 
 interface Ledger {
     id: string;
     name: string;
     state?: string;
+    gst_registration_type?: string | null;
 }
 
 interface Item {
@@ -55,6 +57,7 @@ export const InvoiceEntry: React.FC<{ type?: DocType }> = ({ type: initialType }
     const [loading, setLoading] = useState(false);
     const [companyState, setCompanyState] = useState('');
 
+    const gstMeta = useGstMeta();
     const [formData, setFormData] = useState({
         partyLedgerId: '',
         salesLedgerId: '',
@@ -65,7 +68,15 @@ export const InvoiceEntry: React.FC<{ type?: DocType }> = ({ type: initialType }
         discountPercent: 0,
         originalInvoiceNumber: '',
         originalInvoiceDate: '',
-        validUntil: ''
+        validUntil: '',
+        placeOfSupply: '',
+        supplyType: '',
+        reverseCharge: false,
+        tdsSection: '',
+        tdsRate: 0,
+        shippingBillNumber: '',
+        shippingBillDate: '',
+        portCode: ''
     });
 
     const [invoiceItems, setInvoiceItems] = useState<InvoiceItem[]>([
@@ -132,6 +143,14 @@ export const InvoiceEntry: React.FC<{ type?: DocType }> = ({ type: initialType }
                     discountPercent: Number(invoice.discount_percent),
                     originalInvoiceNumber: invoice.original_invoice_number || '',
                     originalInvoiceDate: invoice.original_invoice_date ? String(invoice.original_invoice_date).slice(0, 10) : '',
+                    placeOfSupply: invoice.place_of_supply || '',
+                    supplyType: invoice.supply_type && invoice.supply_type !== 'NORMAL' ? invoice.supply_type : '',
+                    reverseCharge: !!invoice.reverse_charge,
+                    tdsSection: invoice.tds_section || '',
+                    tdsRate: Number(invoice.tds_rate || 0),
+                    shippingBillNumber: invoice.shipping_bill_number || '',
+                    shippingBillDate: invoice.shipping_bill_date ? String(invoice.shipping_bill_date).slice(0, 10) : '',
+                    portCode: invoice.port_code || '',
                     validUntil: invoice.valid_until ? String(invoice.valid_until).slice(0, 10) : ''
                 });
 
@@ -193,22 +212,37 @@ export const InvoiceEntry: React.FC<{ type?: DocType }> = ({ type: initialType }
     };
 
     // Same maths as the server, so what you see is exactly what gets saved.
-    const partyState = ledgers.find(l => l.id === formData.partyLedgerId)?.state || '';
-    const isInterState = isInterStateSupply(companyState, partyState || companyState);
+    const party = ledgers.find(l => l.id === formData.partyLedgerId);
+    const partyState = party?.state || '';
+    const info = docInfo(type || 'SALES');
+    const supply = formData.supplyType || (info.sales && party?.gst_registration_type === 'SEZ' ? 'SEZ_WPAY' : info.sales && party?.gst_registration_type === 'OVERSEAS' ? 'EXPORT_WPAY' : 'NORMAL');
+    const isExport = supply.startsWith('EXPORT');
+    const isInterState = (supply !== 'NORMAL' && supply !== 'DEEMED_EXPORT') ||
+        isInterStateSupply(companyState, formData.placeOfSupply || (isExport ? 'Foreign Country' : partyState || companyState));
+    const rcm = type === 'PURCHASE' && formData.reverseCharge;
+    // Same maths as the server, so what you see is exactly what gets saved.
     const preview = (() => {
         try {
-            return calculateInvoice(
+            const roundOff = selectedCompany?.round_off_invoices ?? true;
+            const calc = calculateInvoice(
                 invoiceItems.filter(i => Number(i.quantity) > 0),
                 {
                     isInterState,
                     invoiceDiscountPercent: formData.discountPercent,
-                    roundOff: selectedCompany?.round_off_invoices ?? true,
+                    roundOff: roundOff && !rcm,
+                    withoutPayment: supply === 'SEZ_WOPAY' || supply === 'EXPORT_WOPAY',
                 }
             );
+            if (!rcm) return calc;
+            // Reverse charge: the supplier is paid without GST
+            const payable = calc.subtotal;
+            const rounded = roundOff ? Math.round(payable) : payable;
+            return { ...calc, roundOff: Math.round((rounded - payable) * 100) / 100, grandTotal: rounded };
         } catch {
             return null;
         }
     })();
+    const tdsAmount = type === 'PURCHASE' && Number(formData.tdsRate) > 0 && preview ? Math.round((preview.subtotal * Number(formData.tdsRate)) / 100) : 0;
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -219,6 +253,8 @@ export const InvoiceEntry: React.FC<{ type?: DocType }> = ({ type: initialType }
             companyId: selectedCompany.id,
             type,
             ...formData,
+            supplyType: formData.supplyType || null,
+            tdsRate: Number(formData.tdsRate || 0),
             items: invoiceItems.map(item => ({
                 itemId: item.itemId || null,
                 description: item.description,
@@ -333,6 +369,67 @@ export const InvoiceEntry: React.FC<{ type?: DocType }> = ({ type: initialType }
                                 value={formData.originalInvoiceDate}
                                 onChange={(e) => setFormData({ ...formData, originalInvoiceDate: e.target.value })}
                             />
+                        </>
+                    )}
+                </div>
+
+                {/* GST & TDS */}
+                <div className="card grid grid-cols-1 gap-4 sm:grid-cols-3">
+                    <div>
+                        <label className="mb-1 block text-sm font-medium text-slate-700">Place of supply</label>
+                        <select className="input-field" value={formData.placeOfSupply} onChange={(e) => setFormData({ ...formData, placeOfSupply: e.target.value })}>
+                            <option value="">{isExport ? 'Foreign Country (export)' : `Party's state${partyState ? ` (${partyState})` : ''}`}</option>
+                            {gstMeta.states.map((st) => (
+                                <option key={st.code} value={st.name}>{st.code} – {st.name}</option>
+                            ))}
+                        </select>
+                        <p className="mt-1 text-xs text-slate-500">{isInterState ? 'Inter-state: IGST' : 'Intra-state: CGST + SGST'}</p>
+                    </div>
+                    {info.sales && (
+                        <div>
+                            <label className="mb-1 block text-sm font-medium text-slate-700">Type of supply</label>
+                            <select className="input-field" value={formData.supplyType || supply} onChange={(e) => setFormData({ ...formData, supplyType: e.target.value === 'NORMAL' ? '' : e.target.value })}>
+                                <option value="NORMAL">Regular (domestic)</option>
+                                <option value="SEZ_WPAY">SEZ – with payment of IGST</option>
+                                <option value="SEZ_WOPAY">SEZ – without payment (LUT)</option>
+                                <option value="EXPORT_WPAY">Export – with payment of IGST</option>
+                                <option value="EXPORT_WOPAY">Export – without payment (LUT)</option>
+                                <option value="DEEMED_EXPORT">Deemed export</option>
+                            </select>
+                        </div>
+                    )}
+                    {isExport && (
+                        <>
+                            <Input label="Shipping bill no." value={formData.shippingBillNumber} onChange={(e) => setFormData({ ...formData, shippingBillNumber: e.target.value })} />
+                            <Input label="Shipping bill date" type="date" value={formData.shippingBillDate} onChange={(e) => setFormData({ ...formData, shippingBillDate: e.target.value })} />
+                            <Input label="Port code" placeholder="INNSA1" value={formData.portCode} onChange={(e) => setFormData({ ...formData, portCode: e.target.value.toUpperCase() })} />
+                        </>
+                    )}
+                    {type === 'PURCHASE' && (
+                        <>
+                            <label className="flex items-center gap-2 self-center text-sm text-slate-700">
+                                <input type="checkbox" checked={formData.reverseCharge} onChange={(e) => setFormData({ ...formData, reverseCharge: e.target.checked })} />
+                                Reverse charge (we pay the GST)
+                            </label>
+                            <div>
+                                <label className="mb-1 block text-sm font-medium text-slate-700">TDS</label>
+                                <select
+                                    className="input-field"
+                                    value={formData.tdsSection}
+                                    onChange={(e) => {
+                                        const sec = gstMeta.tdsSections.find((t) => t.code === e.target.value);
+                                        setFormData({ ...formData, tdsSection: e.target.value, tdsRate: sec ? sec.rate : 0 });
+                                    }}
+                                >
+                                    <option value="">No TDS</option>
+                                    {gstMeta.tdsSections.map((t) => (
+                                        <option key={t.code} value={t.code}>{t.label}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            {formData.tdsSection && (
+                                <Input label="TDS rate %" type="number" step="0.001" min="0" max="30" value={formData.tdsRate} onChange={(e) => setFormData({ ...formData, tdsRate: Number(e.target.value) })} />
+                            )}
                         </>
                     )}
                 </div>
@@ -496,6 +593,21 @@ export const InvoiceEntry: React.FC<{ type?: DocType }> = ({ type: initialType }
                                 <span>Grand Total:</span>
                                 <span className="font-mono">₹{grandTotal.toFixed(2)}</span>
                             </div>
+                            {rcm && preview && (
+                                <p className="text-xs text-amber-700">GST of ₹{preview.taxTotal.toFixed(2)} is payable by you under reverse charge (not paid to the supplier).</p>
+                            )}
+                            {tdsAmount > 0 && (
+                                <>
+                                    <div className="flex justify-between text-slate-600">
+                                        <span>Less TDS ({formData.tdsSection} @ {formData.tdsRate}%):</span>
+                                        <span className="font-mono">-₹{tdsAmount.toFixed(2)}</span>
+                                    </div>
+                                    <div className="flex justify-between font-semibold text-slate-800">
+                                        <span>Payable to supplier:</span>
+                                        <span className="font-mono">₹{(grandTotal - tdsAmount).toFixed(2)}</span>
+                                    </div>
+                                </>
+                            )}
                         </div>
                     </div>
                     <div className="mt-6 flex justify-end gap-4">

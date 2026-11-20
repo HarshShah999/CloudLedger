@@ -1,16 +1,18 @@
 import { Request, Response } from 'express';
 import { query } from '../config/db';
 import { AppError } from '../middleware/errorHandler';
+import { uqcFor } from '../utils/gst';
 
 /* ---------- Units ---------- */
 
 export const createUnit = async (req: Request, res: Response) => {
     const { name, symbol } = req.body;
     try {
-        const result = await query('INSERT INTO units (company_id, name, symbol) VALUES ($1, $2, $3) RETURNING *', [
+        const result = await query('INSERT INTO units (company_id, name, symbol, uqc) VALUES ($1, $2, $3, $4) RETURNING *', [
             req.company!.id,
             name,
             symbol,
+            uqcFor(req.body.uqc, symbol),
         ]);
         res.status(201).json({ status: 'success', data: { unit: result.rows[0] } });
     } catch (error: any) {
@@ -40,15 +42,15 @@ const assertUnit = async (companyId: string, unitId?: string | null) => {
 };
 
 export const createItem = async (req: Request, res: Response) => {
-    const { name, hsnCode, unitId, taxRate, salesRate, purchaseRate, openingQuantity, description } = req.body;
+    const { name, hsnCode, unitId, taxRate, salesRate, purchaseRate, openingQuantity, description, itemType } = req.body;
     await assertUnit(req.company!.id, unitId);
     const result = await query(
         `INSERT INTO items (company_id, name, hsn_code, unit_id, tax_rate, sales_rate, purchase_rate,
-                            opening_quantity, current_quantity, description)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $8, $9) RETURNING *`,
+                            opening_quantity, current_quantity, description, item_type)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $8, $9, $10) RETURNING *`,
         [
             req.company!.id, name, hsnCode || null, unitId || null, taxRate || 0, salesRate || 0,
-            purchaseRate || 0, openingQuantity || 0, description || null,
+            purchaseRate || 0, openingQuantity || 0, description || null, itemType || 'GOODS',
         ]
     );
     res.status(201).json({ status: 'success', data: { item: result.rows[0] } });
@@ -65,15 +67,15 @@ export const getItems = async (req: Request, res: Response) => {
 };
 
 export const updateItem = async (req: Request, res: Response) => {
-    const { name, hsnCode, unitId, taxRate, salesRate, purchaseRate, description } = req.body;
+    const { name, hsnCode, unitId, taxRate, salesRate, purchaseRate, description, itemType } = req.body;
     await assertUnit(req.company!.id, unitId);
     const result = await query(
         `UPDATE items SET name = $1, hsn_code = $2, unit_id = $3, tax_rate = $4, sales_rate = $5,
-                purchase_rate = $6, description = $7
+                purchase_rate = $6, description = $7, item_type = $10
          WHERE id = $8 AND company_id = $9 RETURNING *`,
         [
             name, hsnCode || null, unitId || null, taxRate || 0, salesRate || 0, purchaseRate || 0,
-            description || null, req.params.id, req.company!.id,
+            description || null, req.params.id, req.company!.id, itemType || 'GOODS',
         ]
     );
     if (!result.rows.length) throw new AppError('Item not found', 404);

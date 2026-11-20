@@ -16,6 +16,7 @@ interface Item {
     id: string;
     name: string;
     hsn_code: string;
+    item_type?: string;
     unit_id: string;
     unit_symbol: string;
     tax_rate: number;
@@ -36,6 +37,7 @@ export const ItemMaster: React.FC = () => {
     const [formData, setFormData] = useState({
         name: '',
         hsnCode: '',
+        itemType: 'GOODS',
         unitId: '',
         taxRate: 18,
         salesRate: 0,
@@ -126,6 +128,7 @@ export const ItemMaster: React.FC = () => {
         setFormData({
             name: '',
             hsnCode: '',
+        itemType: 'GOODS',
             unitId: units[0]?.id || '',
             taxRate: 18,
             salesRate: 0,
@@ -139,6 +142,7 @@ export const ItemMaster: React.FC = () => {
         setFormData({
             name: item.name,
             hsnCode: item.hsn_code,
+            itemType: item.item_type || 'GOODS',
             unitId: item.unit_id,
             taxRate: Number(item.tax_rate),
             salesRate: Number(item.sales_rate),
@@ -224,6 +228,13 @@ export const ItemMaster: React.FC = () => {
                                     value={formData.hsnCode}
                                     onChange={(e) => setFormData({ ...formData, hsnCode: e.target.value })}
                                 />
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 mb-1">Type</label>
+                                    <select className="input-field" value={formData.itemType} onChange={(e) => setFormData({ ...formData, itemType: e.target.value })}>
+                                        <option value="GOODS">Goods (HSN)</option>
+                                        <option value="SERVICES">Services (SAC)</option>
+                                    </select>
+                                </div>
                                 <div>
                                     <label className="block text-sm font-medium text-slate-700 mb-1">Unit</label>
                                     <div className="flex gap-2">

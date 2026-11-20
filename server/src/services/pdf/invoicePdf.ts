@@ -3,6 +3,15 @@ import { InvoiceDocument, DOC_SHORT } from '../documentService';
 import { pdfToBuffer } from '../../utils/pdfBuffer';
 import { COLORS, CONTENT_W, PAGE, createDoc, dmy, ensureSpace, footer, hline, inr, letterhead, safeImage, table } from './base';
 
+/** Declarations GST requires on zero-rated / deemed export invoices. */
+const SUPPLY_NOTES: Record<string, string> = {
+    EXPORT_WOPAY: 'Supply meant for export under LUT/bond without payment of IGST.',
+    EXPORT_WPAY: 'Supply meant for export on payment of IGST.',
+    SEZ_WOPAY: 'Supply meant for SEZ unit/developer for authorised operations under LUT/bond without payment of IGST.',
+    SEZ_WPAY: 'Supply meant for SEZ unit/developer for authorised operations on payment of IGST.',
+    DEEMED_EXPORT: 'Deemed export supply.',
+};
+
 const DEFAULT_TERMS = [
     'Goods once sold will not be taken back.',
     'Interest @18% p.a. may be charged on payments received after the due date.',
@@ -64,7 +73,9 @@ const drawInvoice = async (doc: PDFKit.PDFDocument, d: InvoiceDocument, copyLabe
     if (inv.due_date) meta.push(['Due Date', dmy(inv.due_date)]);
     if (inv.valid_until) meta.push(['Valid Until', dmy(inv.valid_until)]);
     if (inv.place_of_supply) meta.push(['Place of Supply', inv.place_of_supply]);
-    if (inv.type === 'SALES') meta.push(['Reverse Charge', 'No']);
+    if (inv.type === 'SALES' || inv.type === 'PURCHASE') meta.push(['Reverse Charge', inv.reverse_charge ? 'Yes' : 'No']);
+    if (inv.shipping_bill_number) meta.push(['Shipping Bill', `${inv.shipping_bill_number}${inv.shipping_bill_date ? ` dt. ${dmy(inv.shipping_bill_date)}` : ''}`]);
+    if (inv.port_code) meta.push(['Port Code', inv.port_code]);
     if (inv.original_invoice_number) {
         meta.push(['Against Invoice', `${inv.original_invoice_number}${inv.original_invoice_date ? ` dt. ${dmy(inv.original_invoice_date)}` : ''}`]);
     }
@@ -129,6 +140,10 @@ const drawInvoice = async (doc: PDFKit.PDFDocument, d: InvoiceDocument, copyLabe
     hline(doc, y, tx);
     y += 4;
     line('Total', `₹ ${inr(d.totals.grandTotal)}`, true);
+    if (Number(inv.tds_amount) > 0) {
+        line(`Less: TDS u/s ${inv.tds_section || ''} @ ${Number(inv.tds_rate)}%`, `-${inr(inv.tds_amount)}`);
+        line('Net payable', `₹ ${inr(d.totals.grandTotal - Number(inv.tds_amount))}`, true);
+    }
     if (d.totals.paid > 0) {
         line('Paid', inr(d.totals.paid));
         line('Balance due', `₹ ${inr(d.totals.balance)}`, true);
@@ -138,6 +153,10 @@ const drawInvoice = async (doc: PDFKit.PDFDocument, d: InvoiceDocument, copyLabe
     // Amount in words (left of totals)
     doc.font('B').fontSize(8).fillColor(COLORS.muted).text('AMOUNT IN WORDS', x, totalsTop, { width: CONTENT_W * 0.52 });
     doc.font('R').fontSize(8.5).fillColor(COLORS.text).text(d.amountInWords, x, doc.y + 2, { width: CONTENT_W * 0.52 });
+    const declaration = SUPPLY_NOTES[inv.supply_type] || (inv.reverse_charge ? 'Tax on this supply is payable by the recipient under reverse charge.' : '');
+    if (declaration) {
+        doc.font('B').fontSize(8).fillColor(COLORS.text).text(declaration, x, doc.y + 6, { width: CONTENT_W * 0.52 });
+    }
     if (inv.notes) {
         doc.font('B').fontSize(8).fillColor(COLORS.muted).text('NOTES', x, doc.y + 6, { width: CONTENT_W * 0.52 });
         doc.font('R').fontSize(8.5).fillColor(COLORS.text).text(inv.notes, x, doc.y + 2, { width: CONTENT_W * 0.52 });

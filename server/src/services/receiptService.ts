@@ -35,10 +35,10 @@ export const openInvoices = async (db: Queryable, companyId: string, partyLedger
     (
         await db.query(
             `SELECT i.id, i.invoice_number, i.type, i.date, i.due_date, i.grand_total,
-                    i.grand_total - COALESCE((SELECT SUM(p.amount) FROM payments p WHERE p.invoice_id = i.id), 0) AS outstanding
+                    i.grand_total - i.tds_amount - COALESCE((SELECT SUM(p.amount) FROM payments p WHERE p.invoice_id = i.id), 0) AS outstanding
              FROM invoices i
              WHERE i.company_id = $1 AND i.party_ledger_id = $2 AND i.type = ANY($3)
-               AND i.grand_total - COALESCE((SELECT SUM(p.amount) FROM payments p WHERE p.invoice_id = i.id), 0) > 0
+               AND i.grand_total - i.tds_amount - COALESCE((SELECT SUM(p.amount) FROM payments p WHERE p.invoice_id = i.id), 0) > 0
              ORDER BY COALESCE(i.due_date, i.date), i.date, i.invoice_number`,
             [companyId, partyLedgerId, SETTLES[direction]]
         )
@@ -75,7 +75,7 @@ const applyAllocations = async (
             throw new AppError(`A ${receipt.direction.toLowerCase()} cannot settle ${inv.invoice_number}`, 400);
         }
         const paid = await db.query('SELECT COALESCE(SUM(amount), 0) AS paid FROM payments WHERE invoice_id = $1', [invoiceId]);
-        const outstandingP = toPaise(inv.grand_total) - toPaise(paid.rows[0].paid);
+        const outstandingP = toPaise(inv.grand_total) - toPaise(inv.tds_amount) - toPaise(paid.rows[0].paid);
         if (amountP > outstandingP) {
             throw new AppError(`Amount exceeds the outstanding balance of ${fromPaise(outstandingP).toFixed(2)} on ${inv.invoice_number}`, 400);
         }

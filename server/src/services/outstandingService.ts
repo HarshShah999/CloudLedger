@@ -5,10 +5,10 @@ import { ledgerBalances } from './reportService';
 export type AgeingKind = 'receivable' | 'payable';
 
 const DOCS: Record<AgeingKind, { due: string[]; credit: string[]; advance: 'RECEIPT' | 'PAYMENT' }> = {
-    // Customers owe us for sales and debit notes; credit notes and advances reduce that
-    receivable: { due: ['SALES', 'DEBIT_NOTE'], credit: ['CREDIT_NOTE'], advance: 'RECEIPT' },
-    // We owe suppliers for purchases and credit notes they issued; debit notes and advances reduce that
-    payable: { due: ['PURCHASE', 'CREDIT_NOTE'], credit: ['DEBIT_NOTE'], advance: 'PAYMENT' },
+    // Customers owe us for sales; credit notes (sales returns) and advances reduce that
+    receivable: { due: ['SALES'], credit: ['CREDIT_NOTE'], advance: 'RECEIPT' },
+    // We owe suppliers for purchases; debit notes (purchase returns) and advances reduce that
+    payable: { due: ['PURCHASE'], credit: ['DEBIT_NOTE'], advance: 'PAYMENT' },
 };
 
 export const BUCKETS = ['not_due', 'd1_30', 'd31_60', 'd61_90', 'd90_plus'] as const;
@@ -28,7 +28,7 @@ export const ageing = async (companyId: string, kind: AgeingKind, asOf: string) 
     const cfg = DOCS[kind];
     const docs = (
         await query(
-            `SELECT i.id, i.invoice_number, i.type, i.date, i.due_date, i.grand_total, i.party_ledger_id,
+            `SELECT i.id, i.invoice_number, i.type, i.date, i.due_date, i.grand_total - i.tds_amount AS grand_total, i.party_ledger_id,
                     l.name AS party_name, l.phone AS party_phone,
                     COALESCE((SELECT SUM(p.amount) FROM payments p WHERE p.invoice_id = i.id AND p.payment_date <= $3), 0) AS paid
              FROM invoices i JOIN ledgers l ON l.id = i.party_ledger_id

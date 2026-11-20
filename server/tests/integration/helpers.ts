@@ -31,7 +31,7 @@ export const createCompany = async (token: string, state = 'Maharashtra') => {
         .send({
             name: 'Acme Traders',
             state,
-            gstin: '27ABCDE1234F1Z5',
+            gstin: '27ABCDE1234F1Z0',
             financialYear: { name: '2025-26', startDate: '2025-04-01', endDate: '2026-03-31' },
         });
     if (res.status !== 201) throw new Error(`company failed: ${res.status} ${JSON.stringify(res.body)}`);

@@ -36,6 +36,8 @@ const reportItems = [
     { label: 'Outstanding', path: '/reports/outstanding' },
     { label: 'Day Book', path: '/reports/day-book' },
     { label: 'Cash / Bank Book', path: '/reports/cash-bank-book' },
+    { label: 'GSTR-2B Matching', path: '/reports/gstr-2b' },
+    { label: 'TDS Register', path: '/reports/tds' },
     { label: 'Trial Balance', path: '/reports' },
     { label: 'Profit & Loss', path: '/reports/profit-loss' },
     { label: 'Balance Sheet', path: '/reports/balance-sheet' },

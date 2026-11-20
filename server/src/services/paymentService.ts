@@ -19,7 +19,7 @@ export interface PaymentInput {
 /** Recomputes paid / outstanding / status from the payments table. */
 export const refreshInvoicePaymentStatus = async (db: Queryable, invoiceId: string) => {
     const r = await db.query(
-        `SELECT i.grand_total, COALESCE(SUM(p.amount), 0) AS paid
+        `SELECT i.grand_total - i.tds_amount AS grand_total, COALESCE(SUM(p.amount), 0) AS paid
          FROM invoices i LEFT JOIN payments p ON p.invoice_id = i.id
          WHERE i.id = $1 GROUP BY i.id`,
         [invoiceId]
@@ -77,7 +77,7 @@ export const createPayment = async (db: Queryable, companyId: string, input: Pay
 
     // Check before posting so an over-payment never becomes an accidental advance
     const paid = await db.query('SELECT COALESCE(SUM(amount), 0) AS paid FROM payments WHERE invoice_id = $1', [inv.id]);
-    const outstandingP = toPaise(inv.grand_total) - toPaise(paid.rows[0].paid);
+    const outstandingP = toPaise(inv.grand_total) - toPaise(inv.tds_amount) - toPaise(paid.rows[0].paid);
     if (toPaise(input.amount) > outstandingP) {
         throw new AppError(`Amount exceeds the outstanding balance of ${fromPaise(outstandingP).toFixed(2)}`, 400);
     }

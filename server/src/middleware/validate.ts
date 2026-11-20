@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import Joi from 'joi';
 import { AppError } from './errorHandler';
+import { validateGstin } from '../utils/gst';
 
 /** Validates and cleans req.body (unknown keys are stripped). */
 export const validate = (schema: Joi.ObjectSchema) => (req: Request, _res: Response, next: NextFunction) => {
@@ -30,6 +31,10 @@ export const gstin = () =>
         .uppercase()
         .pattern(GSTIN_RE)
         .allow(null, '')
+        .custom((value, helpers) => {
+            const check = validateGstin(value);
+            return check.valid ? value : helpers.message({ custom: check.reason });
+        })
         .messages({ 'string.pattern.base': 'Invalid GSTIN format' });
 
 /* ---------- auth ---------- */
@@ -74,6 +79,13 @@ const invoiceBase = {
     discountPercent: Joi.number().min(0).max(100).default(0),
     originalInvoiceNumber: Joi.string().trim().max(50).allow('', null),
     originalInvoiceDate: isoDate().allow('', null),
+    supplyType: Joi.string().valid('NORMAL', 'SEZ_WPAY', 'SEZ_WOPAY', 'EXPORT_WPAY', 'EXPORT_WOPAY', 'DEEMED_EXPORT').allow('', null),
+    reverseCharge: Joi.boolean().default(false),
+    tdsSection: Joi.string().trim().max(10).allow('', null),
+    tdsRate: Joi.number().min(0).max(30).default(0),
+    shippingBillNumber: Joi.string().trim().max(20).allow('', null),
+    shippingBillDate: isoDate().allow('', null),
+    portCode: Joi.string().trim().max(10).allow('', null),
 };
 
 export const createInvoiceSchema = Joi.object({ companyId: uuid().required(), ...invoiceBase });

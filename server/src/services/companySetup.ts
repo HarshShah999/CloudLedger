@@ -64,6 +64,10 @@ export const SYSTEM_LEDGERS: LedgerDef[] = [
     { code: 'INPUT_SGST', name: 'Input SGST', group: 'DUTIES_TAXES' },
     { code: 'INPUT_IGST', name: 'Input IGST', group: 'DUTIES_TAXES' },
     { code: 'ROUND_OFF', name: 'Round Off', group: 'INDIRECT_EXPENSES' },
+    { code: 'RCM_CGST', name: 'CGST Payable (Reverse Charge)', group: 'DUTIES_TAXES' },
+    { code: 'RCM_SGST', name: 'SGST Payable (Reverse Charge)', group: 'DUTIES_TAXES' },
+    { code: 'RCM_IGST', name: 'IGST Payable (Reverse Charge)', group: 'DUTIES_TAXES' },
+    { code: 'TDS_PAYABLE', name: 'TDS Payable', group: 'DUTIES_TAXES' },
 ];
 
 export const STANDARD_VOUCHER_TYPES = [
