@@ -10,7 +10,6 @@ export const Register: React.FC = () => {
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
-    const [role, setRole] = useState('accountant');
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
 
@@ -19,10 +18,9 @@ export const Register: React.FC = () => {
         setIsLoading(true);
         setError('');
 
-        console.log('📝 Attempting registration:', { name, email, role });
 
         try {
-            const response = await api.post('/auth/register', { name, email, password, role });
+            const response = await api.post('/auth/register', { name, email, password });
             console.log('✅ Registration successful:', response.data);
             login(response.data.token, response.data.data.user);
         } catch (err: any) {
@@ -59,19 +57,6 @@ export const Register: React.FC = () => {
                     required
                     placeholder="you@example.com"
                 />
-                <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Role</label>
-                    <select
-                        className="input-field"
-                        value={role}
-                        onChange={(e) => setRole(e.target.value)}
-                        required
-                    >
-                        <option value="admin">Admin - Full access to all features</option>
-                        <option value="accountant">Accountant - Can manage ledgers and vouchers</option>
-                        <option value="viewer">Viewer - Read-only access</option>
-                    </select>
-                </div>
                 <Input
                     label="Password"
                     type="password"
@@ -79,7 +64,7 @@ export const Register: React.FC = () => {
                     onChange={(e) => setPassword(e.target.value)}
                     required
                     placeholder="••••••••"
-                    minLength={6}
+                    minLength={8}
                 />
                 <Button type="submit" className="w-full" isLoading={isLoading}>
                     Create Account

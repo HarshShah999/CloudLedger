@@ -1,40 +1,49 @@
 import express from 'express';
-import { createCompany, getCompanies, getCompany } from '../controllers/companyController';
-import { protect } from '../middleware/auth';
-import { validate } from '../middleware/validate';
 import Joi from 'joi';
+import { protect } from '../middleware/auth';
+import { requireCompany } from '../middleware/companyAccess';
+import { validate, gstin, isoDate, addMemberSchema, updateMemberSchema } from '../middleware/validate';
+import { createCompany, getCompanies, getCompany, updateCompany } from '../controllers/companyController';
+import { listMembers, addMember, updateMember, removeMember } from '../controllers/userController';
 
 const router = express.Router();
 
 const createCompanySchema = Joi.object({
-    name: Joi.string().required(),
-    address: Joi.string().allow('', null),
+    name: Joi.string().trim().max(255).required(),
+    address: Joi.string().allow('', null).max(1000),
     email: Joi.string().email().allow('', null),
-    phone: Joi.string().allow('', null),
+    phone: Joi.string().allow('', null).max(30),
     currency: Joi.string().default('INR'),
     financialYear: Joi.object({
         name: Joi.string().required(),
-        startDate: Joi.date().required(),
-        endDate: Joi.date().required(),
+        startDate: isoDate().required(),
+        endDate: isoDate().required(),
     }).optional(),
-       gstin: Joi.string()
-        .pattern(/^[0-3][0-9][A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/)
-        .length(15)
-        .allow(null, '')
-        .messages({
-            'string.pattern.base': 'Invalid GSTIN format',
-            'string.length': 'GSTIN must be exactly 15 characters',
-        }),
-       state:Joi.string().required(),
+    gstin: gstin(),
+    state: Joi.string().trim().max(100).required(),
+});
+
+const updateCompanySchema = Joi.object({
+    name: Joi.string().trim().max(255),
+    address: Joi.string().allow('', null).max(1000),
+    email: Joi.string().email().allow('', null),
+    phone: Joi.string().allow('', null).max(30),
+    gstin: gstin(),
+    state: Joi.string().trim().max(100),
+    roundOffInvoices: Joi.boolean(),
 });
 
 router.use(protect);
 
-router.route('/')
-    .get(getCompanies)
-    .post(validate(createCompanySchema), createCompany);
+router.route('/').get(getCompanies).post(validate(createCompanySchema), createCompany);
 
-router.route('/:id')
-    .get(getCompany);
+router.get('/:companyId', requireCompany('viewer'), getCompany);
+router.put('/:companyId', validate(updateCompanySchema), requireCompany('admin'), updateCompany);
+
+// Members (people who can access this company)
+router.get('/:companyId/members', requireCompany('viewer'), listMembers);
+router.post('/:companyId/members', validate(addMemberSchema), requireCompany('admin'), addMember);
+router.put('/:companyId/members/:userId', validate(updateMemberSchema), requireCompany('admin'), updateMember);
+router.delete('/:companyId/members/:userId', requireCompany('admin'), removeMember);
 
 export default router;

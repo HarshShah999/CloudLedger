@@ -4,7 +4,7 @@ import { useCompany } from '../../context/CompanyContext';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Plus, Trash2, Save } from 'lucide-react';
-import api from '../../api/axios';
+import api, { apiError } from '../../api/axios';
 import { notify } from '../../utils/notification';
 
 interface VoucherType {
@@ -77,7 +77,7 @@ export const VoucherEdit: React.FC = () => {
                 })));
             } catch (error) {
                 console.error('Failed to fetch data', error);
-                notify.error('Failed to load voucher');
+                notify.error(apiError(error, 'Failed to load voucher'));
                 navigate('/vouchers');
             }
         };

@@ -3,7 +3,7 @@ import { useCompany } from '../../context/CompanyContext';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Plus, Search, Edit2, Trash2, Eye } from 'lucide-react';
-import api from '../../api/axios';
+import api, { apiError } from '../../api/axios';
 import { useNavigate } from 'react-router-dom';
 import { notify } from '../../utils/notification';
 
@@ -89,7 +89,7 @@ export const LedgerList: React.FC = () => {
             handleCloseModal();
         } catch (error) {
             console.error('Failed to save ledger', error);
-            notify.error('Failed to save ledger');
+            notify.error(apiError(error, 'Failed to save ledger'));
         }
     };
 

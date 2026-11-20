@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { currentFinancialYear, today } from '../../lib/dates';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useCompany } from '../../context/CompanyContext';
 import { Button } from '../../components/ui/Button';
@@ -37,8 +38,8 @@ export const LedgerStatement: React.FC = () => {
     const [ledger, setLedger] = useState<LedgerInfo | null>(null);
     const [transactions, setTransactions] = useState<Transaction[]>([]);
     const [loading, setLoading] = useState(false);
-    const [startDate, setStartDate] = useState('2024-04-01');
-    const [endDate, setEndDate] = useState('2025-03-31');
+    const [startDate, setStartDate] = useState(currentFinancialYear().startDate);
+    const [endDate, setEndDate] = useState(today() < currentFinancialYear().endDate ? today() : currentFinancialYear().endDate);
 
     const fetchStatement = async () => {
         if (!selectedCompany || !ledgerId) return;

@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
 import { useCompany } from '../context/CompanyContext';
 import { LogOut, User as UserIcon, ChevronDown } from 'lucide-react';
@@ -6,6 +7,15 @@ import { LogOut, User as UserIcon, ChevronDown } from 'lucide-react';
 export const Header: React.FC = () => {
     const { user, logout } = useAuth();
     const { companies, selectedCompany, selectCompany } = useCompany();
+    const [fyName, setFyName] = useState<string>('');
+
+    useEffect(() => {
+        setFyName('');
+        if (!selectedCompany) return;
+        api.get('/financial-years/active', { params: { companyId: selectedCompany.id } })
+            .then((res) => setFyName(res.data.data.financialYear.name))
+            .catch(() => setFyName(''));
+    }, [selectedCompany?.id]);
 
     return (
         <header className="h-16 bg-white border-b border-slate-200 fixed top-0 right-0 left-64 z-10 px-6 flex items-center justify-between">
@@ -36,7 +46,7 @@ export const Header: React.FC = () => {
                 <div className="h-6 w-px bg-slate-200 mx-2"></div>
 
                 <div className="flex items-center gap-2 text-sm text-slate-500 bg-slate-100 px-3 py-1 rounded-full">
-                    <span>FY: 2024-2025</span>
+                    <span>{fyName ? `FY: ${fyName}` : 'No active FY'}</span>
                 </div>
             </div>
 
@@ -47,7 +57,7 @@ export const Header: React.FC = () => {
                     </div>
                     <div className="text-sm">
                         <p className="font-medium text-slate-700">{user?.name}</p>
-                        <p className="text-xs text-slate-500 capitalize">{user?.role}</p>
+                        <p className="text-xs text-slate-500 capitalize">{selectedCompany?.role || (user?.is_superadmin ? 'owner' : '')}</p>
                     </div>
                 </div>
 

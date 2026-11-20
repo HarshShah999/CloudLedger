@@ -1,27 +1,26 @@
+import { env } from './config/env';
 import app from './app';
 import pool from './config/db';
+import { runMigrations } from './db/migrate';
 import { startRecurringInvoiceJob } from './jobs/recurringInvoiceJob';
 import { startBackupScheduler } from './jobs/backupScheduler';
 import { initializeBackupDirectories } from './services/backupService';
 
-const PORT = process.env.PORT || 8000;
-
 const startServer = async () => {
     try {
-        // Test DB connection
-        await pool.query('SELECT NOW()');
+        await pool.query('SELECT 1');
         console.log('✅ Database connected successfully');
 
-        // Initialize backup directories
+        if (env.runMigrations) await runMigrations();
         await initializeBackupDirectories();
 
-        app.listen(PORT, () => {
-            console.log(`🚀 Server running on port ${PORT}`);
+        app.listen(env.port, () => {
+            console.log(`🚀 Server running on port ${env.port}`);
             startRecurringInvoiceJob();
             startBackupScheduler();
         });
     } catch (error) {
-        console.error('❌ Database connection failed', error);
+        console.error('❌ Server failed to start:', (error as Error).message);
         process.exit(1);
     }
 };

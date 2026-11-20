@@ -1,10 +1,11 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useCompany } from '../../context/CompanyContext';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Plus, Trash2, Save } from 'lucide-react';
-import api from '../../api/axios';
+import api, { apiError } from '../../api/axios';
 import { useNavigate, useParams } from 'react-router-dom';
+import { calculateInvoice, isInterStateSupply } from '../../lib/invoiceCalc';
 import { notify } from '../../utils/notification';
 
 interface Ledger {
@@ -92,6 +93,23 @@ export const InvoiceEntry: React.FC<{ type?: 'SALES' | 'PURCHASE' | 'CREDIT_NOTE
         fetchData();
     }, [selectedCompany]);
 
+    // Suggest the next number from the company's series (new documents only).
+    // A number the user typed by hand is never overwritten.
+    const lastSuggested = useRef('');
+    useEffect(() => {
+        if (id || !selectedCompany || !type) return;
+        api.get('/invoices/next-number', { params: { companyId: selectedCompany.id, type, date: formData.date } })
+            .then((res) => {
+                const suggested: string = res.data.data.number;
+                setFormData((f) => {
+                    if (f.invoiceNumber && f.invoiceNumber !== lastSuggested.current) return f;
+                    lastSuggested.current = suggested;
+                    return { ...f, invoiceNumber: suggested };
+                });
+            })
+            .catch(() => undefined);
+    }, [id, selectedCompany, type, formData.date]);
+
     // Fetch Invoice Data for Edit
     useEffect(() => {
         const fetchInvoice = async () => {
@@ -129,7 +147,7 @@ export const InvoiceEntry: React.FC<{ type?: 'SALES' | 'PURCHASE' | 'CREDIT_NOTE
 
             } catch (error) {
                 console.error('Failed to fetch invoice details', error);
-                notify.error('Failed to load invoice details');
+                notify.error(apiError(error, 'Failed to load invoice details'));
             }
         };
         fetchInvoice();
@@ -171,27 +189,23 @@ export const InvoiceEntry: React.FC<{ type?: 'SALES' | 'PURCHASE' | 'CREDIT_NOTE
         setInvoiceItems(invoiceItems.filter((_, i) => i !== index));
     };
 
-    const calculateTotals = () => {
-        const subtotal = invoiceItems.reduce((sum, item) => sum + item.taxableAmount, 0);
-        const totalTax = invoiceItems.reduce((sum, item) => sum + item.taxAmount, 0);
-        const invoiceDiscount = (subtotal * Number(formData.discountPercent)) / 100;
-        const grandTotal = subtotal + totalTax - invoiceDiscount;
-
-        return { subtotal, totalTax, invoiceDiscount, grandTotal };
-    };
-
-    const getGSTBreakdown = () => {
-        const partyState = ledgers.find(l => l.id === formData.partyLedgerId)?.state || '';
-        const isInterState = companyState !== partyState || !companyState || !partyState;
-
-        const totalTax = invoiceItems.reduce((sum, item) => sum + item.taxAmount, 0);
-
-        if (isInterState) {
-            return { igst: totalTax, cgst: 0, sgst: 0, isInterState: true };
-        } else {
-            return { igst: 0, cgst: totalTax / 2, sgst: totalTax / 2, isInterState: false };
+    // Same maths as the server, so what you see is exactly what gets saved.
+    const partyState = ledgers.find(l => l.id === formData.partyLedgerId)?.state || '';
+    const isInterState = isInterStateSupply(companyState, partyState || companyState);
+    const preview = (() => {
+        try {
+            return calculateInvoice(
+                invoiceItems.filter(i => Number(i.quantity) > 0),
+                {
+                    isInterState,
+                    invoiceDiscountPercent: formData.discountPercent,
+                    roundOff: selectedCompany?.round_off_invoices ?? true,
+                }
+            );
+        } catch {
+            return null;
         }
-    };
+    })();
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -203,7 +217,7 @@ export const InvoiceEntry: React.FC<{ type?: 'SALES' | 'PURCHASE' | 'CREDIT_NOTE
             type,
             ...formData,
             items: invoiceItems.map(item => ({
-                itemId: item.itemId,
+                itemId: item.itemId || null,
                 description: item.description,
                 quantity: item.quantity,
                 rate: item.rate,
@@ -223,14 +237,16 @@ export const InvoiceEntry: React.FC<{ type?: 'SALES' | 'PURCHASE' | 'CREDIT_NOTE
             navigate('/invoices');
         } catch (error: any) {
             console.error('Failed to save invoice', error);
-            notify.error(error.response?.data?.message || 'Failed to save invoice');
+            notify.error(apiError(error, 'Failed to save invoice'));
         } finally {
             setLoading(false);
         }
     };
 
-    const { subtotal, invoiceDiscount, grandTotal } = calculateTotals();
-    const gst = getGSTBreakdown();
+    const subtotal = preview ? preview.gross - preview.lineDiscount : 0;
+    const invoiceDiscount = preview?.invoiceDiscount ?? 0;
+    const grandTotal = preview?.grandTotal ?? 0;
+    const gst = { isInterState, igst: preview?.igst ?? 0, cgst: preview?.cgst ?? 0, sgst: preview?.sgst ?? 0 };
 
     if (!type && !id) return <div>Loading...</div>; // Should not happen if routed correctly
 
@@ -277,7 +293,8 @@ export const InvoiceEntry: React.FC<{ type?: 'SALES' | 'PURCHASE' | 'CREDIT_NOTE
                         label="Invoice No."
                         value={formData.invoiceNumber}
                         onChange={(e) => setFormData({ ...formData, invoiceNumber: e.target.value })}
-                        required
+                        placeholder="Auto"
+                        maxLength={type === 'PURCHASE' ? 50 : 16}
                     />
                     <Input
                         label="Date"
@@ -425,6 +442,18 @@ export const InvoiceEntry: React.FC<{ type?: 'SALES' | 'PURCHASE' | 'CREDIT_NOTE
                                 <span>Subtotal:</span>
                                 <span className="font-mono">₹{subtotal.toFixed(2)}</span>
                             </div>
+                            {invoiceDiscount > 0 && (
+                                <>
+                                    <div className="flex justify-between text-slate-600">
+                                        <span>Invoice Discount ({formData.discountPercent}%):</span>
+                                        <span className="font-mono">-₹{invoiceDiscount.toFixed(2)}</span>
+                                    </div>
+                                    <div className="flex justify-between text-slate-600">
+                                        <span>Taxable Value:</span>
+                                        <span className="font-mono">₹{(preview?.subtotal ?? 0).toFixed(2)}</span>
+                                    </div>
+                                </>
+                            )}
 
                             {/* GST Breakdown */}
                             {gst.isInterState ? (
@@ -445,13 +474,13 @@ export const InvoiceEntry: React.FC<{ type?: 'SALES' | 'PURCHASE' | 'CREDIT_NOTE
                                 </>
                             )}
 
-                            {invoiceDiscount > 0 && (
+
+                            {preview && preview.roundOff !== 0 && (
                                 <div className="flex justify-between text-slate-600">
-                                    <span>Invoice Discount ({formData.discountPercent}%):</span>
-                                    <span className="font-mono">-₹{invoiceDiscount.toFixed(2)}</span>
+                                    <span>Round Off:</span>
+                                    <span className="font-mono">{preview.roundOff > 0 ? '+' : '-'}₹{Math.abs(preview.roundOff).toFixed(2)}</span>
                                 </div>
                             )}
-
                             <div className="flex justify-between font-bold text-lg text-slate-800 border-t border-slate-300 pt-2">
                                 <span>Grand Total:</span>
                                 <span className="font-mono">₹{grandTotal.toFixed(2)}</span>

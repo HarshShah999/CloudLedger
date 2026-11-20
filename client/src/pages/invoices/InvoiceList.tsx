@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useCompany } from '../../context/CompanyContext';
 import { Button } from '../../components/ui/Button';
 import { Plus, Download, Trash2, Eye, DollarSign, Edit, Mail } from 'lucide-react';
-import api from '../../api/axios';
+import api, { apiError } from '../../api/axios';
 import { useNavigate } from 'react-router-dom';
 import { Input } from '../../components/ui/Input';
 import { notify } from '../../utils/notification';
@@ -76,7 +76,7 @@ export const InvoiceList: React.FC = () => {
             link.remove();
         } catch (error) {
             console.error('Failed to download PDF', error);
-            notify.error('Failed to download PDF');
+            notify.error(apiError(error, 'Failed to download PDF'));
         }
     };
 

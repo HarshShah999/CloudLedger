@@ -1,3 +1,4 @@
+import { AppError } from '../middleware/errorHandler';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import fs from 'fs/promises';
@@ -178,8 +179,7 @@ export const listBackups = async (type: 'full' | 'company' = 'full'): Promise<an
 
 // Delete a backup file
 export const deleteBackup = async (filename: string, type: 'full' | 'company' = 'full'): Promise<void> => {
-    const dir = type === 'full' ? FULL_BACKUP_DIR : COMPANY_BACKUP_DIR;
-    const filepath = path.join(dir, filename);
+    const filepath = getBackupPath(filename, type);
 
     try {
         await fs.unlink(filepath);
@@ -279,7 +279,16 @@ export const cleanOldBackups = async (retentionDays: number = 30): Promise<numbe
 };
 
 // Get backup file path
+/** Only plain backup file names are accepted (no directories, no traversal). */
+export const safeBackupName = (filename: string): string => {
+    const base = path.basename(String(filename || ''));
+    if (!/^[A-Za-z0-9._-]+\.(sql|sql\.gz|json)$/.test(base) || base.startsWith('.')) {
+        throw new AppError('Invalid backup file name', 400);
+    }
+    return base;
+};
+
 export const getBackupPath = (filename: string, type: 'full' | 'company' = 'full'): string => {
     const dir = type === 'full' ? FULL_BACKUP_DIR : COMPANY_BACKUP_DIR;
-    return path.join(dir, filename);
+    return path.join(dir, safeBackupName(filename));
 };

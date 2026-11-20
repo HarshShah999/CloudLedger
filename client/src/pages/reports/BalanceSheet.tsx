@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
+import { currentFinancialYear, today } from '../../lib/dates';
 import { useCompany } from '../../context/CompanyContext';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { FileSpreadsheet, Filter, Building2, CreditCard } from 'lucide-react';
-import api from '../../api/axios';
+import api, { apiError } from '../../api/axios';
 import { notify } from '../../utils/notification';
 
 interface LedgerItem {
@@ -23,7 +24,7 @@ export const BalanceSheet: React.FC = () => {
     const [totalLiabilities, setTotalLiabilities] = useState(0);
     const [difference, setDifference] = useState(0);
 
-    const [asOfDate, setAsOfDate] = useState('2025-03-31');
+    const [asOfDate, setAsOfDate] = useState(today() < currentFinancialYear().endDate ? today() : currentFinancialYear().endDate);
 
     const fetchReport = async () => {
         if (!selectedCompany) return;
@@ -74,7 +75,7 @@ export const BalanceSheet: React.FC = () => {
             link.remove();
         } catch (error) {
             console.error('Export failed', error);
-            notify.error('Failed to export report');
+            notify.error(apiError(error, 'Failed to export report'));
         }
     };
 

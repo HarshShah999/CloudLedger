@@ -31,7 +31,7 @@ export const Settings: React.FC = () => {
         setSuccessMessage('');
 
         try {
-            const response = await api.put(`/users/${user?.id}`, profileData);
+            const response = await api.put(`/users/me`, profileData);
             setUser(response.data.data.user);
             notify.success('Profile updated successfully!');
             setSuccessMessage('Profile updated successfully!');

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import logo from '../assets/logo.png';
 import { Link, useLocation } from 'react-router-dom';
 import clsx from 'clsx';
 import {
@@ -32,6 +33,8 @@ const reportItems = [
     { label: 'Trial Balance', path: '/reports' },
     { label: 'Profit & Loss', path: '/reports/profit-loss' },
     { label: 'Balance Sheet', path: '/reports/balance-sheet' },
+    { label: 'GSTR-1', path: '/reports/gstr-1' },
+    { label: 'GSTR-3B', path: '/reports/gstr-3b' },
 ];
 
 const bottomNavItems = [
@@ -52,7 +55,7 @@ export const Sidebar: React.FC = () => {
                         CL
                     </div> */}
                     <div className=" flex items-center justify-center">
-                    <img src="../assets/logo.png" alt="CloudLedger Logo" className="w-16 h-16" /></div>
+                    <img src={logo} alt="CloudLedger" className="w-16 h-16" /></div>
                     CloudLedger
                 </h1>
             </div>

@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { ArrowLeft, Download, DollarSign, Trash2, Edit, Mail } from 'lucide-react';
-import api from '../../api/axios';
+import api, { apiError } from '../../api/axios';
 import { useCompany } from '../../context/CompanyContext';
 import { notify } from '../../utils/notification';
 
@@ -38,9 +38,25 @@ export const InvoiceDetail: React.FC = () => {
         paymentDate: new Date().toISOString().split('T')[0],
         amount: 0,
         paymentMode: 'Cash',
+        depositLedgerId: '',
         referenceNumber: '',
         notes: ''
     });
+    // Cash and bank accounts the money can be received into / paid from
+    const [cashBankLedgers, setCashBankLedgers] = useState<{ id: string; name: string; group_code?: string; group_name?: string }[]>([]);
+
+    useEffect(() => {
+        if (!selectedCompany) return;
+        api.get('/ledgers', { params: { companyId: selectedCompany.id } }).then((res) => {
+            const list = res.data.data.ledgers.filter((l: any) =>
+                ['CASH_IN_HAND', 'BANK_ACCOUNTS', 'BANK_OD'].includes(l.group_code) || /cash|bank/i.test(l.group_name || '')
+            );
+            setCashBankLedgers(list);
+        }).catch(() => undefined);
+    }, [selectedCompany]);
+
+    const isCashLedger = (l: { group_code?: string; group_name?: string }) =>
+        l.group_code === 'CASH_IN_HAND' || /cash/i.test(l.group_name || '');
 
     const fetchInvoiceDetails = async () => {
         try {
@@ -67,7 +83,8 @@ export const InvoiceDetail: React.FC = () => {
             await api.post('/payments', {
                 companyId: selectedCompany.id,
                 invoiceId: id,
-                ...paymentForm
+                ...paymentForm,
+                depositLedgerId: paymentForm.depositLedgerId || null
             });
             notify.success('Payment recorded successfully');
             setShowPaymentModal(false);
@@ -76,12 +93,13 @@ export const InvoiceDetail: React.FC = () => {
                 paymentDate: new Date().toISOString().split('T')[0],
                 amount: 0,
                 paymentMode: 'Cash',
+                depositLedgerId: '',
                 referenceNumber: '',
                 notes: ''
             });
         } catch (error: any) {
             console.error('Failed to record payment', error);
-            notify.error(error.response?.data?.message || 'Failed to record payment');
+            notify.error(apiError(error, 'Failed to record payment'));
         }
     };
 
@@ -94,7 +112,7 @@ export const InvoiceDetail: React.FC = () => {
             fetchInvoiceDetails();
         } catch (error) {
             console.error('Failed to delete payment', error);
-            notify.error('Failed to delete payment');
+            notify.error(apiError(error, 'Failed to delete payment'));
         }
     };
 
@@ -139,7 +157,7 @@ export const InvoiceDetail: React.FC = () => {
             link.remove();
         } catch (error) {
             console.error('Failed to download PDF', error);
-            notify.error('Failed to download PDF');
+            notify.error(apiError(error, 'Failed to download PDF'));
         }
     };
 
@@ -174,7 +192,7 @@ export const InvoiceDetail: React.FC = () => {
                         Email
                     </Button>
                     {Number(invoice.outstanding_amount) > 0 && (
-                        <Button onClick={() => setShowPaymentModal(true)}>
+                        <Button onClick={() => { setPaymentForm((f) => ({ ...f, amount: Number(invoice.outstanding_amount ?? invoice.grand_total) })); setShowPaymentModal(true); }}>
                             <DollarSign className="w-4 h-4" />
                             Record Payment
                         </Button>
@@ -256,18 +274,24 @@ export const InvoiceDetail: React.FC = () => {
             <div className="card bg-slate-50">
                 <div className="flex justify-end">
                     <div className="w-96 space-y-2">
+                        {Number(invoice.discount_amount) > 0 && (
+                            <div className="flex justify-between text-red-600">
+                                <span>Invoice Discount ({Number(invoice.discount_percent)}%):</span>
+                                <span className="font-mono">-₹{Number(invoice.discount_amount).toFixed(2)}</span>
+                            </div>
+                        )}
                         <div className="flex justify-between">
-                            <span>Subtotal:</span>
+                            <span>Taxable Value:</span>
                             <span className="font-mono">₹{Number(invoice.subtotal).toFixed(2)}</span>
                         </div>
                         <div className="flex justify-between">
-                            <span>Tax Total:</span>
+                            <span>GST:</span>
                             <span className="font-mono">₹{Number(invoice.tax_total).toFixed(2)}</span>
                         </div>
-                        {Number(invoice.discount_amount) > 0 && (
-                            <div className="flex justify-between text-red-600">
-                                <span>Discount:</span>
-                                <span className="font-mono">-₹{Number(invoice.discount_amount).toFixed(2)}</span>
+                        {Number(invoice.round_off) !== 0 && (
+                            <div className="flex justify-between">
+                                <span>Round Off:</span>
+                                <span className="font-mono">{Number(invoice.round_off) > 0 ? '+' : '-'}₹{Math.abs(Number(invoice.round_off)).toFixed(2)}</span>
                             </div>
                         )}
                         <div className="flex justify-between font-bold text-lg border-t pt-2">
@@ -280,7 +304,7 @@ export const InvoiceDetail: React.FC = () => {
                         </div>
                         <div className="flex justify-between text-red-600 font-medium">
                             <span>Outstanding:</span>
-                            <span className="font-mono">₹{Number(invoice.outstanding_amount || invoice.grand_total).toFixed(2)}</span>
+                            <span className="font-mono">₹{Number(invoice.outstanding_amount ?? invoice.grand_total).toFixed(2)}</span>
                         </div>
                     </div>
                 </div>
@@ -351,13 +375,37 @@ export const InvoiceDetail: React.FC = () => {
                                 <select
                                     className="input-field"
                                     value={paymentForm.paymentMode}
-                                    onChange={(e) => setPaymentForm({ ...paymentForm, paymentMode: e.target.value })}
+                                    onChange={(e) => {
+                                        const mode = e.target.value;
+                                        const cash = cashBankLedgers.find(isCashLedger);
+                                        const bank = cashBankLedgers.find((l) => !isCashLedger(l));
+                                        setPaymentForm({
+                                            ...paymentForm,
+                                            paymentMode: mode,
+                                            depositLedgerId: (mode === 'Cash' ? cash?.id : bank?.id) || '',
+                                        });
+                                    }}
                                 >
                                     <option value="Cash">Cash</option>
                                     <option value="Bank">Bank Transfer</option>
                                     <option value="Cheque">Cheque</option>
                                     <option value="UPI">UPI</option>
                                     <option value="Card">Card</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">
+                                    {invoice.type === 'SALES' || invoice.type === 'DEBIT_NOTE' ? 'Received into' : 'Paid from'}
+                                </label>
+                                <select
+                                    className="input-field"
+                                    value={paymentForm.depositLedgerId}
+                                    onChange={(e) => setPaymentForm({ ...paymentForm, depositLedgerId: e.target.value })}
+                                >
+                                    <option value="">{paymentForm.paymentMode === 'Cash' ? 'Cash (default)' : 'Select bank account'}</option>
+                                    {cashBankLedgers.map((l) => (
+                                        <option key={l.id} value={l.id}>{l.name}</option>
+                                    ))}
                                 </select>
                             </div>
                             <Input

@@ -71,7 +71,6 @@ function App() {
                         <Route path="/reports/gstr-1" element={<GSTR1 />} />
                         <Route path="/reports/gstr-3b" element={<GSTR3B />} />
                         <Route path="/backup" element={<BackupRestore />} />
-                        <Route path="/backup" element={<BackupRestore />} />
                         <Route path="/users" element={<Users />} />
                         <Route path="/banking/reconciliation" element={<BankReconciliation />} />
                         <Route path="/settings" element={<Settings />} />

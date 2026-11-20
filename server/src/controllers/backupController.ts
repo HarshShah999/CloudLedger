@@ -15,8 +15,8 @@ export const createBackup = async (req: Request, res: Response, next: NextFuncti
         const userId = (req as any).user?.id;
 
         // Only admins can create backups
-        const userRes = await query('SELECT role FROM users WHERE id = $1', [userId]);
-        if (userRes.rows.length === 0 || userRes.rows[0].role !== 'admin') {
+        const userRes = await query('SELECT is_superadmin FROM users WHERE id = $1', [userId]);
+        if (userRes.rows.length === 0 || !userRes.rows[0].is_superadmin) {
             return next(new AppError('Only administrators can create backups', 403));
         }
 
@@ -67,8 +67,8 @@ export const getBackups = async (req: Request, res: Response, next: NextFunction
         const userId = (req as any).user?.id;
 
         // Only admins can view backups
-        const userRes = await query('SELECT role FROM users WHERE id = $1', [userId]);
-        if (userRes.rows.length === 0 || userRes.rows[0].role !== 'admin') {
+        const userRes = await query('SELECT is_superadmin FROM users WHERE id = $1', [userId]);
+        if (userRes.rows.length === 0 || !userRes.rows[0].is_superadmin) {
             return next(new AppError('Only administrators can view backups', 403));
         }
 
@@ -110,8 +110,8 @@ export const downloadBackup = async (req: Request, res: Response, next: NextFunc
         const userId = (req as any).user?.id;
 
         // Only admins can download backups
-        const userRes = await query('SELECT role FROM users WHERE id = $1', [userId]);
-        if (userRes.rows.length === 0 || userRes.rows[0].role !== 'admin') {
+        const userRes = await query('SELECT is_superadmin FROM users WHERE id = $1', [userId]);
+        if (userRes.rows.length === 0 || !userRes.rows[0].is_superadmin) {
             return next(new AppError('Only administrators can download backups', 403));
         }
 
@@ -142,8 +142,8 @@ export const removeBackup = async (req: Request, res: Response, next: NextFuncti
         const userId = (req as any).user?.id;
 
         // Only admins can delete backups
-        const userRes = await query('SELECT role FROM users WHERE id = $1', [userId]);
-        if (userRes.rows.length === 0 || userRes.rows[0].role !== 'admin') {
+        const userRes = await query('SELECT is_superadmin FROM users WHERE id = $1', [userId]);
+        if (userRes.rows.length === 0 || !userRes.rows[0].is_superadmin) {
             return next(new AppError('Only administrators can delete backups', 403));
         }
 
@@ -165,8 +165,8 @@ export const cleanBackups = async (req: Request, res: Response, next: NextFuncti
         const { retentionDays = 30 } = req.body;
 
         // Only admins can clean backups
-        const userRes = await query('SELECT role FROM users WHERE id = $1', [userId]);
-        if (userRes.rows.length === 0 || userRes.rows[0].role !== 'admin') {
+        const userRes = await query('SELECT is_superadmin FROM users WHERE id = $1', [userId]);
+        if (userRes.rows.length === 0 || !userRes.rows[0].is_superadmin) {
             return next(new AppError('Only administrators can clean backups', 403));
         }
 
@@ -189,8 +189,8 @@ export const restoreBackup = async (req: Request, res: Response, next: NextFunct
         const userId = (req as any).user?.id;
 
         // Only admins can restore backups
-        const userRes = await query('SELECT role, password FROM users WHERE id = $1', [userId]);
-        if (userRes.rows.length === 0 || userRes.rows[0].role !== 'admin') {
+        const userRes = await query('SELECT is_superadmin, password FROM users WHERE id = $1', [userId]);
+        if (userRes.rows.length === 0 || !userRes.rows[0].is_superadmin) {
             return next(new AppError('Only administrators can restore backups', 403));
         }
 

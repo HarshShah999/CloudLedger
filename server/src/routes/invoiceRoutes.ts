@@ -1,26 +1,23 @@
 import express from 'express';
-import { createInvoice, getInvoices, getInvoiceById, deleteInvoice, downloadInvoicePDF, updateInvoice, sendInvoiceEmail } from '../controllers/invoiceController';
 import { protect } from '../middleware/auth';
-import { createInvoiceSchema, validate } from '../middleware/validate';
-
+import { requireCompany, requireResource } from '../middleware/companyAccess';
+import { validate, createInvoiceSchema, updateInvoiceSchema, emailSchema } from '../middleware/validate';
+import {
+    createInvoice, getInvoices, getInvoiceById, updateInvoice, deleteInvoice,
+    downloadInvoicePDF, sendInvoiceEmail, getNextNumber,
+} from '../controllers/invoiceController';
 
 const router = express.Router();
-
 router.use(protect);
 
-router.route('/')
-    .post(validate(createInvoiceSchema),createInvoice)
-    .get(getInvoices);
+router.get('/', requireCompany('viewer'), getInvoices);
+router.post('/', validate(createInvoiceSchema), requireCompany('accountant'), createInvoice);
+router.get('/next-number', requireCompany('viewer'), getNextNumber);
 
-router.route('/:id')
-    .get(getInvoiceById)
-    .put(updateInvoice)
-    .delete(deleteInvoice);
-
-router.get('/:id/pdf', downloadInvoicePDF);
-router.post('/:id/email', sendInvoiceEmail);
+router.get('/:id', requireResource('invoices', 'viewer'), getInvoiceById);
+router.put('/:id', validate(updateInvoiceSchema), requireResource('invoices', 'accountant'), updateInvoice);
+router.delete('/:id', requireResource('invoices', 'accountant'), deleteInvoice);
+router.get('/:id/pdf', requireResource('invoices', 'viewer'), downloadInvoicePDF);
+router.post('/:id/email', validate(emailSchema), requireResource('invoices', 'viewer'), sendInvoiceEmail);
 
 export default router;
-
-
-

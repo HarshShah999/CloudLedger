@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
+import { currentFinancialYear, today } from '../../lib/dates';
 import { useCompany } from '../../context/CompanyContext';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { FileSpreadsheet, Filter, TrendingUp, TrendingDown } from 'lucide-react';
-import api from '../../api/axios';
+import api, { apiError } from '../../api/axios';
 import { notify } from '../../utils/notification';
 
 interface LedgerItem {
@@ -24,8 +25,8 @@ export const ProfitAndLoss: React.FC = () => {
     const [netProfit, setNetProfit] = useState(0);
     const [netProfitType, setNetProfitType] = useState('Profit');
 
-    const [startDate, setStartDate] = useState('2024-04-01');
-    const [endDate, setEndDate] = useState('2025-03-31');
+    const [startDate, setStartDate] = useState(currentFinancialYear().startDate);
+    const [endDate, setEndDate] = useState(today() < currentFinancialYear().endDate ? today() : currentFinancialYear().endDate);
 
     const fetchReport = async () => {
         if (!selectedCompany) return;
@@ -79,7 +80,7 @@ export const ProfitAndLoss: React.FC = () => {
             link.remove();
         } catch (error) {
             console.error('Export failed', error);
-            notify.error('Failed to export report');
+            notify.error(apiError(error, 'Failed to export report'));
         }
     };
 

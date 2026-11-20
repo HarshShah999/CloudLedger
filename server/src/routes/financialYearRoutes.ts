@@ -1,39 +1,30 @@
 import express from 'express';
+import Joi from 'joi';
+import { protect } from '../middleware/auth';
+import { requireCompany, requireResource } from '../middleware/companyAccess';
+import { validate, uuid, isoDate } from '../middleware/validate';
 import {
-    getFinancialYears,
-    getActiveFinancialYear,
-    createFinancialYear,
-    activateFinancialYear,
-    closeFinancialYear,
-    reopenFinancialYear,
-    deleteFinancialYear
+    getFinancialYears, getActiveFinancialYear, createFinancialYear, activateFinancialYear,
+    closeFinancialYear, reopenFinancialYear, deleteFinancialYear,
 } from '../controllers/financialYearController';
-import { protect, restrictTo } from '../middleware/auth';
 
 const router = express.Router();
 
-// All routes require authentication
+const createSchema = Joi.object({
+    companyId: uuid().required(),
+    name: Joi.string().trim().max(50).required(),
+    startDate: isoDate().required(),
+    endDate: isoDate().required(),
+});
+
 router.use(protect);
 
-// Get all financial years for a company
-router.get('/', getFinancialYears);
-
-// Get active financial year
-router.get('/active', getActiveFinancialYear);
-
-// Create financial year (admin/accountant only)
-router.post('/', restrictTo('admin', 'accountant'), createFinancialYear);
-
-// Activate financial year (admin only)
-router.put('/:id/activate', restrictTo('admin'), activateFinancialYear);
-
-// Close financial year (admin only)
-router.put('/:id/close', restrictTo('admin'), closeFinancialYear);
-
-// Reopen financial year (admin only)
-router.put('/:id/reopen', restrictTo('admin'), reopenFinancialYear);
-
-// Delete financial year (admin only)
-router.delete('/:id', restrictTo('admin'), deleteFinancialYear);
+router.get('/', requireCompany('viewer'), getFinancialYears);
+router.get('/active', requireCompany('viewer'), getActiveFinancialYear);
+router.post('/', validate(createSchema), requireCompany('accountant'), createFinancialYear);
+router.put('/:id/activate', requireResource('financial_years', 'admin'), activateFinancialYear);
+router.put('/:id/close', requireResource('financial_years', 'admin'), closeFinancialYear);
+router.put('/:id/reopen', requireResource('financial_years', 'admin'), reopenFinancialYear);
+router.delete('/:id', requireResource('financial_years', 'admin'), deleteFinancialYear);
 
 export default router;

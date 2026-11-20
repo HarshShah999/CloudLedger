@@ -1,10 +1,11 @@
 import express from 'express';
 import { getTrialBalance, getPnL, getBalanceSheet } from '../controllers/reportController';
 import { protect } from '../middleware/auth';
+import { requireCompany } from '../middleware/companyAccess';
 
 const router = express.Router();
 
-router.use(protect);
+router.use(protect, requireCompany('viewer'));
 
 router.get('/trial-balance', getTrialBalance);
 router.get('/pnl', getPnL);

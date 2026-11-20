@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Download, Upload, Trash2, Database, FileJson, AlertTriangle, CheckCircle, Loader } from 'lucide-react';
 import api from '../api/axios';
+import { useAuth } from '../context/AuthContext';
 
 interface Backup {
     filename: string;
@@ -11,6 +12,8 @@ interface Backup {
 }
 
 const BackupRestore: React.FC = () => {
+    const { user } = useAuth();
+    const isPlatformAdmin = !!user?.is_superadmin;
     const [backups, setBackups] = useState<Backup[]>([]);
     const [loading, setLoading] = useState(false);
     const [creating, setCreating] = useState(false);
@@ -53,7 +56,7 @@ const BackupRestore: React.FC = () => {
             const response = await api.get('/companies');
             // API returns: { status, results, data: { companies: [...] } }
             const companiesData = response.data?.data?.companies || [];
-            setCompanies(companiesData);
+            setCompanies(companiesData.filter((c: any) => c.role === 'admin'));
         } catch (error) {
             console.error('Failed to fetch companies:', error);
             setCompanies([]); // Set empty array on error
@@ -61,9 +64,9 @@ const BackupRestore: React.FC = () => {
     };
 
     useEffect(() => {
-        fetchBackups();
+        if (isPlatformAdmin) fetchBackups();
         fetchCompanies();
-    }, []);
+    }, [isPlatformAdmin]);
 
     const createBackup = async () => {
         setCreating(true);
@@ -183,7 +186,8 @@ const BackupRestore: React.FC = () => {
                 </div>
             )}
 
-            {/* Full Database Backup Section */}
+            {/* Full Database Backup Section (platform administrator only) */}
+            {isPlatformAdmin && (
             <div className="bg-white rounded-lg shadow-md p-6 mb-6">
                 <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-3">
@@ -273,6 +277,7 @@ const BackupRestore: React.FC = () => {
                     )}
                 </div>
             </div>
+            )}
 
             {/* Company Export Section */}
             <div className="bg-white rounded-lg shadow-md p-6">

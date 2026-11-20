@@ -1,5 +1,8 @@
 import { Request, Response, NextFunction } from 'express';
-import { query } from '../config/db';
+import { query as dbQuery, withTransaction } from '../config/db';
+import { seedCompany } from '../services/companySetup';
+
+const query = dbQuery;
 import { AppError } from '../middleware/errorHandler';
 import fs from 'fs/promises';
 import path from 'path';
@@ -206,10 +209,9 @@ export const importCompany = async (req: Request, res: Response, next: NextFunct
 
         console.log('Importing company...');
 
-        // Start transaction
-        await query('BEGIN');
-
-        try {
+        const imported = await withTransaction(async (client) => {
+            // Shadow the pool query so every statement below runs inside this transaction
+            const query = (text: string, params?: any[]) => client.query(text, params);
             // Create company
             const companyRes = await query(
                 `INSERT INTO companies (name, address, email, phone, currency, gstin, state)
@@ -385,24 +387,12 @@ export const importCompany = async (req: Request, res: Response, next: NextFunct
                 }
             }
 
-            // Commit transaction
-            await query('COMMIT');
+            await seedCompany(client, newCompanyId);
+            return { companyId: newCompanyId, companyName: companyData.company.name + ' (Imported)' };
+        });
 
-            console.log(`✅ Company imported successfully: ${newCompanyId}`);
-
-            res.status(200).json({
-                status: 'success',
-                message: 'Company imported successfully',
-                data: {
-                    companyId: newCompanyId,
-                    companyName: companyData.company.name + ' (Imported)'
-                }
-            });
-        } catch (error) {
-            // Rollback on error
-            await query('ROLLBACK');
-            throw error;
-        }
+        console.log(`✅ Company imported successfully: ${imported.companyId}`);
+        res.status(200).json({ status: 'success', message: 'Company imported successfully', data: imported });
     } catch (error: any) {
         console.error('Import error:', error);
         next(error);
@@ -421,14 +411,33 @@ export const getCompanyExports = async (req: Request, res: Response, next: NextF
              LEFT JOIN companies c ON bl.company_id = c.id
              LEFT JOIN users u ON bl.created_by = u.id
              WHERE bl.type = 'COMPANY'
+               AND bl.company_id IN (SELECT company_id FROM company_users WHERE user_id = $1 AND role = 'admin')
              ORDER BY bl.created_at DESC
-             LIMIT 50`
+             LIMIT 50`,
+            [userId]
         );
 
         res.status(200).json({
             status: 'success',
             data: logsRes.rows
         });
+    } catch (error) {
+        next(error);
+    }
+};
+
+// Download a company export file (company admins only)
+export const downloadCompanyExport = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const filename = path.basename(String(req.params.filename));
+        const log = await query(
+            `SELECT bl.company_id FROM backup_logs bl
+             JOIN company_users cu ON cu.company_id = bl.company_id AND cu.user_id = $2 AND cu.role = 'admin'
+             WHERE bl.type = 'COMPANY' AND bl.filename = $1`,
+            [filename, (req as any).user?.id]
+        );
+        if (!log.rows.length) return next(new AppError('Export not found', 404));
+        res.download(path.join(COMPANY_BACKUP_DIR, filename), filename);
     } catch (error) {
         next(error);
     }

@@ -6,9 +6,14 @@ interface Company {
     id: string;
     name: string;
     currency: string;
-    role: string;
+    /** The current user's role in this company. */
+    role: 'admin' | 'accountant' | 'viewer';
     gstin?: string;
     state?: string;
+    address?: string;
+    email?: string;
+    phone?: string;
+    round_off_invoices?: boolean;
 }
 
 interface CompanyContextType {
@@ -17,6 +22,10 @@ interface CompanyContextType {
     isLoading: boolean;
     selectCompany: (companyId: string) => void;
     refreshCompanies: () => void;
+    /** True if the user may create/edit entries in the selected company. */
+    canWrite: boolean;
+    /** True if the user administers the selected company. */
+    isCompanyAdmin: boolean;
 }
 
 const CompanyContext = createContext<CompanyContextType | undefined>(undefined);
@@ -74,6 +83,8 @@ export const CompanyProvider: React.FC<{ children: React.ReactNode }> = ({ child
                 isLoading,
                 selectCompany,
                 refreshCompanies: fetchCompanies,
+                canWrite: selectedCompany?.role === 'admin' || selectedCompany?.role === 'accountant',
+                isCompanyAdmin: selectedCompany?.role === 'admin',
             }}
         >
             {children}

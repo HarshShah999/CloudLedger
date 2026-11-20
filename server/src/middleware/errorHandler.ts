@@ -10,35 +10,42 @@ export class AppError extends Error {
         this.statusCode = statusCode;
         this.status = `${statusCode}`.startsWith('4') ? 'fail' : 'error';
         this.isOperational = true;
-
         Error.captureStackTrace(this, this.constructor);
     }
 }
 
-export const errorHandler = (err: any, req: Request, res: Response, next: NextFunction) => {
-    err.statusCode = err.statusCode || 500;
-    err.status = err.status || 'error';
-
-    if (process.env.NODE_ENV === 'development') {
-        res.status(err.statusCode).json({
-            status: err.status,
-            error: err,
-            message: err.message,
-            stack: err.stack,
-        });
-    } else {
-        // Production: don't leak stack traces
-        if (err.isOperational) {
-            res.status(err.statusCode).json({
-                status: err.status,
-                message: err.message,
-            });
-        } else {
-            console.error('ERROR 💥', err);
-            res.status(500).json({
-                status: 'error',
-                message: 'Something went very wrong!',
-            });
-        }
+/** Turns common PostgreSQL errors into friendly 4xx responses. */
+const fromPostgres = (err: any): AppError | null => {
+    switch (err?.code) {
+        case '23505':
+            return new AppError('This record already exists (duplicate value)', 409);
+        case '23503':
+            return new AppError('This record is linked to other data and cannot be changed or removed', 400);
+        case '22P02':
+            return new AppError('Invalid identifier or value in request', 400);
+        case '22007':
+        case '22008':
+            return new AppError('Invalid date', 400);
+        case '23514':
+            return new AppError('Value not allowed', 400);
+        default:
+            return null;
     }
+};
+
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export const errorHandler = (err: any, _req: Request, res: Response, _next: NextFunction) => {
+    if (err?.type === 'entity.too.large') err = new AppError('Request is too large', 413);
+    if (err?.type === 'entity.parse.failed') err = new AppError('Malformed JSON body', 400);
+    const mapped = err instanceof AppError ? err : fromPostgres(err);
+    const statusCode = mapped?.statusCode ?? 500;
+
+    if (statusCode >= 500) console.error('ERROR 💥', err);
+
+    const body: Record<string, unknown> = {
+        status: mapped?.status ?? 'error',
+        message: mapped?.message ?? 'Something went wrong. Please try again.',
+    };
+    if (process.env.NODE_ENV === 'development' && !mapped) body.detail = err?.message;
+    res.status(statusCode).json(body);
 };

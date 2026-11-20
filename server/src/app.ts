@@ -1,6 +1,8 @@
 import express from 'express';
 import cors from 'cors';
-import dotenv from 'dotenv';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
+import { env } from './config/env';
 import { errorHandler, AppError } from './middleware/errorHandler';
 import authRoutes from './routes/authRoutes';
 import companyRoutes from './routes/companyRoutes';
@@ -20,25 +22,42 @@ import recurringInvoiceRoutes from './routes/recurringInvoiceRoutes';
 import reconciliationRoutes from './routes/reconciliationRoutes';
 import gstRoutes from './routes/gstRoutes';
 
-dotenv.config();
-
 const app = express();
 
-// Middleware
-app.use(cors({
-    origin: process.env.CLIENT_URL || 'http://localhost:5173',
-    credentials: true
-}));
-app.use(express.json());
+app.set('trust proxy', 1);
+app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
+app.use(
+    cors({
+        origin: env.clientUrl.split(',').map((s) => s.trim()),
+        credentials: true,
+        exposedHeaders: ['Content-Disposition'],
+    })
+);
+// Company imports can be large JSON documents
+app.use(express.json({ limit: '25mb' }));
 
-// Request logging
-app.use((req, res, next) => {
-    console.log(`📨 ${req.method} ${req.path}`);
-    next();
+if (env.nodeEnv !== 'test') {
+    app.use((req, _res, next) => {
+        console.log(`📨 ${req.method} ${req.path}`);
+        next();
+    });
+}
+
+// Brute-force protection on login/register (per IP)
+const authLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    limit: env.nodeEnv === 'test' ? 10_000 : 30,
+    standardHeaders: 'draft-7',
+    legacyHeaders: false,
+    message: { status: 'fail', message: 'Too many attempts, please try again in a few minutes' },
 });
 
+app.get('/api/health', (_req, res) => {
+    res.json({ status: 'ok' });
+});
 
-// Routes
+// Only credential endpoints are rate-limited; /auth/me runs on every page load.
+app.use(['/api/auth/login', '/api/auth/register'], authLimiter);
 app.use('/api/auth', authRoutes);
 app.use('/api/companies', companyRoutes);
 app.use('/api/ledgers', ledgerRoutes);
@@ -51,26 +70,20 @@ app.use('/api/export', exportRoutes);
 app.use('/api/inventory', inventoryRoutes);
 app.use('/api/invoices', invoiceRoutes);
 app.use('/api/payments', paymentRoutes);
-
-// ... existing code ...
-
 app.use('/api/recurring-invoices', recurringInvoiceRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/backup', backupRoutes);
 app.use('/api/reconciliation', reconciliationRoutes);
 app.use('/api/gst', gstRoutes);
 
-
-app.get('/', (req, res) => {
+app.get('/', (_req, res) => {
     res.send('CloudLedger API is running');
 });
 
-// 404 Handler - must be after all other routes
-app.use((req, res, next) => {
+app.use((req, _res, next) => {
     next(new AppError(`Can't find ${req.originalUrl} on this server!`, 404));
 });
 
-// Global Error Handler
 app.use(errorHandler);
 
 export default app;

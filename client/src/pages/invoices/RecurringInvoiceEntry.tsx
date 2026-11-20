@@ -40,10 +40,14 @@ export const RecurringInvoiceEntry: React.FC = () => {
 
     const [formData, setFormData] = useState({
         profileName: '',
-        cronExpression: '0 0 1 * *', // Default: 1st of every month
+        frequency: 'MONTHLY',
+        startDate: new Date().toISOString().split('T')[0],
+        endDate: '',
         nextInvoiceDate: new Date().toISOString().split('T')[0],
         partyLedgerId: '',
         salesLedgerId: '',
+        notes: '',
+        discountPercent: 0,
         isActive: true
     });
 
@@ -75,46 +79,29 @@ export const RecurringInvoiceEntry: React.FC = () => {
         const fetchRecurringInvoice = async () => {
             if (!id) return;
             try {
-                // We need to implement GET /recurring-invoices/:id in backend first or filter from list
-                // For now, assuming we can get it from the list endpoint or a specific endpoint
-                // Let's use the list endpoint with a filter if needed, or better, add a specific endpoint.
-                // Actually, I didn't add GET /recurring-invoices/:id in the backend plan explicitly, 
-                // but I should have. Let's assume I can fetch it. 
-                // Wait, I only added GET /recurring-invoices (list). 
-                // I should probably add GET /recurring-invoices/:id to backend or just filter client side if list is small.
-                // For robustness, I'll filter from the list endpoint for now to avoid backend changes if possible, 
-                // but fetching by ID is better. 
-                // Let's try to fetch all and find.
-                const res = await api.get(`/recurring-invoices?companyId=${selectedCompany?.id}`);
-                const invoice = res.data.data.recurringInvoices.find((r: any) => r.id === id);
-
+                const res = await api.get(`/recurring-invoices/${id}`);
+                const invoice = res.data.data.recurringInvoice;
                 if (invoice) {
                     setFormData({
-                        profileName: invoice.profile_name,
-                        cronExpression: invoice.cron_expression,
-                        nextInvoiceDate: new Date(invoice.next_invoice_date).toISOString().split('T')[0],
+                        profileName: invoice.profile_name || '',
+                        frequency: invoice.frequency,
+                        startDate: invoice.start_date,
+                        endDate: invoice.end_date || '',
+                        nextInvoiceDate: invoice.next_invoice_date,
                         partyLedgerId: invoice.party_ledger_id,
                         salesLedgerId: invoice.sales_ledger_id,
+                        notes: invoice.notes || '',
+                        discountPercent: Number(invoice.discount_percent || 0),
                         isActive: invoice.is_active
                     });
-                    // Note: The list endpoint might not return items. 
-                    // If items are missing, we can't edit properly. 
-                    // I should check if I need to update the backend to return items or add a detail endpoint.
-                    // The `getRecurringInvoices` controller does join items.
-                    // Let's check the controller code.
-                    // It does: `const itemsResult = await client.query('SELECT * FROM recurring_invoice_items WHERE recurring_invoice_id = ANY($1)', [ids]);`
-                    // So it returns items attached to the invoice object? 
-                    // The controller maps them: `...inv, items: invoiceItems`
-                    // Yes, it returns items.
-
                     setInvoiceItems(invoice.items.map((item: any) => ({
-                        itemId: item.item_id,
-                        description: item.description,
+                        itemId: item.item_id || '',
+                        description: item.description || '',
                         quantity: Number(item.quantity),
                         rate: Number(item.rate),
-                        taxRate: Number(item.tax_rate || 18),
+                        taxRate: Number(item.tax_rate ?? 0),
                         discountPercent: Number(item.discount_percent || 0),
-                        amount: Number(item.amount)
+                        amount: Number(item.quantity) * Number(item.rate)
                     })));
                 }
             } catch (error) {
@@ -162,9 +149,12 @@ export const RecurringInvoiceEntry: React.FC = () => {
 
         const payload = {
             companyId: selectedCompany.id,
+            type: 'SALES',
             ...formData,
+            endDate: formData.endDate || null,
+            nextInvoiceDate: id ? formData.nextInvoiceDate : formData.startDate,
             items: invoiceItems.map(item => ({
-                itemId: item.itemId,
+                itemId: item.itemId || null,
                 description: item.description,
                 quantity: item.quantity,
                 rate: item.rate,
@@ -211,24 +201,42 @@ export const RecurringInvoiceEntry: React.FC = () => {
                         value={formData.profileName}
                         onChange={(e) => setFormData({ ...formData, profileName: e.target.value })}
                         placeholder="e.g., Monthly Maintenance"
-                        required
                     />
+                    <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Repeat</label>
+                        <select
+                            className="input-field"
+                            value={formData.frequency}
+                            onChange={(e) => setFormData({ ...formData, frequency: e.target.value })}
+                        >
+                            <option value="WEEKLY">Every week</option>
+                            <option value="MONTHLY">Every month</option>
+                            <option value="QUARTERLY">Every 3 months</option>
+                            <option value="HALF_YEARLY">Every 6 months</option>
+                            <option value="YEARLY">Every year</option>
+                        </select>
+                    </div>
                     <Input
-                        label="Cron Expression"
-                        value={formData.cronExpression}
-                        onChange={(e) => setFormData({ ...formData, cronExpression: e.target.value })}
-                        placeholder="0 0 1 * * (At 00:00 on day-of-month 1)"
-                        required
-                    />
-                    <p className="text-xs text-slate-500 col-span-2">
-                        Common examples: "0 0 1 * *" (Monthly on 1st), "0 0 * * 1" (Weekly on Monday), "0 0 1 1 *" (Yearly on Jan 1st)
-                    </p>
-                    <Input
-                        label="Next Invoice Date"
+                        label="First Invoice Date"
                         type="date"
-                        value={formData.nextInvoiceDate}
-                        onChange={(e) => setFormData({ ...formData, nextInvoiceDate: e.target.value })}
+                        value={formData.startDate}
+                        onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
                         required
+                    />
+                    {id && (
+                        <Input
+                            label="Next Invoice Date"
+                            type="date"
+                            value={formData.nextInvoiceDate}
+                            onChange={(e) => setFormData({ ...formData, nextInvoiceDate: e.target.value })}
+                            required
+                        />
+                    )}
+                    <Input
+                        label="End Date (optional)"
+                        type="date"
+                        value={formData.endDate}
+                        onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
                     />
                     <div>
                         <label className="block text-sm font-medium text-slate-700 mb-1">Party A/c Name</label>

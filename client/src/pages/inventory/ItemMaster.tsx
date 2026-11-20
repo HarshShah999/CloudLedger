@@ -3,7 +3,7 @@ import { useCompany } from '../../context/CompanyContext';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Plus, Edit2, Package } from 'lucide-react';
-import api from '../../api/axios';
+import api, { apiError } from '../../api/axios';
 import { notify } from '../../utils/notification';
 
 interface Unit {
@@ -94,7 +94,7 @@ export const ItemMaster: React.FC = () => {
             handleCloseModal();
         } catch (error) {
             console.error('Failed to save item', error);
-            notify.error('Failed to save item');
+            notify.error(apiError(error, 'Failed to save item'));
         }
     };
 
@@ -116,7 +116,7 @@ export const ItemMaster: React.FC = () => {
             notify.success('Unit created successfully!');
         } catch (error) {
             console.error('Failed to create unit', error);
-            notify.error('Failed to create unit');
+            notify.error(apiError(error, 'Failed to create unit'));
         }
     };
 

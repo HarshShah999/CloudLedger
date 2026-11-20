@@ -4,7 +4,7 @@ import { useCompany } from '../../context/CompanyContext';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Plus, Trash2, Save, ArrowLeft } from 'lucide-react';
-import api from '../../api/axios';
+import api, { apiError } from '../../api/axios';
 import { notify } from '../../utils/notification';
 
 interface VoucherType {
@@ -107,7 +107,7 @@ export const VoucherEntry: React.FC = () => {
             navigate('/vouchers');
         } catch (error) {
             console.error('Failed to create voucher', error);
-            notify.error('Failed to save voucher');
+            notify.error(apiError(error, 'Failed to save voucher'));
         } finally {
             setLoading(false);
         }
@@ -147,7 +147,7 @@ export const VoucherEntry: React.FC = () => {
                         label="Voucher No"
                         value={formData.voucherNumber}
                         onChange={(e) => setFormData({ ...formData, voucherNumber: e.target.value })}
-                        required
+                        placeholder="Auto"
                     />
                     <Input
                         label="Date"

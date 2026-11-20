@@ -1,47 +1,47 @@
 import express from 'express';
-import { getGroups, createGroup, getLedgers, createLedger, updateLedger, deleteLedger } from '../controllers/ledgerController';
-import { protect } from '../middleware/auth';
-import { validate } from '../middleware/validate';
 import Joi from 'joi';
+import { protect } from '../middleware/auth';
+import { requireCompany, requireResource } from '../middleware/companyAccess';
+import { validate, uuid, gstin } from '../middleware/validate';
+import { getGroups, createGroup, getLedgers, createLedger, updateLedger, deleteLedger } from '../controllers/ledgerController';
 
 const router = express.Router();
 
 const createGroupSchema = Joi.object({
-    companyId: Joi.string().uuid().required(),
-    name: Joi.string().required(),
-    parentId: Joi.string().uuid().allow(null).optional(),
+    companyId: uuid().required(),
+    name: Joi.string().trim().max(255).required(),
+    parentId: uuid().allow(null, '').optional(),
     type: Joi.string().valid('Asset', 'Liability', 'Income', 'Expense').required(),
 });
 
+const ledgerFields = {
+    groupId: uuid(),
+    name: Joi.string().trim().max(255),
+    openingBalance: Joi.number().min(0).precision(2),
+    openingBalanceType: Joi.string().valid('Dr', 'Cr'),
+    gstin: gstin(),
+    state: Joi.string().trim().max(100).allow('', null),
+    email: Joi.string().trim().email().allow('', null),
+    phone: Joi.string().trim().max(30).allow('', null),
+    address: Joi.string().max(1000).allow('', null),
+};
+
 const createLedgerSchema = Joi.object({
-    companyId: Joi.string().uuid().required(),
-    groupId: Joi.string().uuid().required(),
-    name: Joi.string().required(),
-    openingBalance: Joi.number().optional(),
-    openingBalanceType: Joi.string().valid('Dr', 'Cr').optional(),
-    gstin: Joi.string()
-        .pattern(/^[0-3][0-9][A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/)
-        .length(15)
-        .allow(null, '')
-        .messages({
-            'string.pattern.base': 'Invalid GSTIN format',
-            'string.length': 'GSTIN must be exactly 15 characters',
-        }),
-    state: Joi.string().required(),
+    companyId: uuid().required(),
+    ...ledgerFields,
+    groupId: uuid().required(),
+    name: Joi.string().trim().max(255).required(),
 });
+const updateLedgerSchema = Joi.object({ companyId: uuid(), ...ledgerFields });
 
 router.use(protect);
 
-router.route('/groups')
-    .get(getGroups)
-    .post(validate(createGroupSchema), createGroup);
+router.get('/groups', requireCompany('viewer'), getGroups);
+router.post('/groups', validate(createGroupSchema), requireCompany('accountant'), createGroup);
 
-router.route('/')
-    .get(getLedgers)
-    .post(validate(createLedgerSchema), createLedger);
-
-router.route('/:id')
-    .put(updateLedger)
-    .delete(deleteLedger);
+router.get('/', requireCompany('viewer'), getLedgers);
+router.post('/', validate(createLedgerSchema), requireCompany('accountant'), createLedger);
+router.put('/:id', validate(updateLedgerSchema), requireResource('ledgers', 'accountant'), updateLedger);
+router.delete('/:id', requireResource('ledgers', 'accountant'), deleteLedger);
 
 export default router;

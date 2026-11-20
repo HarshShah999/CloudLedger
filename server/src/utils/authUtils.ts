@@ -1,19 +1,12 @@
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcrypt';
+import { env } from '../config/env';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'secret';
+export const generateToken = (userId: string) =>
+    jwt.sign({ id: userId }, env.jwtSecret, { expiresIn: env.jwtExpiresIn as jwt.SignOptions['expiresIn'] });
 
-export const generateToken = (userId: string, role: string) => {
-    return jwt.sign({ id: userId, role }, JWT_SECRET, {
-        expiresIn: '1d',
-    });
-};
+export const verifyToken = (token: string) => jwt.verify(token, env.jwtSecret) as { id: string };
 
-export const hashPassword = async (password: string) => {
-    const salt = await bcrypt.genSalt(10);
-    return bcrypt.hash(password, salt);
-};
+export const hashPassword = async (password: string) => bcrypt.hash(password, 12);
 
-export const comparePassword = async (password: string, hash: string) => {
-    return bcrypt.compare(password, hash);
-};
+export const comparePassword = async (password: string, hash: string) => bcrypt.compare(password, hash);

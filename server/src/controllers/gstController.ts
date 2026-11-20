@@ -1,144 +1,88 @@
-
-import { Request, Response, NextFunction } from 'express';
+import { Request, Response } from 'express';
 import { query } from '../config/db';
 import { AppError } from '../middleware/errorHandler';
+import { isInterStateSupply } from '../services/invoiceCalc';
 
-export const getGSTR1 = async (req: Request, res: Response, next: NextFunction) => {
-    const { companyId } = req.params;
+/** B2C (Large): unregistered, inter-state, invoice value above ₹1,00,000 (limit since 1 Aug 2024). */
+const B2CL_LIMIT = 100000;
+
+const period = (req: Request) => {
     const { fromDate, toDate } = req.query;
-
-    if (!fromDate || !toDate) {
-        return next(new AppError('From date and To date are required', 400));
-    }
-
-    try {
-        // Fetch Sales Invoices with Party Details and Items
-        const invoicesQuery = `
-            SELECT 
-                i.id, i.invoice_number, i.date, i.grand_total, i.tax_total, i.subtotal,
-                l.name as party_name, l.gstin as party_gstin, l.state as party_state,
-                c.state as company_state,
-                (
-                    SELECT json_agg(json_build_object(
-                        'taxable_amount', ii.taxable_amount,
-                        'tax_rate', ii.tax_rate,
-                        'cgst_amount', ii.cgst_amount,
-                        'sgst_amount', ii.sgst_amount,
-                        'igst_amount', ii.igst_amount
-                    ))
-                    FROM invoice_items ii
-                    WHERE ii.invoice_id = i.id
-                ) as items
-            FROM invoices i
-            LEFT JOIN ledgers l ON i.party_ledger_id = l.id
-            LEFT JOIN companies c ON i.company_id = c.id
-            WHERE i.company_id = $1 
-            AND i.type = 'SALES'
-            AND i.date BETWEEN $2 AND $3
-            ORDER BY i.date DESC
-        `;
-
-        const result = await query(invoicesQuery, [companyId, fromDate, toDate]);
-        const invoices = result.rows;
-
-        // Process data for GSTR-1
-        const b2b: any[] = [];
-        const b2cLarge: any[] = [];
-        const b2cSmall: any[] = [];
-
-        invoices.forEach(inv => {
-            const isInterState = inv.party_state && inv.company_state && inv.party_state !== inv.company_state;
-            const hasGSTIN = !!inv.party_gstin;
-            const grandTotal = Number(inv.grand_total);
-
-            if (hasGSTIN) {
-                // B2B: Registered Party
-                b2b.push(inv);
-            } else if (isInterState && grandTotal > 250000) {
-                // B2C Large: Unregistered, Inter-state, > 2.5 Lakhs
-                b2cLarge.push(inv);
-            } else {
-                // B2C Small: Everyone else
-                b2cSmall.push(inv);
-            }
-        });
-
-        res.status(200).json({
-            status: 'success',
-            data: {
-                b2b,
-                b2cLarge,
-                b2cSmall
-            }
-        });
-
-    } catch (error) {
-        next(error);
-    }
+    if (!fromDate || !toDate) throw new AppError('From date and To date are required', 400);
+    return [String(fromDate).slice(0, 10), String(toDate).slice(0, 10)];
 };
 
-export const getGSTR3B = async (req: Request, res: Response, next: NextFunction) => {
-    const { companyId } = req.params;
-    const { fromDate, toDate } = req.query;
+export const getGSTR1 = async (req: Request, res: Response) => {
+    const [from, to] = period(req);
+    const result = await query(
+        `SELECT i.id, i.invoice_number, i.date, i.type, i.grand_total, i.tax_total, i.subtotal,
+                i.original_invoice_number, i.original_invoice_date,
+                COALESCE(i.place_of_supply, l.state) AS place_of_supply,
+                l.name AS party_name, l.gstin AS party_gstin, l.state AS party_state, c.state AS company_state,
+                (SELECT json_agg(json_build_object(
+                    'taxable_amount', ii.taxable_amount, 'tax_rate', ii.tax_rate,
+                    'cgst_amount', ii.cgst_amount, 'sgst_amount', ii.sgst_amount, 'igst_amount', ii.igst_amount))
+                 FROM invoice_items ii WHERE ii.invoice_id = i.id) AS items
+         FROM invoices i
+         LEFT JOIN ledgers l ON i.party_ledger_id = l.id
+         LEFT JOIN companies c ON i.company_id = c.id
+         WHERE i.company_id = $1 AND i.type IN ('SALES', 'CREDIT_NOTE', 'DEBIT_NOTE')
+           AND i.date BETWEEN $2 AND $3
+         ORDER BY i.date, i.invoice_number`,
+        [req.company!.id, from, to]
+    );
 
-    if (!fromDate || !toDate) {
-        return next(new AppError('From date and To date are required', 400));
+    const b2b: any[] = [];
+    const b2cLarge: any[] = [];
+    const b2cSmall: any[] = [];
+    const cdnr: any[] = [];
+    const cdnur: any[] = [];
+
+    for (const inv of result.rows) {
+        const registered = !!inv.party_gstin;
+        const inter = isInterStateSupply(inv.company_state, inv.place_of_supply);
+        if (inv.type !== 'SALES') {
+            (registered ? cdnr : cdnur).push(inv);
+        } else if (registered) {
+            b2b.push(inv);
+        } else if (inter && Number(inv.grand_total) > B2CL_LIMIT) {
+            b2cLarge.push(inv);
+        } else {
+            b2cSmall.push(inv);
+        }
     }
+    res.status(200).json({ status: 'success', data: { b2b, b2cLarge, b2cSmall, cdnr, cdnur } });
+};
 
-    try {
-        // 3.1 Outward Supplies (Sales)
-        const salesStatsQuery = `
-            SELECT 
-                SUM(i.subtotal) as taxable_value,
-                SUM(ii.igst_amount) as igst,
-                SUM(ii.cgst_amount) as cgst,
-                SUM(ii.sgst_amount) as sgst
-            FROM invoices i
-            JOIN invoice_items ii ON i.id = ii.invoice_id
-            WHERE i.company_id = $1 
-            AND i.type = 'SALES'
-            AND i.date BETWEEN $2 AND $3
-        `;
+const taxSums = async (companyId: string, from: string, to: string, plus: string, minus: string) => {
+    const r = await query(
+        `SELECT
+            COALESCE(SUM(ii.taxable_amount * CASE WHEN i.type = $4 THEN 1 ELSE -1 END), 0) AS taxable_value,
+            COALESCE(SUM(ii.igst_amount * CASE WHEN i.type = $4 THEN 1 ELSE -1 END), 0) AS igst,
+            COALESCE(SUM(ii.cgst_amount * CASE WHEN i.type = $4 THEN 1 ELSE -1 END), 0) AS cgst,
+            COALESCE(SUM(ii.sgst_amount * CASE WHEN i.type = $4 THEN 1 ELSE -1 END), 0) AS sgst
+         FROM invoices i JOIN invoice_items ii ON ii.invoice_id = i.id
+         WHERE i.company_id = $1 AND i.date BETWEEN $2 AND $3 AND i.type IN ($4, $5)`,
+        [companyId, from, to, plus, minus]
+    );
+    const row = r.rows[0];
+    return {
+        taxable_value: Number(row.taxable_value),
+        igst: Number(row.igst),
+        cgst: Number(row.cgst),
+        sgst: Number(row.sgst),
+    };
+};
 
-        const salesResult = await query(salesStatsQuery, [companyId, fromDate, toDate]);
-        const outwardSupplies = salesResult.rows[0];
-
-        // 4.0 Eligible ITC (Purchases)
-        const purchaseStatsQuery = `
-            SELECT 
-                SUM(i.subtotal) as taxable_value,
-                SUM(ii.igst_amount) as igst,
-                SUM(ii.cgst_amount) as cgst,
-                SUM(ii.sgst_amount) as sgst
-            FROM invoices i
-            JOIN invoice_items ii ON i.id = ii.invoice_id
-            WHERE i.company_id = $1 
-            AND i.type = 'PURCHASE'
-            AND i.date BETWEEN $2 AND $3
-        `;
-
-        const purchaseResult = await query(purchaseStatsQuery, [companyId, fromDate, toDate]);
-        const eligibleITC = purchaseResult.rows[0];
-
-        res.status(200).json({
-            status: 'success',
-            data: {
-                outward_supplies: {
-                    taxable_value: Number(outwardSupplies.taxable_value || 0),
-                    igst: Number(outwardSupplies.igst || 0),
-                    cgst: Number(outwardSupplies.cgst || 0),
-                    sgst: Number(outwardSupplies.sgst || 0)
-                },
-                eligible_itc: {
-                    taxable_value: Number(eligibleITC.taxable_value || 0),
-                    igst: Number(eligibleITC.igst || 0),
-                    cgst: Number(eligibleITC.cgst || 0),
-                    sgst: Number(eligibleITC.sgst || 0)
-                }
-            }
-        });
-
-    } catch (error) {
-        next(error);
-    }
+/** Summary for GSTR-3B: outward tax (sales − credit notes) and ITC (purchases − debit notes). */
+export const getGSTR3B = async (req: Request, res: Response) => {
+    const [from, to] = period(req);
+    const outward = await taxSums(req.company!.id, from, to, 'SALES', 'CREDIT_NOTE');
+    const itc = await taxSums(req.company!.id, from, to, 'PURCHASE', 'DEBIT_NOTE');
+    const net = {
+        igst: outward.igst - itc.igst,
+        cgst: outward.cgst - itc.cgst,
+        sgst: outward.sgst - itc.sgst,
+    };
+    res.status(200).json({ status: 'success', data: { outward_supplies: outward, eligible_itc: itc, net_payable: net } });
 };

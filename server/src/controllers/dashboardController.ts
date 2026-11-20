@@ -3,11 +3,7 @@ import { query } from '../config/db';
 import { AppError } from '../middleware/errorHandler';
 
 export const getDashboardStats = async (req: Request, res: Response, next: NextFunction) => {
-    const { companyId } = req.query;
-
-    if (!companyId) {
-        return next(new AppError('Company ID is required', 400));
-    }
+    const companyId = req.company!.id;
 
     try {
         // 1. Get Total Receivables (Unpaid/Partial Sales Invoices)
@@ -30,29 +26,21 @@ export const getDashboardStats = async (req: Request, res: Response, next: NextF
             [companyId]
         );
 
-        // 3. Get Cash and Bank Balances
+        // 3. Cash and bank balances (opening + all entries), by account group
         const balancesRes = await query(
-            `SELECT 
-                l.name,
-                COALESCE(SUM(CASE WHEN ve.type = 'Dr' THEN ve.amount ELSE -ve.amount END), 0) as balance
-             FROM ledgers l
-             LEFT JOIN voucher_entries ve ON ve.ledger_id = l.id
-             LEFT JOIN vouchers v ON v.id = ve.voucher_id AND v.company_id = $1
-             WHERE l.company_id = $1 
-             AND (l.name ILIKE '%Cash%' OR l.name ILIKE '%Bank%')
-             GROUP BY l.id, l.name`,
+            `SELECT kind, COALESCE(SUM(balance), 0) AS balance FROM (
+                SELECT CASE WHEN g.code = 'CASH_IN_HAND' OR g.name ILIKE '%cash%' THEN 'cash' ELSE 'bank' END AS kind,
+                       (CASE WHEN l.opening_balance_type = 'Cr' THEN -l.opening_balance ELSE l.opening_balance END)
+                       + COALESCE((SELECT SUM(CASE WHEN ve.type = 'Dr' THEN ve.amount ELSE -ve.amount END)
+                                   FROM voucher_entries ve WHERE ve.ledger_id = l.id), 0) AS balance
+                FROM ledgers l JOIN ledger_groups g ON g.id = l.group_id
+                WHERE l.company_id = $1
+                  AND (g.code IN ('CASH_IN_HAND', 'BANK_ACCOUNTS', 'BANK_OD') OR g.name ILIKE '%cash%' OR g.name ILIKE '%bank%')
+             ) t GROUP BY kind`,
             [companyId]
         );
-
-        let cashBalance = 0;
-        let bankBalance = 0;
-        balancesRes.rows.forEach(row => {
-            if (row.name.toLowerCase().includes('cash')) {
-                cashBalance += Number(row.balance);
-            } else if (row.name.toLowerCase().includes('bank')) {
-                bankBalance += Number(row.balance);
-            }
-        });
+        const cashBalance = Number(balancesRes.rows.find((r) => r.kind === 'cash')?.balance || 0);
+        const bankBalance = Number(balancesRes.rows.find((r) => r.kind === 'bank')?.balance || 0);
 
         // 4. Get Monthly Income and Expenses together
         const monthlyRes = await query(
