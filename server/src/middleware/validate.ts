@@ -53,7 +53,9 @@ const invoiceBase = {
     invoiceNumber: Joi.string().trim().max(50).allow('', null),
     date: isoDate().required(),
     dueDate: isoDate().allow('', null),
-    type: Joi.string().valid('SALES', 'PURCHASE', 'CREDIT_NOTE', 'DEBIT_NOTE').required(),
+    type: Joi.string().valid('SALES', 'PURCHASE', 'CREDIT_NOTE', 'DEBIT_NOTE', 'QUOTATION', 'SALES_ORDER', 'PURCHASE_ORDER').required(),
+    status: Joi.string().max(20).allow('', null),
+    validUntil: isoDate().allow('', null),
     placeOfSupply: Joi.string().trim().max(100).allow('', null),
     items: Joi.array()
         .items(

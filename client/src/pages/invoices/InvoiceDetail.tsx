@@ -2,7 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
-import { ArrowLeft, DollarSign, Trash2, Edit } from 'lucide-react';
+import { ArrowLeft, ArrowRightCircle, DollarSign, Trash2, Edit } from 'lucide-react';
+import { CONVERSIONS, DocType, STATUS_OPTIONS, STATUS_STYLE, docInfo, isPostingType } from '../../lib/docTypes';
 import { ShareMenu } from '../../components/ShareMenu';
 import { DocumentHistory } from '../../components/DocumentHistory';
 import api, { apiError } from '../../api/axios';
@@ -109,6 +110,26 @@ export const InvoiceDetail: React.FC = () => {
         }
     };
 
+    const convert = async (to: DocType) => {
+        if (!confirm(`Create a ${docInfo(to).label} from ${invoice.invoice_number}?`)) return;
+        try {
+            const res = await api.post(`/invoices/${id}/convert`, { to });
+            notify.success(`${docInfo(to).label} ${res.data.data.invoice.invoice_number} created`);
+            navigate(`/invoices/${res.data.data.invoice.id}`);
+        } catch (err) {
+            notify.error(apiError(err, 'Could not convert'));
+        }
+    };
+
+    const changeStatus = async (status: string) => {
+        try {
+            await api.patch(`/invoices/${id}/status`, { status });
+            fetchInvoiceDetails();
+        } catch (err) {
+            notify.error(apiError(err, 'Could not change status'));
+        }
+    };
+
     if (loading) return <div className="text-center py-8">Loading...</div>;
     if (!invoice) return <div className="text-center py-8">Invoice not found</div>;
 
@@ -118,21 +139,31 @@ export const InvoiceDetail: React.FC = () => {
         <div className="space-y-6">
             <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-4">
-                    <Button variant="secondary" onClick={() => navigate('/invoices')}>
+                    <Button variant="secondary" onClick={() => navigate(`/invoices?type=${invoice.type}`)}>
                         <ArrowLeft className="w-4 h-4" />
                         Back
                     </Button>
                     <h1 className="text-2xl font-bold text-slate-800">
-                        {({ SALES: 'Invoice', PURCHASE: 'Purchase Bill', CREDIT_NOTE: 'Credit Note', DEBIT_NOTE: 'Debit Note' } as Record<string, string>)[invoice.type] || 'Invoice'} {invoice.invoice_number}
+                        {docInfo(invoice.type).label} {invoice.invoice_number}
                     </h1>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                    <Button variant="secondary" onClick={() => navigate(`/invoices/${id}/edit`)}>
-                        <Edit className="w-4 h-4" />
-                        Edit
-                    </Button>
+                    {invoice.status !== 'CONVERTED' && (
+                        <Button variant="secondary" onClick={() => navigate(`/invoices/${id}/edit`)}>
+                            <Edit className="w-4 h-4" />
+                            Edit
+                        </Button>
+                    )}
+                    {(CONVERSIONS[invoice.type as DocType] || []).map((to) =>
+                        invoice.status === 'CONVERTED' || invoice.status === 'DECLINED' ? null : (
+                            <Button key={to} onClick={() => convert(to)}>
+                                <ArrowRightCircle className="w-4 h-4" />
+                                Convert to {docInfo(to).label}
+                            </Button>
+                        )
+                    )}
                     <ShareMenu target={{ kind: 'invoice', id: invoice.id, label: invoice.invoice_number }} />
-                    {Number(invoice.outstanding_amount) > 0 && (
+                    {isPostingType(invoice.type) && Number(invoice.outstanding_amount) > 0 && (
                         <Button onClick={() => { setPaymentForm((f) => ({ ...f, amount: Number(invoice.outstanding_amount ?? invoice.grand_total) })); setShowPaymentModal(true); }}>
                             <DollarSign className="w-4 h-4" />
                             Record Payment
@@ -160,10 +191,42 @@ export const InvoiceDetail: React.FC = () => {
                     {invoice.due_date && <p className="text-sm text-slate-600">Due Date: {new Date(invoice.due_date).toLocaleDateString()}</p>}
                 </div>
                 <div>
-                    <p className="text-sm text-slate-600">Type: {invoice.type}</p>
+                    <p className="text-sm text-slate-600">Type: {docInfo(invoice.type).label}</p>
+                    {invoice.source_document_id && (
+                        <p className="text-sm text-slate-600">
+                            Created from{' '}
+                            <a className="text-primary underline" href={`/invoices/${invoice.source_document_id}`} onClick={(e) => { e.preventDefault(); navigate(`/invoices/${invoice.source_document_id}`); }}>
+                                {docInfo(invoice.source_document_type).label} {invoice.source_document_number}
+                            </a>
+                        </p>
+                    )}
+                    {(invoice.converted_to || []).map((c: any) => (
+                        <p key={c.id} className="text-sm text-slate-600">
+                            Converted to{' '}
+                            <a className="text-primary underline" href={`/invoices/${c.id}`} onClick={(e) => { e.preventDefault(); navigate(`/invoices/${c.id}`); }}>
+                                {docInfo(c.type).label} {c.number}
+                            </a>
+                        </p>
+                    ))}
+                    {!isPostingType(invoice.type) && (
+                        <div className="mt-2 flex items-center gap-2 text-sm text-slate-600">
+                            Status:
+                            {invoice.status === 'CONVERTED' ? (
+                                <span className={`rounded px-2 py-0.5 text-xs font-medium ${STATUS_STYLE.CONVERTED}`}>CONVERTED</span>
+                            ) : (
+                                <select className="input-field w-auto py-1" value={invoice.status} onChange={(e) => changeStatus(e.target.value)}>
+                                    {(STATUS_OPTIONS[invoice.type as DocType] || []).map((st) => (
+                                        <option key={st} value={st}>{st}</option>
+                                    ))}
+                                </select>
+                            )}
+                        </div>
+                    )}
+                    {isPostingType(invoice.type) && (
                     <p className="text-sm text-slate-600">Status: <span className={`font-medium ${invoice.payment_status === 'PAID' ? 'text-green-600' :
                         invoice.payment_status === 'PARTIAL' ? 'text-yellow-600' : 'text-red-600'
                         }`}>{invoice.payment_status}</span></p>
+                    )}
                 </div>
             </div>
 
@@ -241,6 +304,7 @@ export const InvoiceDetail: React.FC = () => {
                             <span>Grand Total:</span>
                             <span className="font-mono">₹{Number(invoice.grand_total).toFixed(2)}</span>
                         </div>
+                        {isPostingType(invoice.type) && (<>
                         <div className="flex justify-between text-green-600">
                             <span>Paid:</span>
                             <span className="font-mono">₹{Number(invoice.paid_amount || 0).toFixed(2)}</span>
@@ -249,6 +313,7 @@ export const InvoiceDetail: React.FC = () => {
                             <span>Outstanding:</span>
                             <span className="font-mono">₹{Number(invoice.outstanding_amount ?? invoice.grand_total).toFixed(2)}</span>
                         </div>
+                        </>)}
                     </div>
                 </div>
             </div>

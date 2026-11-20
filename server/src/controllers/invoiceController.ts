@@ -16,6 +16,9 @@ const DOC_LABEL: Record<string, string> = {
     PURCHASE: 'Purchase Bill',
     CREDIT_NOTE: 'Credit Note',
     DEBIT_NOTE: 'Debit Note',
+    QUOTATION: 'Quotation',
+    SALES_ORDER: 'Sales Order',
+    PURCHASE_ORDER: 'Purchase Order',
 };
 
 const safeFilename = (s: string) => s.replace(/[^A-Za-z0-9._-]+/g, '-');
@@ -51,7 +54,8 @@ export const getNextNumber = async (req: Request, res: Response) => {
 export const getInvoices = async (req: Request, res: Response) => {
     const { type, paymentStatus, fromDate, toDate, partyLedgerId } = req.query;
     const params: any[] = [req.company!.id];
-    let sql = `SELECT i.*, l.name AS party_name
+    let sql = `SELECT i.*, l.name AS party_name,
+                      (SELECT c.id FROM invoices c WHERE c.source_document_id = i.id LIMIT 1) AS converted_to_id
                FROM invoices i LEFT JOIN ledgers l ON i.party_ledger_id = l.id
                WHERE i.company_id = $1`;
     if (type) {
@@ -85,8 +89,12 @@ export const getInvoiceById = async (req: Request, res: Response) => {
         `SELECT i.*, l.name AS party_name, l.gstin AS party_gstin, l.state AS party_state,
                 l.email AS party_email, l.phone AS party_phone, l.address AS party_address,
                 sl.name AS sales_ledger_name, c.name AS company_name, c.gstin AS company_gstin,
-                c.state AS company_state
+                c.state AS company_state,
+                src.invoice_number AS source_document_number, src.type AS source_document_type,
+                (SELECT json_agg(json_build_object('id', d.id, 'number', d.invoice_number, 'type', d.type))
+                   FROM invoices d WHERE d.source_document_id = i.id) AS converted_to
          FROM invoices i
+         LEFT JOIN invoices src ON src.id = i.source_document_id
          LEFT JOIN ledgers l ON i.party_ledger_id = l.id
          LEFT JOIN ledgers sl ON i.sales_ledger_id = sl.id
          LEFT JOIN companies c ON i.company_id = c.id
@@ -209,4 +217,20 @@ export const sendInvoiceEmail = async (req: Request, res: Response) => {
     }
 
     res.status(200).json({ status: 'success', message: 'Email sent successfully', data: { recipient, subject: mailSubject } });
+};
+
+/** POST /invoices/:id/convert { to, date?, invoiceNumber?, dueDate? } */
+export const convertInvoice = async (req: Request, res: Response) => {
+    const invoice = await withTransaction((db) =>
+        invoiceService.convertDocument(db, req.company!.id, req.params.id, req.body.to, {
+            date: req.body.date, invoiceNumber: req.body.invoiceNumber, dueDate: req.body.dueDate,
+        })
+    );
+    res.status(201).json({ status: 'success', data: { invoice } });
+};
+
+/** PATCH /invoices/:id/status { status } for quotations and orders */
+export const updateDocumentStatus = async (req: Request, res: Response) => {
+    const invoice = await withTransaction((db) => invoiceService.setDocumentStatus(db, req.company!.id, req.params.id, String(req.body.status || '')));
+    res.json({ status: 'success', data: { invoice } });
 };

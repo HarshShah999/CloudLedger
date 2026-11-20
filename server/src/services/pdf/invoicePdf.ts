@@ -44,7 +44,7 @@ const drawInvoice = async (doc: PDFKit.PDFDocument, d: InvoiceDocument, copyLabe
     const rightW = CONTENT_W - leftW - 10;
     const top = y;
 
-    const partyLabel = inv.type === 'PURCHASE' || inv.type === 'DEBIT_NOTE' ? 'Supplier' : 'Bill To';
+    const partyLabel = ['PURCHASE', 'DEBIT_NOTE', 'PURCHASE_ORDER'].includes(inv.type) ? 'Supplier' : inv.type === 'QUOTATION' ? 'Quotation For' : 'Bill To';
     doc.font('B').fontSize(8).fillColor(COLORS.muted).text(partyLabel.toUpperCase(), x, y);
     doc.font('B').fontSize(10.5).fillColor(COLORS.text).text(d.party.name || '', x, doc.y + 2, { width: leftW });
     doc.font('R').fontSize(8.5);
@@ -62,6 +62,7 @@ const drawInvoice = async (doc: PDFKit.PDFDocument, d: InvoiceDocument, copyLabe
         ['Date', dmy(inv.date)],
     ];
     if (inv.due_date) meta.push(['Due Date', dmy(inv.due_date)]);
+    if (inv.valid_until) meta.push(['Valid Until', dmy(inv.valid_until)]);
     if (inv.place_of_supply) meta.push(['Place of Supply', inv.place_of_supply]);
     if (inv.type === 'SALES') meta.push(['Reverse Charge', 'No']);
     if (inv.original_invoice_number) {

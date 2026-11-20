@@ -61,6 +61,8 @@ export const getSharedDocument = async (req: Request, res: Response) => {
                     placeOfSupply: inv.place_of_supply,
                     notes: inv.notes,
                     paymentStatus: inv.payment_status,
+                    validUntil: inv.valid_until,
+                    payable: ['SALES', 'DEBIT_NOTE'].includes(inv.type),
                     discountAmount: Number(inv.discount_amount || 0),
                 },
                 items: d.items.map((it) => ({

@@ -4,7 +4,8 @@ import { Button } from '../../components/ui/Button';
 import { Plus, Download, Trash2, Eye, DollarSign, Edit } from 'lucide-react';
 import { ShareMenu } from '../../components/ShareMenu';
 import api, { apiError } from '../../api/axios';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { DOC_TYPES, DocType, docInfo, STATUS_STYLE } from '../../lib/docTypes';
 import { notify } from '../../utils/notification';
 
 interface Invoice {
@@ -17,6 +18,7 @@ interface Invoice {
     paid_amount: number;
     outstanding_amount: number;
     payment_status: string;
+    status?: string;
 }
 
 export const InvoiceList: React.FC = () => {
@@ -24,7 +26,13 @@ export const InvoiceList: React.FC = () => {
     const navigate = useNavigate();
     const [invoices, setInvoices] = useState<Invoice[]>([]);
     const [loading, setLoading] = useState(false);
-    const [filterType, setFilterType] = useState<'SALES' | 'PURCHASE' | 'CREDIT_NOTE' | 'DEBIT_NOTE'>('SALES');
+    const [searchParams, setSearchParams] = useSearchParams();
+    const filterType = (DOC_TYPES.find((d) => d.type === searchParams.get('type'))?.type ?? 'SALES') as DocType;
+    const setFilterType = (t: DocType) => {
+        setPaymentFilter('');
+        setSearchParams({ type: t }, { replace: true });
+    };
+    const info = docInfo(filterType);
     const [paymentFilter, setPaymentFilter] = useState<string>('');
     const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
     const fetchInvoices = async () => {
@@ -98,44 +106,31 @@ export const InvoiceList: React.FC = () => {
 
     return (
         <div className="space-y-6">
-            <div className="flex items-center justify-between">
-                <h1 className="text-2xl font-bold text-slate-800">Invoices</h1>
-                <div className="flex gap-2">
-                    <Button
-                        variant={filterType === 'SALES' ? 'primary' : 'secondary'}
-                        onClick={() => setFilterType('SALES')}
-                    >
-                        Sales
-                    </Button>
-                    <Button
-                        variant={filterType === 'PURCHASE' ? 'primary' : 'secondary'}
-                        onClick={() => setFilterType('PURCHASE')}
-                    >
-                        Purchase
-                    </Button>
-                    <Button
-                        variant={filterType === 'CREDIT_NOTE' ? 'primary' : 'secondary'}
-                        onClick={() => setFilterType('CREDIT_NOTE')}
-                    >
-                        Credit Note
-                    </Button>
-                    <Button
-                        variant={filterType === 'DEBIT_NOTE' ? 'primary' : 'secondary'}
-                        onClick={() => setFilterType('DEBIT_NOTE')}
-                    >
-                        Debit Note
-                    </Button>
-
-                    <Button onClick={() => navigate(`/invoices/create/${filterType.toLowerCase().replace('_', '-')}`)}>
-                        <Plus className="w-4 h-4" />
-                        New {filterType === 'SALES' ? 'Sales' : filterType === 'PURCHASE' ? 'Purchase' : filterType === 'CREDIT_NOTE' ? 'Credit Note' : 'Debit Note'}
-                    </Button>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+                <h1 className="text-2xl font-bold text-slate-800">Sales & Purchases</h1>
+                <Button onClick={() => navigate(`/invoices/create/${info.slug}`)}>
+                    <Plus className="w-4 h-4" />
+                    New {info.label}
+                </Button>
+            </div>
+            <div className="-mx-3 overflow-x-auto px-3 sm:mx-0 sm:px-0">
+                <div className="flex w-max gap-1 rounded-xl bg-slate-100 p-1">
+                    {DOC_TYPES.map((d) => (
+                        <button
+                            key={d.type}
+                            onClick={() => setFilterType(d.type)}
+                            className={`whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium ${filterType === d.type ? 'bg-white text-primary shadow' : 'text-slate-600 hover:text-slate-800'}`}
+                        >
+                            {d.plural}
+                        </button>
+                    ))}
                 </div>
             </div>
 
             {/* Payment Status Filter */}
+            {info.posting && (
             <div className="card">
-                <div className="flex gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                     <span className="text-sm font-medium text-slate-700">Filter by Payment:</span>
                     <button
                         onClick={() => setPaymentFilter('')}
@@ -163,6 +158,7 @@ export const InvoiceList: React.FC = () => {
                     </button>
                 </div>
             </div>
+            )}
 
             <div className="card">
                 <div className="overflow-x-auto">
@@ -201,10 +197,16 @@ export const InvoiceList: React.FC = () => {
                                             ₹{Number(invoice.paid_amount || 0).toLocaleString()}
                                         </td>
                                         <td className="py-3 px-4 text-right font-mono text-red-600">
-                                            ₹{Number(invoice.outstanding_amount || invoice.grand_total).toLocaleString()}
+                                            ₹{Number(invoice.outstanding_amount ?? invoice.grand_total).toLocaleString()}
                                         </td>
                                         <td className="py-3 px-4">
-                                            {getPaymentStatusBadge(invoice.payment_status || 'UNPAID')}
+                                            {info.posting ? (
+                                                getPaymentStatusBadge(invoice.payment_status || 'UNPAID')
+                                            ) : (
+                                                <span className={`rounded px-2 py-1 text-xs font-medium ${STATUS_STYLE[invoice.status || ''] || ''}`}>
+                                                    {invoice.status}
+                                                </span>
+                                            )}
                                         </td>
                                         <td className="py-3 px-4 text-right">
                                             <div className="flex gap-2 justify-end">

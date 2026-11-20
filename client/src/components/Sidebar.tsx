@@ -16,6 +16,7 @@ import {
     Repeat,
     Database,
     ShieldCheck,
+    Wallet,
 } from 'lucide-react';
 
 const mainNavItems = [
@@ -24,13 +25,17 @@ const mainNavItems = [
     { label: 'Financial Years', icon: Building2, path: '/financial-years' },
     { label: 'Ledgers', icon: BookOpen, path: '/ledgers' },
     { label: 'Items', icon: Package, path: '/inventory/items' },
-    { label: 'Invoices', icon: FileText, path: '/invoices' },
+    { label: 'Sales & Purchases', icon: FileText, path: '/invoices' },
+    { label: 'Receipts & Payments', icon: Wallet, path: '/receipts' },
     { label: 'Recurring', icon: Repeat, path: '/recurring-invoices' },
     { label: 'Vouchers', icon: FileText, path: '/vouchers' },
     { label: 'Banking', icon: Building2, path: '/banking/reconciliation' },
 ];
 
 const reportItems = [
+    { label: 'Outstanding', path: '/reports/outstanding' },
+    { label: 'Day Book', path: '/reports/day-book' },
+    { label: 'Cash / Bank Book', path: '/reports/cash-bank-book' },
     { label: 'Trial Balance', path: '/reports' },
     { label: 'Profit & Loss', path: '/reports/profit-loss' },
     { label: 'Balance Sheet', path: '/reports/balance-sheet' },

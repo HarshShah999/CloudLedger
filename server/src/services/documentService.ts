@@ -8,6 +8,9 @@ export const DOC_TITLES: Record<string, string> = {
     PURCHASE: 'Purchase Bill',
     CREDIT_NOTE: 'Credit Note',
     DEBIT_NOTE: 'Debit Note',
+    QUOTATION: 'Quotation',
+    SALES_ORDER: 'Sales Order',
+    PURCHASE_ORDER: 'Purchase Order',
 };
 
 export const DOC_SHORT: Record<string, string> = {
@@ -15,6 +18,9 @@ export const DOC_SHORT: Record<string, string> = {
     PURCHASE: 'Bill',
     CREDIT_NOTE: 'Credit Note',
     DEBIT_NOTE: 'Debit Note',
+    QUOTATION: 'Quotation',
+    SALES_ORDER: 'Sales Order',
+    PURCHASE_ORDER: 'Purchase Order',
 };
 
 export interface CompanyProfile {

@@ -20,6 +20,7 @@ const RESOURCE_SQL = {
     items: 'SELECT company_id FROM items WHERE id = $1',
     units: 'SELECT company_id FROM units WHERE id = $1',
     payments: 'SELECT company_id FROM payments WHERE id = $1',
+    receipts: 'SELECT company_id FROM receipts WHERE id = $1',
     recurring_invoices: 'SELECT company_id FROM recurring_invoices WHERE id = $1',
     financial_years: 'SELECT company_id FROM financial_years WHERE id = $1',
 } as const;

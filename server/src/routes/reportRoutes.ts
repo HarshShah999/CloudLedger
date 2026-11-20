@@ -1,5 +1,5 @@
 import express from 'express';
-import { getTrialBalance, getPnL, getBalanceSheet } from '../controllers/reportController';
+import { getTrialBalance, getPnL, getBalanceSheet, getAgeing, getDayBook } from '../controllers/reportController';
 import { protect } from '../middleware/auth';
 import { requireCompany } from '../middleware/companyAccess';
 
@@ -10,5 +10,7 @@ router.use(protect, requireCompany('viewer'));
 router.get('/trial-balance', getTrialBalance);
 router.get('/pnl', getPnL);
 router.get('/balance-sheet', getBalanceSheet);
+router.get('/ageing', getAgeing);
+router.get('/day-book', getDayBook);
 
 export default router;

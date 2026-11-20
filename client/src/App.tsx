@@ -4,6 +4,11 @@ import { AuthProvider } from './context/AuthContext';
 import { AuthLayout } from './layouts/AuthLayout';
 import { SharedDocument } from './pages/public/SharedDocument';
 import { AuditTrail } from './pages/AuditTrail';
+import { DOC_TYPES } from './lib/docTypes';
+import { ReceiptsPayments } from './pages/banking/ReceiptsPayments';
+import { Ageing } from './pages/reports/Ageing';
+import { DayBook } from './pages/reports/DayBook';
+import { CashBankBook } from './pages/reports/CashBankBook';
 import { Login } from './pages/auth/Login';
 import { Register } from './pages/auth/Register';
 import { MainLayout } from './layouts/MainLayout';
@@ -60,10 +65,9 @@ function App() {
                         <Route path="/invoices" element={<InvoiceList />} />
                         <Route path="/invoices/:id" element={<InvoiceDetail />} />
                         <Route path="/invoices/:id/edit" element={<InvoiceEntry />} />
-                        <Route path="/invoices/create/sales" element={<InvoiceEntry type="SALES" />} />
-                        <Route path="/invoices/create/purchase" element={<InvoiceEntry type="PURCHASE" />} />
-                        <Route path="/invoices/create/credit-note" element={<InvoiceEntry type="CREDIT_NOTE" />} />
-                        <Route path="/invoices/create/debit-note" element={<InvoiceEntry type="DEBIT_NOTE" />} />
+                        {DOC_TYPES.map((d) => (
+                            <Route key={d.slug} path={`/invoices/create/${d.slug}`} element={<InvoiceEntry key={d.slug} type={d.type} />} />
+                        ))}
 
                         {/* Recurring Invoices */}
                         <Route path="/recurring-invoices" element={<RecurringInvoiceList />} />
@@ -80,6 +84,10 @@ function App() {
                         <Route path="/banking/reconciliation" element={<BankReconciliation />} />
                         <Route path="/settings" element={<Settings />} />
                         <Route path="/audit" element={<AuditTrail />} />
+                        <Route path="/receipts" element={<ReceiptsPayments />} />
+                        <Route path="/reports/outstanding" element={<Ageing />} />
+                        <Route path="/reports/day-book" element={<DayBook />} />
+                        <Route path="/reports/cash-bank-book" element={<CashBankBook />} />
                     </Route>
 
                     <Route path="*" element={<Navigate to="/login" replace />} />

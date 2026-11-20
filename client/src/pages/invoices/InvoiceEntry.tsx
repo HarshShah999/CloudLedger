@@ -6,6 +6,7 @@ import { Plus, Trash2, Save } from 'lucide-react';
 import api, { apiError } from '../../api/axios';
 import { useNavigate, useParams } from 'react-router-dom';
 import { calculateInvoice, isInterStateSupply } from '../../lib/invoiceCalc';
+import { DocType, docInfo } from '../../lib/docTypes';
 import { notify } from '../../utils/notification';
 
 interface Ledger {
@@ -36,11 +37,11 @@ interface InvoiceItem {
     taxAmount: number;
 }
 
-export const InvoiceEntry: React.FC<{ type?: 'SALES' | 'PURCHASE' | 'CREDIT_NOTE' | 'DEBIT_NOTE' }> = ({ type: initialType }) => {
+export const InvoiceEntry: React.FC<{ type?: DocType }> = ({ type: initialType }) => {
     const { selectedCompany } = useCompany();
     const navigate = useNavigate();
     const { id } = useParams<{ id: string }>();
-    const [type, setType] = useState<'SALES' | 'PURCHASE' | 'CREDIT_NOTE' | 'DEBIT_NOTE' | undefined>(initialType);
+    const [type, setType] = useState<DocType | undefined>(initialType);
 
     // Update type when prop changes (for navigation between different Create routes)
     useEffect(() => {
@@ -63,7 +64,8 @@ export const InvoiceEntry: React.FC<{ type?: 'SALES' | 'PURCHASE' | 'CREDIT_NOTE
         notes: '',
         discountPercent: 0,
         originalInvoiceNumber: '',
-        originalInvoiceDate: ''
+        originalInvoiceDate: '',
+        validUntil: ''
     });
 
     const [invoiceItems, setInvoiceItems] = useState<InvoiceItem[]>([
@@ -124,12 +126,13 @@ export const InvoiceEntry: React.FC<{ type?: 'SALES' | 'PURCHASE' | 'CREDIT_NOTE
                     partyLedgerId: invoice.party_ledger_id,
                     salesLedgerId: invoice.sales_ledger_id,
                     invoiceNumber: invoice.invoice_number,
-                    date: new Date(invoice.date).toISOString().split('T')[0],
-                    dueDate: invoice.due_date ? new Date(invoice.due_date).toISOString().split('T')[0] : '',
+                    date: String(invoice.date).slice(0, 10),
+                    dueDate: invoice.due_date ? String(invoice.due_date).slice(0, 10) : '',
                     notes: invoice.notes || '',
                     discountPercent: Number(invoice.discount_percent),
                     originalInvoiceNumber: invoice.original_invoice_number || '',
-                    originalInvoiceDate: invoice.original_invoice_date ? new Date(invoice.original_invoice_date).toISOString().split('T')[0] : ''
+                    originalInvoiceDate: invoice.original_invoice_date ? String(invoice.original_invoice_date).slice(0, 10) : '',
+                    validUntil: invoice.valid_until ? String(invoice.valid_until).slice(0, 10) : ''
                 });
 
                 setInvoiceItems(items.map((item: any) => ({
@@ -162,7 +165,7 @@ export const InvoiceEntry: React.FC<{ type?: 'SALES' | 'PURCHASE' | 'CREDIT_NOTE
             if (selectedItem) {
                 item.itemId = value;
                 item.description = selectedItem.name;
-                item.rate = type === 'SALES' ? Number(selectedItem.sales_rate) : Number(selectedItem.purchase_rate);
+                item.rate = docInfo(type || 'SALES').sales ? Number(selectedItem.sales_rate) : Number(selectedItem.purchase_rate);
                 item.taxRate = Number(selectedItem.tax_rate);
             }
         } else {
@@ -234,7 +237,7 @@ export const InvoiceEntry: React.FC<{ type?: 'SALES' | 'PURCHASE' | 'CREDIT_NOTE
                 await api.post('/invoices', payload);
                 notify.success('Invoice saved successfully!');
             }
-            navigate('/invoices');
+            navigate(`/invoices?type=${type}`);
         } catch (error: any) {
             console.error('Failed to save invoice', error);
             notify.error(apiError(error, 'Failed to save invoice'));
@@ -253,7 +256,7 @@ export const InvoiceEntry: React.FC<{ type?: 'SALES' | 'PURCHASE' | 'CREDIT_NOTE
     return (
         <div className="space-y-6">
             <h1 className="text-2xl font-bold text-slate-800">
-                {id ? 'Edit' : 'New'} {type === 'SALES' ? 'Sales Invoice' : type === 'PURCHASE' ? 'Purchase Invoice' : type === 'CREDIT_NOTE' ? 'Credit Note' : 'Debit Note'}
+                {id ? 'Edit' : 'New'} {docInfo(type || 'SALES').label}
             </h1>
 
             <form onSubmit={handleSubmit} className="space-y-6">
@@ -275,7 +278,7 @@ export const InvoiceEntry: React.FC<{ type?: 'SALES' | 'PURCHASE' | 'CREDIT_NOTE
                     </div>
                     <div>
                         <label className="block text-sm font-medium text-slate-700 mb-1">
-                            {type === 'SALES' ? 'Sales' : 'Purchase'} Ledger
+                            {docInfo(type || 'SALES').sales ? 'Sales' : 'Purchase'} Ledger
                         </label>
                         <select
                             className="input-field"
@@ -294,7 +297,7 @@ export const InvoiceEntry: React.FC<{ type?: 'SALES' | 'PURCHASE' | 'CREDIT_NOTE
                         value={formData.invoiceNumber}
                         onChange={(e) => setFormData({ ...formData, invoiceNumber: e.target.value })}
                         placeholder="Auto"
-                        maxLength={type === 'PURCHASE' ? 50 : 16}
+                        maxLength={type === 'PURCHASE' || type === 'PURCHASE_ORDER' ? 50 : 16}
                     />
                     <Input
                         label="Date"
@@ -309,6 +312,14 @@ export const InvoiceEntry: React.FC<{ type?: 'SALES' | 'PURCHASE' | 'CREDIT_NOTE
                         value={formData.dueDate}
                         onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
                     />
+                    {type === 'QUOTATION' && (
+                        <Input
+                            label="Valid Until"
+                            type="date"
+                            value={formData.validUntil}
+                            onChange={(e) => setFormData({ ...formData, validUntil: e.target.value })}
+                        />
+                    )}
                     {(type === 'CREDIT_NOTE' || type === 'DEBIT_NOTE') && (
                         <>
                             <Input
@@ -488,7 +499,7 @@ export const InvoiceEntry: React.FC<{ type?: 'SALES' | 'PURCHASE' | 'CREDIT_NOTE
                         </div>
                     </div>
                     <div className="mt-6 flex justify-end gap-4">
-                        <Button type="button" variant="secondary" onClick={() => navigate('/invoices')}>
+                        <Button type="button" variant="secondary" onClick={() => navigate(`/invoices?type=${type}`)}>
                             Cancel
                         </Button>
                         <Button type="submit" isLoading={loading}>

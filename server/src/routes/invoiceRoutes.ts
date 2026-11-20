@@ -1,11 +1,13 @@
 import express from 'express';
 import { protect } from '../middleware/auth';
 import { requireCompany, requireResource } from '../middleware/companyAccess';
-import { validate, createInvoiceSchema, updateInvoiceSchema, emailSchema } from '../middleware/validate';
+import Joi from 'joi';
+import { validate, createInvoiceSchema, updateInvoiceSchema, emailSchema, isoDate, uuid } from '../middleware/validate';
 import {
     createInvoice, getInvoices, getInvoiceById, updateInvoice, deleteInvoice,
     downloadInvoicePDF, sendInvoiceEmail, getNextNumber,
     createInvoiceShare, revokeInvoiceShares, logInvoiceShare, getInvoiceCommunications,
+    convertInvoice, updateDocumentStatus,
 } from '../controllers/invoiceController';
 
 const router = express.Router();
@@ -24,5 +26,18 @@ router.post('/:id/share', requireResource('invoices', 'viewer'), createInvoiceSh
 router.delete('/:id/share', requireResource('invoices', 'accountant'), revokeInvoiceShares);
 router.post('/:id/share-log', requireResource('invoices', 'viewer'), logInvoiceShare);
 router.get('/:id/communications', requireResource('invoices', 'viewer'), getInvoiceCommunications);
+router.post(
+    '/:id/convert',
+    validate(Joi.object({
+        companyId: uuid(),
+        to: Joi.string().valid('SALES_ORDER', 'SALES', 'PURCHASE').required(),
+        date: isoDate().allow('', null),
+        dueDate: isoDate().allow('', null),
+        invoiceNumber: Joi.string().trim().max(50).allow('', null),
+    })),
+    requireResource('invoices', 'accountant'),
+    convertInvoice
+);
+router.patch('/:id/status', validate(Joi.object({ companyId: uuid(), status: Joi.string().required() })), requireResource('invoices', 'accountant'), updateDocumentStatus);
 
 export default router;

@@ -11,6 +11,9 @@ export const DEFAULT_PREFIX: Record<string, string> = {
     PAYMENT: 'PMT',
     JOURNAL: 'JV',
     CONTRA: 'CTR',
+    QUOTATION: 'QT',
+    SALES_ORDER: 'SO',
+    PURCHASE_ORDER: 'PO',
 };
 
 /** Maps a voucher type name to its document type key. */
@@ -41,7 +44,7 @@ const DOC_TABLES: Record<string, { sql: string }> = {
 };
 
 const kindFor = (docType: string) =>
-    ['SALES', 'PURCHASE', 'CREDIT_NOTE', 'DEBIT_NOTE'].includes(docType) ? 'invoice' : 'voucher';
+    ['SALES', 'PURCHASE', 'CREDIT_NOTE', 'DEBIT_NOTE', 'QUOTATION', 'SALES_ORDER', 'PURCHASE_ORDER'].includes(docType) ? 'invoice' : 'voucher';
 
 const getSeries = async (db: Queryable, companyId: string, docType: string, fy: FinancialYearRow, lock: boolean) => {
     await db.query(

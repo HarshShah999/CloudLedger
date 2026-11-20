@@ -6,7 +6,21 @@ import { ensureSystemLedger } from './companySetup';
 import { postVoucher, removeVoucher, assertPeriodOpen, DrCr, EntryInput } from './posting';
 import { reserveNumber } from './numberSeries';
 
-export type InvoiceType = 'SALES' | 'PURCHASE' | 'CREDIT_NOTE' | 'DEBIT_NOTE';
+/** Documents that post to the books and move stock. */
+export type PostingType = 'SALES' | 'PURCHASE' | 'CREDIT_NOTE' | 'DEBIT_NOTE';
+/** Documents that only record an offer or order: no accounting, no stock. */
+export type OrderType = 'QUOTATION' | 'SALES_ORDER' | 'PURCHASE_ORDER';
+export type InvoiceType = PostingType | OrderType;
+
+export const ORDER_TYPES: OrderType[] = ['QUOTATION', 'SALES_ORDER', 'PURCHASE_ORDER'];
+export const isPosting = (t: string): t is PostingType => ['SALES', 'PURCHASE', 'CREDIT_NOTE', 'DEBIT_NOTE'].includes(t);
+
+/** Allowed statuses per order type; the first is the default. */
+export const ORDER_STATUSES: Record<OrderType, string[]> = {
+    QUOTATION: ['DRAFT', 'SENT', 'ACCEPTED', 'DECLINED', 'CONVERTED'],
+    SALES_ORDER: ['OPEN', 'CLOSED', 'CONVERTED'],
+    PURCHASE_ORDER: ['OPEN', 'CLOSED', 'CONVERTED'],
+};
 
 export interface InvoiceLineInput {
     itemId?: string | null;
@@ -30,9 +44,20 @@ export interface InvoiceInput {
     discountPercent?: number;
     originalInvoiceNumber?: string | null;
     originalInvoiceDate?: string | Date | null;
+    /** Quotations / orders only */
+    status?: string | null;
+    validUntil?: string | Date | null;
+    sourceDocumentId?: string | null;
 }
 
-const VOUCHER_TYPE: Record<InvoiceType, string> = {
+const orderStatus = (type: InvoiceType, requested?: string | null): string | null => {
+    if (isPosting(type)) return null;
+    const allowed = ORDER_STATUSES[type];
+    if (requested && !allowed.includes(requested)) throw new AppError(`Invalid status for ${type.toLowerCase()}`, 400);
+    return requested || allowed[0];
+};
+
+const VOUCHER_TYPE: Record<PostingType, string> = {
     SALES: 'Sales',
     PURCHASE: 'Purchase',
     CREDIT_NOTE: 'Credit Note',
@@ -46,7 +71,7 @@ const VOUCHER_TYPE: Record<InvoiceType, string> = {
  *  CREDIT_NOTE  Party Cr | Sales return Dr | Output tax Dr (reversal)
  *  DEBIT_NOTE   Party Dr | Purchase ret Cr | Input tax Cr (reversal)
  */
-const SIDES: Record<InvoiceType, { party: DrCr; account: DrCr; tax: 'OUTPUT' | 'INPUT' }> = {
+const SIDES: Record<PostingType, { party: DrCr; account: DrCr; tax: 'OUTPUT' | 'INPUT' }> = {
     SALES: { party: 'Dr', account: 'Cr', tax: 'OUTPUT' },
     PURCHASE: { party: 'Cr', account: 'Dr', tax: 'INPUT' },
     CREDIT_NOTE: { party: 'Cr', account: 'Dr', tax: 'OUTPUT' },
@@ -54,7 +79,7 @@ const SIDES: Record<InvoiceType, { party: DrCr; account: DrCr; tax: 'OUTPUT' | '
 };
 
 /** Stock direction: +1 adds to stock, -1 removes. */
-const STOCK_SIGN: Record<InvoiceType, number> = { SALES: -1, PURCHASE: 1, CREDIT_NOTE: 1, DEBIT_NOTE: -1 };
+const STOCK_SIGN: Record<PostingType, number> = { SALES: -1, PURCHASE: 1, CREDIT_NOTE: 1, DEBIT_NOTE: -1 };
 
 const opposite = (t: DrCr): DrCr => (t === 'Dr' ? 'Cr' : 'Dr');
 
@@ -62,7 +87,7 @@ const opposite = (t: DrCr): DrCr => (t === 'Dr' ? 'Cr' : 'Dr');
 export const buildInvoiceEntries = async (
     db: Queryable,
     companyId: string,
-    type: InvoiceType,
+    type: PostingType,
     partyLedgerId: string,
     accountLedgerId: string,
     calc: CalcResult
@@ -126,6 +151,7 @@ const loadContext = async (db: Queryable, companyId: string, input: InvoiceInput
 };
 
 const adjustStock = async (db: Queryable, type: InvoiceType, lines: { item_id?: string | null; itemId?: string | null; quantity: number | string }[], direction: 1 | -1) => {
+    if (!isPosting(type)) return; // quotations and orders do not move stock
     for (const l of lines) {
         const itemId = l.itemId ?? l.item_id;
         if (!itemId) continue;
@@ -168,7 +194,7 @@ const assertUniqueNumber = async (db: Queryable, companyId: string, type: string
 };
 
 const narrationFor = (type: InvoiceType, number: string, notes?: string | null) => {
-    const label = { SALES: 'Sales invoice', PURCHASE: 'Purchase bill', CREDIT_NOTE: 'Credit note', DEBIT_NOTE: 'Debit note' }[type];
+    const label = { SALES: 'Sales invoice', PURCHASE: 'Purchase bill', CREDIT_NOTE: 'Credit note', DEBIT_NOTE: 'Debit note' }[type as PostingType] ?? type;
     return `${label} ${number}${notes ? ` – ${notes}` : ''}`;
 };
 
@@ -176,7 +202,8 @@ const narrationFor = (type: InvoiceType, number: string, notes?: string | null) 
 export const createInvoice = async (db: Queryable, companyId: string, input: InvoiceInput) => {
     if (!input.items?.length) throw new AppError('Invoice must have at least one item', 400);
     const type = input.type;
-    if (!SIDES[type]) throw new AppError('Invalid invoice type', 400);
+    if (!isPosting(type) && !ORDER_TYPES.includes(type as OrderType)) throw new AppError('Invalid document type', 400);
+    const status = orderStatus(type, input.status);
 
     const ctx = await loadContext(db, companyId, input);
     const date = toDateString(input.date);
@@ -196,19 +223,21 @@ export const createInvoice = async (db: Queryable, companyId: string, input: Inv
     const number = await reserveNumber(db, companyId, type, fy, input.invoiceNumber);
     await assertUniqueNumber(db, companyId, type, fy.id, number);
 
-    const voucher = await postVoucher(
-        db,
-        {
-            companyId,
-            voucherTypeName: VOUCHER_TYPE[type],
-            voucherNumber: number,
-            date,
-            narration: narrationFor(type, number, input.notes),
-            entries: await buildInvoiceEntries(db, companyId, type, input.partyLedgerId, input.salesLedgerId, calc),
-        },
-        undefined,
-        { fy, numberDocType: type }
-    );
+    const voucher = isPosting(type)
+        ? await postVoucher(
+              db,
+              {
+                  companyId,
+                  voucherTypeName: VOUCHER_TYPE[type],
+                  voucherNumber: number,
+                  date,
+                  narration: narrationFor(type, number, input.notes),
+                  entries: await buildInvoiceEntries(db, companyId, type, input.partyLedgerId, input.salesLedgerId, calc),
+              },
+              undefined,
+              { fy, numberDocType: type }
+          )
+        : null;
 
     const inv = (
         await db.query(
@@ -216,16 +245,19 @@ export const createInvoice = async (db: Queryable, companyId: string, input: Inv
                 company_id, voucher_id, party_ledger_id, sales_ledger_id, invoice_number, date, due_date, type,
                 subtotal, tax_total, grand_total, notes, discount_percent, discount_amount, paid_amount,
                 outstanding_amount, payment_status, original_invoice_number, original_invoice_date,
-                financial_year_id, place_of_supply, round_off
-            ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,0,$11,'UNPAID',$15,$16,$17,$18,$19)
+                financial_year_id, place_of_supply, round_off, status, valid_until, source_document_id
+            ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,0,$23,$24,$15,$16,$17,$18,$19,$20,$21,$22)
             RETURNING *`,
             [
-                companyId, voucher.id, input.partyLedgerId, input.salesLedgerId, number, date,
+                companyId, voucher?.id ?? null, input.partyLedgerId, input.salesLedgerId, number, date,
                 input.dueDate ? toDateString(input.dueDate) : null, type, calc.subtotal, calc.taxTotal,
                 calc.grandTotal, input.notes || null, Number(input.discountPercent || 0), calc.invoiceDiscount,
                 input.originalInvoiceNumber || null,
                 input.originalInvoiceDate ? toDateString(input.originalInvoiceDate) : null,
-                fy.id, ctx.placeOfSupply, calc.roundOff,
+                fy.id, ctx.placeOfSupply, calc.roundOff, status,
+                input.validUntil ? toDateString(input.validUntil) : null, input.sourceDocumentId ?? null,
+                // Quotations and orders are never "owed": no outstanding, no payment status
+                isPosting(type) ? calc.grandTotal : 0, isPosting(type) ? 'UNPAID' : null,
             ]
         )
     ).rows[0];
@@ -250,6 +282,7 @@ export const updateInvoice = async (db: Queryable, companyId: string, id: string
     const paid = await db.query('SELECT COUNT(*)::int AS n FROM payments WHERE invoice_id = $1', [id]);
     if (paid.rows[0].n > 0) throw new AppError('Cannot edit an invoice that has payments. Delete the payments first.', 400);
     await assertPeriodOpen(db, companyId, existing.date);
+    if (existing.status === 'CONVERTED') throw new AppError('This document has already been converted and cannot be edited', 400);
 
     const ctx = await loadContext(db, companyId, input);
     const date = toDateString(input.date);
@@ -274,34 +307,41 @@ export const updateInvoice = async (db: Queryable, companyId: string, id: string
     await adjustStock(db, type, oldLines.rows, -1);
     await db.query('DELETE FROM invoice_items WHERE invoice_id = $1', [id]);
 
-    const voucherInput = {
-        companyId,
-        voucherTypeName: VOUCHER_TYPE[type],
-        voucherNumber: number,
-        date,
-        narration: narrationFor(type, number, input.notes),
-        entries: await buildInvoiceEntries(db, companyId, type, input.partyLedgerId, input.salesLedgerId, calc),
-    };
-    const voucher = existing.voucher_id
-        ? await postVoucher(db, voucherInput, existing.voucher_id, { fy })
-        : await postVoucher(db, voucherInput, undefined, { fy, numberDocType: type });
+    let voucher: { id: string } | null = null;
+    if (isPosting(type)) {
+        const voucherInput = {
+            companyId,
+            voucherTypeName: VOUCHER_TYPE[type],
+            voucherNumber: number,
+            date,
+            narration: narrationFor(type, number, input.notes),
+            entries: await buildInvoiceEntries(db, companyId, type, input.partyLedgerId, input.salesLedgerId, calc),
+        };
+        voucher = existing.voucher_id
+            ? await postVoucher(db, voucherInput, existing.voucher_id, { fy })
+            : await postVoucher(db, voucherInput, undefined, { fy, numberDocType: type });
+    }
 
     const inv = (
         await db.query(
             `UPDATE invoices SET
                 voucher_id = $1, party_ledger_id = $2, sales_ledger_id = $3, invoice_number = $4, date = $5,
                 due_date = $6, subtotal = $7, tax_total = $8, grand_total = $9, notes = $10,
-                discount_percent = $11, discount_amount = $12, paid_amount = 0, outstanding_amount = $9,
-                payment_status = 'UNPAID', original_invoice_number = $13, original_invoice_date = $14,
-                financial_year_id = $15, place_of_supply = $16, round_off = $17
+                discount_percent = $11, discount_amount = $12, paid_amount = 0,
+                outstanding_amount = $20, payment_status = $21,
+                original_invoice_number = $13, original_invoice_date = $14,
+                financial_year_id = $15, place_of_supply = $16, round_off = $17,
+                valid_until = COALESCE($19, valid_until)
              WHERE id = $18 RETURNING *`,
             [
-                voucher.id, input.partyLedgerId, input.salesLedgerId, number, date,
+                voucher?.id ?? null, input.partyLedgerId, input.salesLedgerId, number, date,
                 input.dueDate ? toDateString(input.dueDate) : null, calc.subtotal, calc.taxTotal, calc.grandTotal,
                 input.notes || null, Number(input.discountPercent || 0), calc.invoiceDiscount,
                 input.originalInvoiceNumber || null,
                 input.originalInvoiceDate ? toDateString(input.originalInvoiceDate) : null,
                 fy.id, ctx.placeOfSupply, calc.roundOff, id,
+                input.validUntil ? toDateString(input.validUntil) : null,
+                isPosting(type) ? calc.grandTotal : 0, isPosting(type) ? 'UNPAID' : null,
             ]
         )
     ).rows[0];
@@ -323,4 +363,64 @@ export const deleteInvoice = async (db: Queryable, companyId: string, id: string
     await db.query('DELETE FROM invoice_items WHERE invoice_id = $1', [id]);
     await db.query('DELETE FROM invoices WHERE id = $1', [id]);
     if (existing.voucher_id) await removeVoucher(db, companyId, existing.voucher_id);
+};
+
+/** Where each document type can be converted to. */
+export const CONVERSIONS: Record<OrderType, InvoiceType[]> = {
+    QUOTATION: ['SALES_ORDER', 'SALES'],
+    SALES_ORDER: ['SALES'],
+    PURCHASE_ORDER: ['PURCHASE'],
+};
+
+/**
+ * Creates the next document in the chain (Quotation -> Sales Order -> Invoice,
+ * Purchase Order -> Purchase Bill) with the same party, lines and terms.
+ */
+export const convertDocument = async (
+    db: Queryable,
+    companyId: string,
+    id: string,
+    to: InvoiceType,
+    opts: { date?: string; invoiceNumber?: string | null; dueDate?: string | null } = {}
+) => {
+    const src = await loadInvoice(db, companyId, id);
+    const allowed = CONVERSIONS[src.type as OrderType];
+    if (!allowed) throw new AppError('Only quotations and orders can be converted', 400);
+    if (!allowed.includes(to)) throw new AppError(`A ${src.type.toLowerCase().replace('_', ' ')} cannot be converted to ${to.toLowerCase().replace('_', ' ')}`, 400);
+    if (src.status === 'CONVERTED') throw new AppError('This document has already been converted', 400);
+    if (src.status === 'DECLINED') throw new AppError('A declined quotation cannot be converted', 400);
+
+    const lines = (await db.query('SELECT * FROM invoice_items WHERE invoice_id = $1 ORDER BY created_at, id', [id])).rows;
+    const created = await createInvoice(db, companyId, {
+        type: to,
+        partyLedgerId: src.party_ledger_id,
+        salesLedgerId: src.sales_ledger_id,
+        date: opts.date || toDateString(new Date()),
+        dueDate: opts.dueDate || null,
+        invoiceNumber: opts.invoiceNumber || null,
+        placeOfSupply: src.place_of_supply,
+        notes: src.notes,
+        discountPercent: Number(src.discount_percent || 0),
+        sourceDocumentId: src.id,
+        items: lines.map((l) => ({
+            itemId: l.item_id,
+            description: l.description,
+            quantity: Number(l.quantity),
+            rate: Number(l.rate),
+            taxRate: Number(l.tax_rate),
+            discountPercent: Number(l.discount_percent || 0),
+        })),
+    });
+    await db.query(`UPDATE invoices SET status = 'CONVERTED' WHERE id = $1`, [id]);
+    return created;
+};
+
+/** Changes the status of a quotation or order (e.g. SENT, ACCEPTED, DECLINED, CLOSED). */
+export const setDocumentStatus = async (db: Queryable, companyId: string, id: string, status: string) => {
+    const doc = await loadInvoice(db, companyId, id);
+    if (isPosting(doc.type)) throw new AppError('Only quotations and orders have a status', 400);
+    if (status === 'CONVERTED') throw new AppError('Use “Convert” to convert a document', 400);
+    if (doc.status === 'CONVERTED') throw new AppError('This document has already been converted', 400);
+    if (!ORDER_STATUSES[doc.type as OrderType].includes(status)) throw new AppError('Invalid status', 400);
+    return (await db.query('UPDATE invoices SET status = $1 WHERE id = $2 RETURNING *', [status, id])).rows[0];
 };

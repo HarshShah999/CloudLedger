@@ -13,6 +13,8 @@ const assertNotLinked = async (db: Queryable, voucherId: string) => {
     }
     const pay = await db.query('SELECT 1 FROM payments WHERE voucher_id = $1', [voucherId]);
     if (pay.rows.length) throw new AppError('This voucher belongs to an invoice payment. Change it from the invoice.', 400);
+    const rec = await db.query('SELECT 1 FROM receipts WHERE voucher_id = $1', [voucherId]);
+    if (rec.rows.length) throw new AppError('This voucher belongs to a receipt/payment. Change it from Receipts & Payments.', 400);
 };
 
 export const createVoucher = async (req: Request, res: Response) => {

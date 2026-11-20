@@ -3,7 +3,8 @@ import { AppError } from '../middleware/errorHandler';
 import { fromPaise, toPaise } from '../utils/money';
 import { toDateString } from './financialYear';
 import { ensureSystemLedger } from './companySetup';
-import { postVoucher, removeVoucher, assertPeriodOpen } from './posting';
+import { removeVoucher, assertPeriodOpen } from './posting';
+import { createReceipt, deleteReceipt, SETTLES } from './receiptService';
 
 export interface PaymentInput {
     invoiceId: string;
@@ -36,7 +37,11 @@ export const refreshInvoicePaymentStatus = async (db: Queryable, invoiceId: stri
 };
 
 /** Picks the cash/bank ledger the money moved through. */
-const resolveDepositLedger = async (db: Queryable, companyId: string, input: PaymentInput): Promise<string> => {
+export const resolveDepositLedger = async (
+    db: Queryable,
+    companyId: string,
+    input: { depositLedgerId?: string | null; paymentMode?: string | null }
+): Promise<string> => {
     if (input.depositLedgerId) {
         const r = await db.query(
             `SELECT l.id FROM ledgers l LEFT JOIN ledger_groups g ON g.id = l.group_id
@@ -62,64 +67,59 @@ const resolveDepositLedger = async (db: Queryable, companyId: string, input: Pay
 /**
  * Records money received against a sales invoice / debit note (Receipt voucher)
  * or paid against a purchase bill / credit note (Payment voucher).
+ * Implemented as a receipt with a single allocation.
  */
 export const createPayment = async (db: Queryable, companyId: string, input: PaymentInput) => {
-    const invRes = await db.query('SELECT * FROM invoices WHERE id = $1 AND company_id = $2 FOR UPDATE', [
-        input.invoiceId,
-        companyId,
-    ]);
-    if (!invRes.rows.length) throw new AppError('Invoice not found', 404);
-    const invoice = invRes.rows[0];
+    const inv = (await db.query('SELECT * FROM invoices WHERE id = $1 AND company_id = $2', [input.invoiceId, companyId])).rows[0];
+    if (!inv) throw new AppError('Invoice not found', 404);
+    const direction = SETTLES.RECEIPT.includes(inv.type) ? 'RECEIPT' : SETTLES.PAYMENT.includes(inv.type) ? 'PAYMENT' : null;
+    if (!direction) throw new AppError('Payments can only be recorded against invoices, bills and notes', 400);
 
-    const amountP = toPaise(input.amount);
-    if (amountP <= 0) throw new AppError('Amount must be greater than zero', 400);
-
-    const paidSoFar = await db.query('SELECT COALESCE(SUM(amount), 0) AS paid FROM payments WHERE invoice_id = $1', [invoice.id]);
-    const outstandingP = toPaise(invoice.grand_total) - toPaise(paidSoFar.rows[0].paid);
-    if (amountP > outstandingP) {
+    // Check before posting so an over-payment never becomes an accidental advance
+    const paid = await db.query('SELECT COALESCE(SUM(amount), 0) AS paid FROM payments WHERE invoice_id = $1', [inv.id]);
+    const outstandingP = toPaise(inv.grand_total) - toPaise(paid.rows[0].paid);
+    if (toPaise(input.amount) > outstandingP) {
         throw new AppError(`Amount exceeds the outstanding balance of ${fromPaise(outstandingP).toFixed(2)}`, 400);
     }
 
-    const depositLedgerId = await resolveDepositLedger(db, companyId, input);
-    // Party owes us (SALES, DEBIT_NOTE) -> we receive. Otherwise we pay.
-    const isReceipt = invoice.type === 'SALES' || invoice.type === 'DEBIT_NOTE';
-    const date = toDateString(input.paymentDate);
-    const amount = fromPaise(amountP);
-
-    const voucher = await postVoucher(db, {
-        companyId,
-        voucherTypeName: isReceipt ? 'Receipt' : 'Payment',
-        date,
-        narration:
-            `${isReceipt ? 'Received against' : 'Paid against'} ${invoice.invoice_number}` +
-            (input.referenceNumber ? ` (Ref ${input.referenceNumber})` : '') +
-            (input.notes ? ` – ${input.notes}` : ''),
-        entries: [
-            { ledgerId: depositLedgerId, amount, type: isReceipt ? 'Dr' : 'Cr', instrumentNumber: input.referenceNumber },
-            { ledgerId: invoice.party_ledger_id, amount, type: isReceipt ? 'Cr' : 'Dr' },
-        ],
+    const receipt = await createReceipt(db, companyId, {
+        partyLedgerId: inv.party_ledger_id,
+        direction,
+        date: toDateString(input.paymentDate),
+        amount: input.amount,
+        depositLedgerId: input.depositLedgerId,
+        paymentMode: input.paymentMode,
+        referenceNumber: input.referenceNumber,
+        notes: input.notes || `Against ${inv.invoice_number}`,
+        allocations: [{ invoiceId: inv.id, amount: input.amount }],
     });
-
-    const payment = (
-        await db.query(
-            `INSERT INTO payments (company_id, invoice_id, voucher_id, payment_date, amount, payment_mode,
-                                   reference_number, notes, deposit_ledger_id)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
-            [companyId, invoice.id, voucher.id, date, amount, input.paymentMode || null,
-                input.referenceNumber || null, input.notes || null, depositLedgerId]
-        )
-    ).rows[0];
-
-    await refreshInvoicePaymentStatus(db, invoice.id);
-    return payment;
+    return (await db.query('SELECT * FROM payments WHERE receipt_id = $1', [receipt.id])).rows[0];
 };
 
+/**
+ * Removes a payment row. For a receipt that only settled this invoice the whole
+ * receipt (and voucher) is deleted; otherwise only the allocation is removed and
+ * that money becomes an advance again.
+ */
 export const deletePayment = async (db: Queryable, companyId: string, paymentId: string) => {
     const r = await db.query('SELECT * FROM payments WHERE id = $1 AND company_id = $2', [paymentId, companyId]);
     if (!r.rows.length) throw new AppError('Payment not found', 404);
     const payment = r.rows[0];
     await assertPeriodOpen(db, companyId, payment.payment_date);
 
+    if (payment.receipt_id) {
+        const rec = (await db.query('SELECT amount FROM receipts WHERE id = $1', [payment.receipt_id])).rows[0];
+        const others = await db.query('SELECT COUNT(*)::int AS n FROM payments WHERE receipt_id = $1 AND id <> $2', [payment.receipt_id, paymentId]);
+        if (others.rows[0].n === 0 && toPaise(rec.amount) === toPaise(payment.amount)) {
+            await deleteReceipt(db, companyId, payment.receipt_id);
+            return;
+        }
+        await db.query('DELETE FROM payments WHERE id = $1', [paymentId]);
+        await refreshInvoicePaymentStatus(db, payment.invoice_id);
+        return;
+    }
+
+    // Legacy payment with its own voucher
     await db.query('DELETE FROM payments WHERE id = $1', [paymentId]);
     if (payment.voucher_id) await removeVoucher(db, companyId, payment.voucher_id);
     await refreshInvoicePaymentStatus(db, payment.invoice_id);
