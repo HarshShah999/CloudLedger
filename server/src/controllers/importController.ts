@@ -26,7 +26,7 @@ export const postTallyImport = async (req: Request, res: Response) => {
     const file = fileFrom(req);
     const companyId = req.company!.id;
     if (req.body?.background === true) {
-        const job = startImportJob(companyId, req.user!.id, dryRun(req), (onProgress) => importTally(companyId, file, dryRun(req), onProgress));
+        const job = await startImportJob(companyId, req.user!.id, dryRun(req), (onProgress) => importTally(companyId, file, dryRun(req), onProgress));
         res.status(202).json({ status: 'success', data: { jobId: job.id } });
         return;
     }
@@ -35,9 +35,9 @@ export const postTallyImport = async (req: Request, res: Response) => {
 
 /** GET /api/import/jobs/:jobId — progress, then the report. */
 export const getImportJobStatus = async (req: Request, res: Response) => {
-    const job = getImportJob(String(req.params.jobId), req.user!.id);
-    const { userId, ...rest } = job;
-    res.json({ status: 'success', data: rest });
+    const job = await getImportJob(String(req.params.jobId), req.user!.id);
+    // Status values are lower-case in the API (running / done / failed)
+    res.json({ status: 'success', data: { ...job, status: job.status.toLowerCase() } });
 };
 
 const kind = (req: Request): ExcelKind => {

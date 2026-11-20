@@ -221,12 +221,12 @@ describe('Moving a company from Tally', () => {
         expect(start.status).toBe(202);
         const jobId = start.body.data.jobId;
         let job: any;
-        for (let i = 0; i < 50; i++) {
+        for (let i = 0; i < 200; i++) {
             job = (await api().get(`/api/import/jobs/${jobId}`).set(auth(token))).body.data;
             if (job.status !== 'running') break;
             await new Promise((r) => setTimeout(r, 100));
         }
-        expect(job).toMatchObject({ status: 'done', dryRun: true, total: 9, done: 9 });
+        expect(job, JSON.stringify(job)).toMatchObject({ status: 'done', dryRun: true, total: 9, done: 9 });
         expect(job.report.skipped['vouchers (already imported)']).toBe(8);
         // Someone else cannot see it
         const { token: other } = await registerUser('Other');

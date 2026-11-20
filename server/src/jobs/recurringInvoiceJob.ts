@@ -1,16 +1,7 @@
-import cron from 'node-cron';
 import { runRecurringInvoices } from '../services/recurringService';
+import { dayKey, scheduleJob } from './runner';
 
-/** Generates due recurring invoices daily at 01:00 and once at startup. */
+/** Generates due recurring invoices daily at 01:00 (and at startup if today's run has not happened). */
 export const startRecurringInvoiceJob = () => {
-    const run = async () => {
-        try {
-            const n = await runRecurringInvoices();
-            if (n) console.log(`🔁 Generated ${n} recurring invoice(s)`);
-        } catch (err) {
-            console.error('Recurring invoice job failed:', err);
-        }
-    };
-    cron.schedule('0 1 * * *', run, { timezone: process.env.TZ || 'Asia/Kolkata' });
-    void run();
+    scheduleJob('recurring-invoices', '0 1 * * *', dayKey, async () => ({ generated: await runRecurringInvoices() }), { runAtStartup: true });
 };
