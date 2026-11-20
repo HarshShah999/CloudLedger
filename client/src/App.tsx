@@ -7,6 +7,7 @@ import { AuditTrail } from './pages/AuditTrail';
 import { DOC_TYPES } from './lib/docTypes';
 import { ReceiptsPayments } from './pages/banking/ReceiptsPayments';
 import { ImportData } from './pages/ImportData';
+import { StockSummary } from './pages/reports/StockSummary';
 import { Ageing } from './pages/reports/Ageing';
 import { DayBook } from './pages/reports/DayBook';
 import { CashBankBook } from './pages/reports/CashBankBook';
@@ -94,6 +95,7 @@ function App() {
                         <Route path="/reports/cash-bank-book" element={<CashBankBook />} />
                         <Route path="/reports/gstr-2b" element={<GSTR2B />} />
                         <Route path="/reports/tds" element={<TdsRegister />} />
+                        <Route path="/reports/stock-summary" element={<StockSummary />} />
                     </Route>
 
                     <Route path="*" element={<Navigate to="/login" replace />} />

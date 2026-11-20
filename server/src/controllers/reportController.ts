@@ -4,6 +4,7 @@ import { balanceSheet, ledgerStatement, profitAndLoss, trialBalance, fyStartFor 
 import { query } from '../config/db';
 import { toDateString } from '../services/financialYear';
 import { ageing, dayBook } from '../services/outstandingService';
+import { stockSummary } from '../services/stockService';
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -53,4 +54,11 @@ export const getDayBook = async (req: Request, res: Response) => {
     const { from, to } = await readPeriod(req);
     const vt = req.query.voucherTypeId ? String(req.query.voucherTypeId) : undefined;
     res.json({ status: 'success', data: await dayBook(req.company!.id, from, to, vt) });
+};
+
+/** GET /api/reports/stock-summary?asOfDate= — quantity, average cost and value per item. */
+export const getStockSummary = async (req: Request, res: Response) => {
+    const asOf = String(req.query.asOfDate || toDateString(new Date())).slice(0, 10);
+    if (!DATE.test(asOf)) throw new AppError('asOfDate must be in YYYY-MM-DD format', 400);
+    res.json({ status: 'success', data: await stockSummary(req.company!.id, asOf) });
 };

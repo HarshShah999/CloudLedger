@@ -48,6 +48,7 @@ const PAGES: Command[] = [
     { id: 'p-gstr3b', label: 'GSTR-3B', group: 'GST', to: '/reports/gstr-3b' },
     { id: 'p-gstr2b', label: 'GSTR-2B matching', group: 'GST', to: '/reports/gstr-2b' },
     { id: 'p-tds', label: 'TDS Register', group: 'GST', to: '/reports/tds' },
+    { id: 'p-stock', label: 'Stock Summary', group: 'Reports', to: '/reports/stock-summary' },
     { id: 'p-import', label: 'Import from Tally / Excel', group: 'Tools', to: '/import' },
     { id: 'p-audit', label: 'Audit Trail', group: 'Tools', to: '/audit' },
     { id: 'p-settings', label: 'Settings', group: 'Tools', to: '/settings' },

@@ -42,15 +42,17 @@ const assertUnit = async (companyId: string, unitId?: string | null) => {
 };
 
 export const createItem = async (req: Request, res: Response) => {
-    const { name, hsnCode, unitId, taxRate, salesRate, purchaseRate, openingQuantity, description, itemType } = req.body;
+    const { name, hsnCode, unitId, taxRate, salesRate, purchaseRate, openingQuantity, openingRate, description, itemType } = req.body;
     await assertUnit(req.company!.id, unitId);
     const result = await query(
         `INSERT INTO items (company_id, name, hsn_code, unit_id, tax_rate, sales_rate, purchase_rate,
-                            opening_quantity, current_quantity, description, item_type)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $8, $9, $10) RETURNING *`,
+                            opening_quantity, current_quantity, description, item_type, opening_rate)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $8, $9, $10, $11) RETURNING *`,
         [
             req.company!.id, name, hsnCode || null, unitId || null, taxRate || 0, salesRate || 0,
             purchaseRate || 0, openingQuantity || 0, description || null, itemType || 'GOODS',
+            // Opening stock is valued at its cost; the purchase rate is the usual default
+            openingRate ?? purchaseRate ?? 0,
         ]
     );
     res.status(201).json({ status: 'success', data: { item: result.rows[0] } });
@@ -67,15 +69,18 @@ export const getItems = async (req: Request, res: Response) => {
 };
 
 export const updateItem = async (req: Request, res: Response) => {
-    const { name, hsnCode, unitId, taxRate, salesRate, purchaseRate, description, itemType } = req.body;
+    const { name, hsnCode, unitId, taxRate, salesRate, purchaseRate, description, itemType, openingQuantity, openingRate } = req.body;
     await assertUnit(req.company!.id, unitId);
+    // Opening stock can be corrected later; current stock follows automatically
     const result = await query(
         `UPDATE items SET name = $1, hsn_code = $2, unit_id = $3, tax_rate = $4, sales_rate = $5,
-                purchase_rate = $6, description = $7, item_type = $10
+                purchase_rate = $6, description = $7, item_type = $10,
+                opening_quantity = COALESCE($11, opening_quantity), opening_rate = COALESCE($12, opening_rate)
          WHERE id = $8 AND company_id = $9 RETURNING *`,
         [
             name, hsnCode || null, unitId || null, taxRate || 0, salesRate || 0, purchaseRate || 0,
             description || null, req.params.id, req.company!.id, itemType || 'GOODS',
+            openingQuantity ?? null, openingRate ?? null,
         ]
     );
     if (!result.rows.length) throw new AppError('Item not found', 404);

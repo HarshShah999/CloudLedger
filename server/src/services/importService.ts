@@ -172,8 +172,8 @@ export const importTally = async (companyId: string, file: Buffer, dryRun: boole
                 const taxRate = igst ? tallyNumber(igst.GSTRATE) : tallyNumber(deepFind(it, 'GSTRATE'));
                 const qty = Math.abs(tallyNumber(it.OPENINGBALANCE));
                 await db.query(
-                    `INSERT INTO items (company_id, name, hsn_code, unit_id, tax_rate, opening_quantity, current_quantity, purchase_rate, item_type)
-                     VALUES ($1, $2, $3, $4, $5, $6, $6, $7, $8)`,
+                    `INSERT INTO items (company_id, name, hsn_code, unit_id, tax_rate, opening_quantity, current_quantity, purchase_rate, item_type, opening_rate)
+                     VALUES ($1, $2, $3, $4, $5, $6, $6, $7, $8, $7)`,
                     [companyId, name, hsn, unitIds.get(text(it.BASEUNITS).toLowerCase()) ?? null, taxRate, qty,
                         Math.abs(tallyNumber(it.OPENINGRATE)), hsn?.startsWith('99') ? 'SERVICES' : 'GOODS']
                 );
@@ -322,8 +322,8 @@ export const importExcel = async (companyId: string, kind: ExcelKind, file: Buff
                 if (!Number.isFinite(gst) || gst < 0 || gst > 100) throw new Error('GST rate must be between 0 and 100');
                 const num = (h: string) => Number(col(row, h).replace(/,/g, '') || 0);
                 await db.query(
-                    `INSERT INTO items (company_id, name, hsn_code, item_type, unit_id, tax_rate, sales_rate, purchase_rate, opening_quantity, current_quantity)
-                     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$9)`,
+                    `INSERT INTO items (company_id, name, hsn_code, item_type, unit_id, tax_rate, sales_rate, purchase_rate, opening_quantity, current_quantity, opening_rate)
+                     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$9,$8)`,
                     [companyId, name, col(row, 'HSN/SAC') || null, /^serv/i.test(col(row, 'Type')) ? 'SERVICES' : 'GOODS', unitId, gst, num('Sales Rate'), num('Purchase Rate'), num('Opening Qty')]
                 );
                 bump(report.created, 'items');

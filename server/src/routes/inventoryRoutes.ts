@@ -30,8 +30,14 @@ const createItemSchema = Joi.object({
     companyId: uuid().required(),
     ...itemFields,
     openingQuantity: Joi.number().min(0).default(0),
+    openingRate: money().allow(null),
 });
-const updateItemSchema = Joi.object({ companyId: uuid(), ...itemFields });
+const updateItemSchema = Joi.object({
+    companyId: uuid(),
+    ...itemFields,
+    openingQuantity: Joi.number().min(0),
+    openingRate: money().allow(null),
+});
 
 router.use(protect);
 

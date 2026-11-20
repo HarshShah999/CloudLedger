@@ -5,6 +5,7 @@ import { resolveFinancialYear, toDateString } from './financialYear';
 import { ensureSystemLedger } from './companySetup';
 import { postVoucher, removeVoucher, assertPeriodOpen, DrCr, EntryInput } from './posting';
 import { reserveNumber } from './numberSeries';
+import { syncInvoiceStock } from './stockService';
 import { fromPaise, toPaise } from '../utils/money';
 import { SupplyType, isAlwaysInterState, isWithoutPayment, stateCode, stateName } from '../utils/gst';
 
@@ -125,8 +126,6 @@ const SIDES: Record<PostingType, { party: DrCr; account: DrCr; tax: 'OUTPUT' | '
     DEBIT_NOTE: { party: 'Dr', account: 'Cr', tax: 'INPUT' },
 };
 
-/** Stock direction: +1 adds to stock, -1 removes. */
-const STOCK_SIGN: Record<PostingType, number> = { SALES: -1, PURCHASE: 1, CREDIT_NOTE: 1, DEBIT_NOTE: -1 };
 
 const opposite = (t: DrCr): DrCr => (t === 'Dr' ? 'Cr' : 'Dr');
 
@@ -252,18 +251,6 @@ const loadContext = async (db: Queryable, companyId: string, input: InvoiceInput
     };
 };
 
-const adjustStock = async (db: Queryable, type: InvoiceType, lines: { item_id?: string | null; itemId?: string | null; quantity: number | string }[], direction: 1 | -1) => {
-    if (!isPosting(type)) return; // quotations and orders do not move stock
-    for (const l of lines) {
-        const itemId = l.itemId ?? l.item_id;
-        if (!itemId) continue;
-        await db.query('UPDATE items SET current_quantity = current_quantity + $1 WHERE id = $2', [
-            STOCK_SIGN[type] * direction * Number(l.quantity),
-            itemId,
-        ]);
-    }
-};
-
 const insertLines = async (db: Queryable, invoiceId: string, input: InvoiceInput, calc: CalcResult) => {
     for (let idx = 0; idx < calc.lines.length; idx++) {
         const src = input.items[idx];
@@ -363,7 +350,7 @@ export const createInvoice = async (db: Queryable, companyId: string, input: Inv
     ).rows[0];
 
     await insertLines(db, inv.id, input, calc);
-    await adjustStock(db, type, input.items, 1);
+    await syncInvoiceStock(db, inv.id);
     await saveTransport(db, inv.id, input);
     return inv;
 };
@@ -399,9 +386,7 @@ export const updateInvoice = async (db: Queryable, companyId: string, id: string
     const number = input.invoiceNumber?.trim() || existing.invoice_number;
     await assertUniqueNumber(db, companyId, type, fy.id, number, id, input.partyLedgerId);
 
-    // Reverse old stock, remove old lines
-    const oldLines = await db.query('SELECT item_id, quantity FROM invoice_items WHERE invoice_id = $1', [id]);
-    await adjustStock(db, type, oldLines.rows, -1);
+    // Replace the lines (stock movements are rebuilt from them below)
     await db.query('DELETE FROM invoice_items WHERE invoice_id = $1', [id]);
 
     let voucher: { id: string } | null = null;
@@ -447,7 +432,7 @@ export const updateInvoice = async (db: Queryable, companyId: string, id: string
     ).rows[0];
 
     await insertLines(db, id, input, calc);
-    await adjustStock(db, type, input.items, 1);
+    await syncInvoiceStock(db, id);
     await saveTransport(db, id, input);
     return inv;
 };
@@ -460,8 +445,7 @@ export const deleteInvoice = async (db: Queryable, companyId: string, id: string
     await assertPeriodOpen(db, companyId, existing.date);
     assertNoActiveIrn(existing);
 
-    const lines = await db.query('SELECT item_id, quantity FROM invoice_items WHERE invoice_id = $1', [id]);
-    await adjustStock(db, existing.type, lines.rows, -1);
+    // Stock movements go with the invoice (ON DELETE CASCADE)
     await db.query('DELETE FROM invoice_items WHERE invoice_id = $1', [id]);
     await db.query('DELETE FROM invoices WHERE id = $1', [id]);
     if (existing.voucher_id) await removeVoucher(db, companyId, existing.voucher_id);

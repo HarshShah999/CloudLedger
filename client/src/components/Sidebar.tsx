@@ -36,6 +36,7 @@ const mainNavItems = [
 const reportItems = [
     { label: 'Outstanding', path: '/reports/outstanding' },
     { label: 'Day Book', path: '/reports/day-book' },
+    { label: 'Stock Summary', path: '/reports/stock-summary' },
     { label: 'Cash / Bank Book', path: '/reports/cash-bank-book' },
     { label: 'GSTR-2B Matching', path: '/reports/gstr-2b' },
     { label: 'TDS Register', path: '/reports/tds' },

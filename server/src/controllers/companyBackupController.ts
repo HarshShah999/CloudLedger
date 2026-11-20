@@ -330,8 +330,8 @@ export const importCompany = async (req: Request, res: Response, next: NextFunct
             // Import items
             for (const item of companyData.items || []) {
                 const res = await query(
-                    `INSERT INTO items (company_id, name, hsn_code, unit_id, description, tax_rate, sales_rate, purchase_rate, opening_quantity, current_quantity)
-                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+                    `INSERT INTO items (company_id, name, hsn_code, unit_id, description, tax_rate, sales_rate, purchase_rate, opening_quantity, current_quantity, opening_rate)
+                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $9, $10)
                      RETURNING id`,
                     [
                         newCompanyId,
@@ -343,7 +343,8 @@ export const importCompany = async (req: Request, res: Response, next: NextFunct
                         item.sales_rate || 0,
                         item.purchase_rate || 0,
                         item.opening_quantity || 0,
-                        item.current_quantity || 0
+                        // Current stock = opening + stock movements (kept by the database)
+                        item.opening_rate ?? item.purchase_rate ?? 0,
                     ]
                 );
                 idMap.items[item.id] = res.rows[0].id;

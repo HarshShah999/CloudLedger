@@ -1,4 +1,5 @@
 import { query, Queryable } from '../config/db';
+import { openingStockPaise, stockValuePaise } from './stockService';
 import { fromPaise, toPaise } from '../utils/money';
 import { indianFinancialYear, toDateString } from './financialYear';
 
@@ -170,6 +171,17 @@ export const profitAndLoss = async (companyId: string, from: string, to: string)
         };
     };
     const all = rows.map(line).filter((l) => l._p !== 0);
+
+    // Trading account: opening stock is a cost, closing stock reduces it (stock still on hand)
+    const openingStock = await stockValuePaise({ query }, companyId, from, { before: true });
+    const closingStock = await stockValuePaise({ query }, companyId, to);
+    const stockLine = (id: string, name: string, type: 'Income' | 'Expense', p: number) => ({
+        ledger_id: id, ledger_name: name, group_name: 'Stock-in-Hand', group_type: type, section: 'trading',
+        balance: fromPaise(p), balance_type: type === 'Income' ? 'Cr' : 'Dr', _p: p,
+    });
+    if (openingStock) all.unshift(stockLine('OPENING_STOCK', 'Opening Stock', 'Expense', openingStock));
+    if (closingStock) all.push(stockLine('CLOSING_STOCK', 'Closing Stock', 'Income', closingStock));
+
     const income = all.filter((l) => l.group_type === 'Income');
     const expenses = all.filter((l) => l.group_type === 'Expense');
     const sum = (xs: typeof all) => xs.reduce((s, l) => s + l._p, 0);
@@ -187,6 +199,8 @@ export const profitAndLoss = async (companyId: string, from: string, to: string)
         grossProfit: fromPaise(grossProfit),
         netProfit: fromPaise(net),
         netProfitType: net >= 0 ? 'Profit' : 'Loss',
+        openingStock: fromPaise(openingStock),
+        closingStock: fromPaise(closingStock),
     };
 };
 
@@ -208,9 +222,14 @@ export const balanceSheet = async (companyId: string, asOf: string) => {
          WHERE v.company_id = $1 AND v.date <= $2 AND g.type IN ('Income', 'Expense')`,
         [companyId, asOf, fyStart]
     );
+    // Stock: what is on hand is an asset; its change over time is part of profit
+    const booksOpeningStock = await openingStockPaise({ query }, companyId);
+    const stockAtYearStart = await stockValuePaise({ query }, companyId, fyStart, { before: true });
+    const closingStock = await stockValuePaise({ query }, companyId, asOf);
+
     // Profit is a credit (negative signed), so negate
-    const priorProfit = -toPaise(plAll.rows[0].prior);
-    const currentProfit = -toPaise(plAll.rows[0].current);
+    const priorProfit = -toPaise(plAll.rows[0].prior) + stockAtYearStart - booksOpeningStock;
+    const currentProfit = -toPaise(plAll.rows[0].current) + closingStock - stockAtYearStart;
 
     // Opening balances of P&L ledgers (rare) are treated as prior-year profit
     const plLedgerOpenings = await query(
@@ -235,6 +254,12 @@ export const balanceSheet = async (companyId: string, asOf: string) => {
         };
     };
     const assets = bsRows.filter((r) => r.group_type === 'Asset').map(toLine);
+    if (closingStock) {
+        assets.push({
+            ledger_id: 'CLOSING_STOCK', ledger_name: 'Closing Stock', group_name: 'Stock-in-Hand', group_type: 'Asset',
+            balance: fromPaise(closingStock), balance_type: 'Dr', _p: closingStock,
+        });
+    }
     const liabilities = bsRows.filter((r) => r.group_type === 'Liability').map(toLine);
 
     const plTotal = retained + currentProfit;

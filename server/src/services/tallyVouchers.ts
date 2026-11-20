@@ -19,6 +19,7 @@ import { isInterStateSupply } from './invoiceCalc';
 import { postVoucher } from './posting';
 import { ensureSystemLedger, STANDARD_VOUCHER_TYPES } from './companySetup';
 import { refreshInvoicePaymentStatus } from './paymentService';
+import { syncInvoiceStock } from './stockService';
 import { openInvoices, SETTLES, Direction } from './receiptService';
 import { ImportReport, attempt, bump } from './importCommon';
 import { addDays, asArray, creditDays, tallyDate, tallyNumber, taxHeadFromName, text, yes } from './tallyXml';
@@ -157,7 +158,6 @@ const DOC_TYPE: Record<string, 'SALES' | 'PURCHASE' | 'CREDIT_NOTE' | 'DEBIT_NOT
 };
 const LABEL = { SALES: 'sales invoice', PURCHASE: 'purchase bill', CREDIT_NOTE: 'credit note', DEBIT_NOTE: 'debit note' };
 const PARTY_DR = { SALES: true, DEBIT_NOTE: true, PURCHASE: false, CREDIT_NOTE: false };
-const STOCK_SIGN = { SALES: -1, PURCHASE: 1, CREDIT_NOTE: 1, DEBIT_NOTE: -1 };
 const SLABS = [0, 0.1, 0.25, 1, 1.5, 3, 5, 6, 7.5, 12, 18, 28, 40];
 const snapRate = (r: number) => SLABS.reduce((best, s) => (Math.abs(s - r) < Math.abs(best - r) ? s : best), 0);
 
@@ -360,10 +360,8 @@ const recordInvoice = async (
                 inter ? 0 : rates[i] / 2, fromPaise(sg[i]), inter ? rates[i] : 0, fromPaise(ig[i]), fromPaise(l.taxable + lineTax),
             ]
         );
-        if (l.itemId) {
-            await ctx.db.query('UPDATE items SET current_quantity = current_quantity + $1 WHERE id = $2', [STOCK_SIGN[type] * l.qty, l.itemId]);
-        }
     }
+    await syncInvoiceStock(ctx.db, inv.id);
     return null;
 };
 

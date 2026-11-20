@@ -24,6 +24,8 @@ interface Item {
     sales_rate: number;
     purchase_rate: number;
     current_quantity: number;
+    opening_quantity?: number;
+    opening_rate?: number;
 }
 
 export const ItemMaster: React.FC = () => {
@@ -43,7 +45,8 @@ export const ItemMaster: React.FC = () => {
         taxRate: 18,
         salesRate: 0,
         purchaseRate: 0,
-        openingQuantity: 0
+        openingQuantity: 0,
+        openingRate: 0
     });
 
     const [unitFormData, setUnitFormData] = useState({
@@ -83,12 +86,16 @@ export const ItemMaster: React.FC = () => {
             if (editingItem) {
                 await api.put(`/inventory/items/${editingItem.id}`, {
                     ...formData,
+                    // Blank opening rate: the server uses the purchase rate
+                    openingRate: formData.openingRate || null,
                     companyId: selectedCompany.id
                 });
                 notify.success('Item updated successfully');
             } else {
                 await api.post('/inventory/items', {
                     ...formData,
+                    // Blank opening rate: the server uses the purchase rate
+                    openingRate: formData.openingRate || null,
                     companyId: selectedCompany.id
                 });
                 notify.success('Item created successfully');
@@ -134,7 +141,8 @@ export const ItemMaster: React.FC = () => {
             taxRate: 18,
             salesRate: 0,
             purchaseRate: 0,
-            openingQuantity: 0
+            openingQuantity: 0,
+            openingRate: 0
         });
     };
 
@@ -148,7 +156,8 @@ export const ItemMaster: React.FC = () => {
             taxRate: Number(item.tax_rate),
             salesRate: Number(item.sales_rate),
             purchaseRate: Number(item.purchase_rate),
-            openingQuantity: 0 // Cannot edit opening qty after creation usually
+            openingQuantity: Number(item.opening_quantity || 0),
+            openingRate: Number(item.opening_rate || 0)
         });
         setShowModal(true);
     };
@@ -278,13 +287,22 @@ export const ItemMaster: React.FC = () => {
                                     value={formData.purchaseRate}
                                     onChange={(e) => setFormData({ ...formData, purchaseRate: Number(e.target.value) })}
                                 />
-                                {!editingItem && (
-                                    <Input
-                                        label="Opening Quantity"
-                                        type="number"
-                                        value={formData.openingQuantity}
-                                        onChange={(e) => setFormData({ ...formData, openingQuantity: Number(e.target.value) })}
-                                    />
+                                {formData.itemType !== 'SERVICES' && (
+                                    <>
+                                        <Input
+                                            label="Opening Quantity"
+                                            type="number"
+                                            value={formData.openingQuantity}
+                                            onChange={(e) => setFormData({ ...formData, openingQuantity: Number(e.target.value) })}
+                                        />
+                                        <Input
+                                            label="Opening Rate (cost per unit)"
+                                            type="number"
+                                            placeholder={String(formData.purchaseRate || 0)}
+                                            value={formData.openingRate || ''}
+                                            onChange={(e) => setFormData({ ...formData, openingRate: Number(e.target.value) })}
+                                        />
+                                    </>
                                 )}
                             </div>
 
