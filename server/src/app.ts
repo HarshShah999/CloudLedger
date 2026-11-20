@@ -1,6 +1,8 @@
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
+import { httpLogger } from './config/logger';
+import { checkDatabase, healthStatus } from './services/healthService';
 import rateLimit from 'express-rate-limit';
 import { env } from './config/env';
 import { requestContext } from './config/requestContext';
@@ -47,12 +49,8 @@ app.use('/api/import', express.json({ limit: '120mb' }));
 // Company imports can be large JSON documents
 app.use(express.json({ limit: '25mb' }));
 
-if (env.nodeEnv !== 'test') {
-    app.use((req, _res, next) => {
-        console.log(`📨 ${req.method} ${req.path}`);
-        next();
-    });
-}
+// One structured log line per request, with a request id (also returned as X-Request-Id)
+app.use(httpLogger);
 
 // Brute-force protection on login/register (per IP)
 const authLimiter = rateLimit({
@@ -63,8 +61,17 @@ const authLimiter = rateLimit({
     message: { status: 'fail', message: 'Too many attempts, please try again in a few minutes' },
 });
 
-app.get('/api/health', (_req, res) => {
+// Health: /live (process up), /ready (database reachable), / (details for monitors)
+app.get('/api/health/live', (_req, res) => {
     res.json({ status: 'ok' });
+});
+app.get('/api/health/ready', async (_req, res) => {
+    const db = await checkDatabase();
+    res.status(db.ok ? 200 : 503).json({ status: db.ok ? 'ok' : 'down', database: db });
+});
+app.get('/api/health', async (_req, res) => {
+    const h = await healthStatus();
+    res.status(h.status === 'down' ? 503 : 200).json(h);
 });
 
 // Only credential endpoints are rate-limited; /auth/me runs on every page load.

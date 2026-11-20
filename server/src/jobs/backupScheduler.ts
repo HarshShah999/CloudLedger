@@ -1,13 +1,14 @@
 import { createFullBackup, cleanOldBackups } from '../services/backupService';
 import { query } from '../config/db';
 import { dayKey, scheduleJob, weekKey } from './runner';
+import { logger } from '../config/logger';
 
 // Automated backup scheduler
 export const startBackupScheduler = () => {
     const isEnabled = process.env.BACKUP_AUTO_ENABLED !== 'false';
 
     if (!isEnabled) {
-        console.log('⏸️  Automated backups disabled');
+        logger.info('⏸️  Automated backups disabled');
         return;
     }
 
@@ -37,7 +38,7 @@ export const startBackupScheduler = () => {
         deleted: await cleanOldBackups(parseInt(process.env.BACKUP_RETENTION_DAYS || '30')),
     }));
 
-    console.log('✅ Backup scheduler started');
-    console.log(`   - Daily backups: ${dailySchedule}`);
-    console.log(`   - Weekly cleanup: ${cleanupSchedule}`);
+    logger.info('✅ Backup scheduler started');
+    logger.info(`   - Daily backups: ${dailySchedule}`);
+    logger.info(`   - Weekly cleanup: ${cleanupSchedule}`);
 };

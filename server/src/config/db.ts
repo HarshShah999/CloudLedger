@@ -1,6 +1,7 @@
 import { Pool, PoolClient, QueryResult, types } from 'pg';
 import dotenv from 'dotenv';
 import { currentContext } from './requestContext';
+import { logger } from './logger';
 
 dotenv.config();
 
@@ -19,7 +20,7 @@ const pool = new Pool({
 types.setTypeParser(1082, (v: string) => v);
 
 pool.on('error', (err) => {
-    console.error('Unexpected error on idle client', err);
+    logger.error({ err: err }, 'Unexpected error on idle client');
 });
 
 /** Anything that can run a query: the pool or a transaction client. */

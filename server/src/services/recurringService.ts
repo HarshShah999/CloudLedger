@@ -2,6 +2,7 @@ import { Queryable, query, withTransaction } from '../config/db';
 import { AppError } from '../middleware/errorHandler';
 import { createInvoice, InvoiceType } from './invoiceService';
 import { toDateString } from './financialYear';
+import { logger } from '../config/logger';
 
 export type Frequency = 'WEEKLY' | 'MONTHLY' | 'QUARTERLY' | 'HALF_YEARLY' | 'YEARLY';
 
@@ -169,7 +170,7 @@ export const runRecurringInvoices = async (today = toDateString(new Date())) => 
         try {
             total += await generateDueInvoices(id, today);
         } catch (err) {
-            console.error(`Recurring invoice ${id} failed:`, (err as Error).message);
+            logger.error({ err: (err as Error).message }, `Recurring invoice ${id} failed:`);
             await query('UPDATE recurring_invoices SET last_error = $1 WHERE id = $2', [(err as Error).message, id]);
         }
     }

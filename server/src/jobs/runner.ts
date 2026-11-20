@@ -1,6 +1,8 @@
 import os from 'os';
 import cron from 'node-cron';
 import { query } from '../config/db';
+import { logger } from '../config/logger';
+import { reportError } from '../config/errorReporter';
 
 const TZ = process.env.TZ || 'Asia/Kolkata';
 
@@ -52,9 +54,9 @@ export const scheduleJob = (
     const fire = async () => {
         try {
             const r = await runOnce(name, period(), fn);
-            if (r.ran) console.log(`[job] ${name} done`, r.result ?? '');
+            if (r.ran) logger.info({ job: name, result: r.result ?? null }, `job ${name} done`);
         } catch (err) {
-            console.error(`[job] ${name} failed:`, err);
+            reportError(err, { job: name });
         }
     };
     cron.schedule(cronExpr, fire, { timezone: TZ });

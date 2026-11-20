@@ -62,7 +62,11 @@ Cloud accounting for Indian businesses: double-entry books, GST invoicing, payme
   - **Ctrl+Enter** saves the form you are on; **?** shows all shortcuts.
 - **Installable app**: on a phone, open CloudLedger in Chrome and choose *Add to Home screen* (Safari: *Share → Add to Home Screen*); on a desktop, use the install icon in the address bar. It opens full screen like a native app. Accounting data is never cached on the device; it always comes fresh from the server.
 - Works on phones: responsive layout with a slide-out menu.
-- Bank reconciliation, inventory quantities, email invoices with PDF, company export/import and full database backups.
+- **Stock valuation**: every purchase, sale and return is a stock movement; stock is valued at weighted average cost, and Opening/Closing Stock flow into the Profit & Loss and Balance Sheet. Stock Summary report as on any date.
+- **Cancel, don't delete**: issued invoices and notes are cancelled (number kept, books and stock reversed, reported as cancelled in GSTR-1) instead of deleted.
+- **The database guards the books**: every voucher must balance (checked at commit, even for direct database writes), names are unique per company, and every record belongs to a company.
+- **Secure sign-in**: sessions in httpOnly cookies with short-lived access tokens and rotating refresh tokens; logout and password changes take effect at once.
+- Bank reconciliation, email invoices with PDF, company export/import and full database backups with one-step restore.
 
 ## Tech Stack
 
@@ -132,6 +136,26 @@ Set `TEST_DB_HOST`, `TEST_DB_USER`, `TEST_DB_PASSWORD` and `TEST_DB_NAME` if you
 - `0001_baseline.sql` is idempotent: it also upgrades databases created by older versions of CloudLedger.
 - Never edit a migration that has been released; add a new file instead.
 - `database/legacy/` keeps the old scripts for reference only.
+
+## Running in production
+
+**Checklist**
+- `NODE_ENV=production`, a long random `JWT_SECRET` (and `SECRETS_KEY`), and HTTPS in front of the app. Session cookies are HTTPS-only in production.
+- Serve the web app and the API from the same site (e.g. `app.example.in` and `api.example.in`, or one domain with `/api` proxied), so the session cookies are sent.
+- Use a **managed PostgreSQL** with automatic daily backups and point-in-time recovery (AWS RDS, Google Cloud SQL, Azure, DigitalOcean, etc.). This is the main safety net. The built-in daily backup (`BACKUP_AUTO_ENABLED=true`) is an extra copy; keep `BACKUP_DIR` on storage that survives the server (a mounted volume or synced bucket).
+- Test a restore once, before going live (Backup page, or `psql --single-transaction -f` on a copy).
+- Set `ERROR_WEBHOOK_URL` so errors and failed jobs reach a person, and point an uptime monitor at `/api/health`.
+
+**Several app servers** can run side by side behind a load balancer: scheduled jobs (reminders, recurring invoices, backups) claim a once-per-day slot in the database, so each still runs exactly once, and import progress is stored in the database.
+
+**Health checks**
+| URL | Use |
+|---|---|
+| `/api/health/live` | Process is up (liveness probe) |
+| `/api/health/ready` | Database reachable within 2 s; 503 otherwise (readiness probe) |
+| `/api/health` | Details: database latency, last run of each job, `degraded` if a job failed or the daily backup is overdue |
+
+**Logs** are JSON lines on stdout (one per request, with a request id that is also returned as `X-Request-Id`), with passwords, tokens and cookies redacted. Send stdout to your log service.
 
 ## Project Structure
 

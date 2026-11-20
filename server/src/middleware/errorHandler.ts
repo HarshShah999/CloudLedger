@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
+import { reportError } from '../config/errorReporter';
 
 export class AppError extends Error {
     statusCode: number;
@@ -43,13 +44,13 @@ const fromPostgres = (err: any): AppError | null => {
 };
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-export const errorHandler = (err: any, _req: Request, res: Response, _next: NextFunction) => {
+export const errorHandler = (err: any, req: Request, res: Response, _next: NextFunction) => {
     if (err?.type === 'entity.too.large') err = new AppError('Request is too large', 413);
     if (err?.type === 'entity.parse.failed') err = new AppError('Malformed JSON body', 400);
     const mapped = err instanceof AppError ? err : fromPostgres(err);
     const statusCode = mapped?.statusCode ?? 500;
 
-    if (statusCode >= 500) console.error('ERROR 💥', err);
+    if (statusCode >= 500) reportError(err, { requestId: (req as any).id, method: req.method, path: req.originalUrl?.split('?')[0] });
 
     const body: Record<string, unknown> = {
         status: mapped?.status ?? 'error',

@@ -1,6 +1,7 @@
 import { query } from '../config/db';
 import { AppError } from '../middleware/errorHandler';
 import { ImportReport } from './importCommon';
+import { logger } from '../config/logger';
 
 /**
  * Large imports (a few years of Tally Day Book) can take minutes, longer than
@@ -63,13 +64,13 @@ export const startImportJob = async (
             )
         )
         .catch((e: Error) => {
-            if (!(e instanceof AppError)) console.error('Import job failed', e);
+            if (!(e instanceof AppError)) logger.error({ err: e }, 'Import job failed');
             return query(`UPDATE import_jobs SET status = 'FAILED', error = $2, updated_at = now() WHERE id = $1`, [
                 id,
                 e instanceof AppError ? e.message : 'The import failed. Nothing was saved.',
             ]);
         })
-        .catch((e) => console.error('Could not record import result', e));
+        .catch((e) => logger.error({ err: e }, 'Could not record import result'));
     return { id };
 };
 

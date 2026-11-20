@@ -7,6 +7,7 @@ import path from 'path';
 import { query, withTransaction } from '../config/db';
 import { AppError } from '../middleware/errorHandler';
 import { seedCompany } from './companySetup';
+import { logger } from '../config/logger';
 
 export const COMPANY_BACKUP_DIR = path.join(process.env.BACKUP_DIR || './backups', 'companies');
 
@@ -22,7 +23,7 @@ export const exportCompanyData = async (companyId: string, userId: string) => {
         throw new AppError('Access denied to this company', 403);
     }
 
-    console.log(`Exporting company ${companyId}...`);
+    logger.info(`Exporting company ${companyId}...`);
 
     // Get company details
     const companyRes = await query('SELECT * FROM companies WHERE id = $1', [companyId]);
@@ -176,7 +177,7 @@ export const exportCompanyData = async (companyId: string, userId: string) => {
         ['COMPANY', filename, stats.size, 'SUCCESS', userId, companyId, 'local']
     );
 
-    console.log(`✅ Company exported: ${filename}`);
+    logger.info(`✅ Company exported: ${filename}`);
 
     return { filename, size: stats.size, sizeFormatted: `${(stats.size / 1024).toFixed(2)} KB` };
 };
@@ -188,7 +189,7 @@ export const importCompanyData = async (userId: string, companyData: any) => {
         throw new AppError('Invalid company data format', 400);
     }
 
-    console.log('Importing company...');
+    logger.info('Importing company...');
 
     const imported = await withTransaction(async (client) => {
         // Shadow the pool query so every statement below runs inside this transaction
