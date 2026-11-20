@@ -207,7 +207,7 @@ export const BankReconciliation: React.FC = () => {
                     </div>
 
                     <div className="bg-slate-50 p-4 border-t border-slate-200">
-                        <div className="grid grid-cols-3 gap-4 text-sm">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
                             <div className="p-3 bg-white rounded-lg shadow-sm">
                                 <p className="text-slate-500 mb-1">Balance as per Company Books</p>
                                 <p className="text-lg font-bold text-slate-800">

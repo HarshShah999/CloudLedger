@@ -257,7 +257,7 @@ export const VoucherEdit: React.FC = () => {
                 </div>
 
                 <div className="bg-slate-50 p-4 rounded-lg mb-6">
-                    <div className="grid grid-cols-3 gap-4 text-center">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-center">
                         <div>
                             <p className="text-sm text-slate-500">Total Debit</p>
                             <p className="text-lg font-bold text-slate-800">₹{totals.debit.toFixed(2)}</p>

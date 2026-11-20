@@ -2,6 +2,7 @@ import { Toaster } from 'react-hot-toast';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { AuthLayout } from './layouts/AuthLayout';
+import { SharedDocument } from './pages/public/SharedDocument';
 import { Login } from './pages/auth/Login';
 import { Register } from './pages/auth/Register';
 import { MainLayout } from './layouts/MainLayout';
@@ -35,6 +36,9 @@ function App() {
             <Toaster position="top-right" />
             <AuthProvider>
                 <Routes>
+                    {/* Public: documents shared by link, no login needed */}
+                    <Route path="/v/:token" element={<SharedDocument />} />
+
                     <Route element={<AuthLayout />}>
                         <Route path="/login" element={<Login />} />
                         <Route path="/register" element={<Register />} />

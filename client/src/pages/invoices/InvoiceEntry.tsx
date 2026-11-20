@@ -426,7 +426,7 @@ export const InvoiceEntry: React.FC<{ type?: 'SALES' | 'PURCHASE' | 'CREDIT_NOTE
                 {/* Footer / Totals */}
                 <div className="card bg-slate-50">
                     <div className="flex justify-between items-start">
-                        <div className="w-1/2">
+                        <div className="w-full sm:w-1/2">
                             <Input
                                 label="Invoice Discount %"
                                 type="number"
@@ -437,7 +437,7 @@ export const InvoiceEntry: React.FC<{ type?: 'SALES' | 'PURCHASE' | 'CREDIT_NOTE
                                 step="0.01"
                             />
                         </div>
-                        <div className="w-96 space-y-2">
+                        <div className="w-full sm:w-96 space-y-2">
                             <div className="flex justify-between text-slate-600">
                                 <span>Subtotal:</span>
                                 <span className="font-mono">₹{subtotal.toFixed(2)}</span>

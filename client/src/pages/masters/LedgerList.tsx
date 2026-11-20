@@ -16,6 +16,9 @@ interface Ledger {
     opening_balance_type: string;
     state?: string;
     gstin?: string;
+    phone?: string;
+    email?: string;
+    address?: string;
 }
 
 interface Group {
@@ -38,7 +41,10 @@ export const LedgerList: React.FC = () => {
         openingBalance: 0,
         openingBalanceType: 'Dr',
         state: '',
-        gstin: ''
+        gstin: '',
+        phone: '',
+        email: '',
+        address: ''
     });
 
     const fetchLedgers = async () => {
@@ -101,7 +107,10 @@ export const LedgerList: React.FC = () => {
             openingBalance: Number(ledger.opening_balance),
             openingBalanceType: ledger.opening_balance_type,
             state: ledger.state || '',
-            gstin: ledger.gstin || ''
+            gstin: ledger.gstin || '',
+            phone: ledger.phone || '',
+            email: ledger.email || '',
+            address: ledger.address || ''
         });
         setShowModal(true);
     };
@@ -116,7 +125,7 @@ export const LedgerList: React.FC = () => {
             notify.success('Ledger deleted successfully');
             await fetchLedgers();
         } catch (error: any) {
-            notify.error(error.response?.data?.message || 'Failed to delete ledger');
+            notify.error(apiError(error, 'Failed to delete ledger'));
         }
     };
 
@@ -129,7 +138,10 @@ export const LedgerList: React.FC = () => {
             openingBalance: 0,
             openingBalanceType: 'Dr',
             state: '',
-            gstin: ''
+            gstin: '',
+            phone: '',
+            email: '',
+            address: ''
         });
     };
 
@@ -245,7 +257,7 @@ export const LedgerList: React.FC = () => {
                                 </select>
                             </div>
 
-                            <div className="grid grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <Input
                                     label="Opening Balance"
                                     type="number"
@@ -265,7 +277,7 @@ export const LedgerList: React.FC = () => {
                                 </div>
                             </div>
 
-                            <div className="grid grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <Input
                                     label="State"
                                     placeholder="e.g. Maharashtra"
@@ -276,9 +288,33 @@ export const LedgerList: React.FC = () => {
                                     label="GSTIN"
                                     placeholder="27ABCDE1234F1Z5"
                                     value={formData.gstin}
-                                    onChange={(e) => setFormData({ ...formData, gstin: e.target.value })}
+                                    onChange={(e) => setFormData({ ...formData, gstin: e.target.value.toUpperCase() })}
+                                    maxLength={15}
                                 />
                             </div>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <Input
+                                    label="Mobile (WhatsApp)"
+                                    inputMode="tel"
+                                    placeholder="98765 43210"
+                                    value={formData.phone}
+                                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                                />
+                                <Input
+                                    label="Email"
+                                    type="email"
+                                    placeholder="accounts@customer.com"
+                                    value={formData.email}
+                                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                                />
+                            </div>
+                            <Input
+                                label="Billing Address"
+                                placeholder="Street, city, PIN"
+                                value={formData.address}
+                                onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                            />
 
                             <div className="flex justify-end gap-3 mt-6">
                                 <Button type="button" variant="secondary" onClick={handleCloseModal}>

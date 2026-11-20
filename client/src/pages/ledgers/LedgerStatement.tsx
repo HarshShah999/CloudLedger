@@ -4,7 +4,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useCompany } from '../../context/CompanyContext';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
-import { ArrowLeft, Download, Filter, TrendingUp, TrendingDown } from 'lucide-react';
+import { ArrowLeft, Filter, TrendingUp, TrendingDown } from 'lucide-react';
+import { ShareMenu } from '../../components/ShareMenu';
 import api from '../../api/axios';
 
 interface Transaction {
@@ -70,7 +71,7 @@ export const LedgerStatement: React.FC = () => {
 
     return (
         <div className="space-y-6">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-4">
                     <Button variant="secondary" onClick={() => navigate('/ledgers')}>
                         <ArrowLeft className="w-4 h-4" />
@@ -80,10 +81,12 @@ export const LedgerStatement: React.FC = () => {
                         <p className="text-sm text-slate-500">{ledger?.group_name} ({ledger?.group_type})</p>
                     </div>
                 </div>
-                <Button variant="secondary" onClick={() => window.print()}>
-                    <Download className="w-4 h-4" />
-                    Export
-                </Button>
+                {ledgerId && (
+                    <ShareMenu
+                        target={{ kind: 'statement', ledgerId, startDate, endDate, label: 'statement' }}
+                        key={`${startDate}-${endDate}`}
+                    />
+                )}
             </div>
 
             {/* Summary Cards */}

@@ -160,6 +160,7 @@ export const VoucherEntry: React.FC = () => {
 
                 {/* Entries Table */}
                 <div className="border rounded-lg overflow-hidden mb-6">
+                    <div className="overflow-x-auto">
                     <table className="w-full text-left">
                         <thead className="bg-slate-50 border-b border-slate-200">
                             <tr>
@@ -238,6 +239,7 @@ export const VoucherEntry: React.FC = () => {
                             </tr>
                         </tfoot>
                     </table>
+                    </div>
                 </div>
 
                 <div className="flex items-center justify-between mb-6">

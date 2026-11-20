@@ -31,6 +31,17 @@ const updateCompanySchema = Joi.object({
     gstin: gstin(),
     state: Joi.string().trim().max(100),
     roundOffInvoices: Joi.boolean(),
+    pan: Joi.string().trim().uppercase().pattern(/^[A-Z]{5}[0-9]{4}[A-Z]$/).allow('', null).messages({ 'string.pattern.base': 'Invalid PAN' }),
+    website: Joi.string().trim().max(255).allow('', null),
+    upiId: Joi.string().trim().pattern(/^[\w.\-]{2,256}@[a-zA-Z][a-zA-Z0-9.\-]{1,64}$/).allow('', null).messages({ 'string.pattern.base': 'Invalid UPI ID (e.g. name@okhdfcbank)' }),
+    bankName: Joi.string().trim().max(150).allow('', null),
+    bankAccountName: Joi.string().trim().max(150).allow('', null),
+    bankAccountNumber: Joi.string().trim().pattern(/^[0-9A-Za-z]{6,40}$/).allow('', null).messages({ 'string.pattern.base': 'Invalid bank account number' }),
+    bankIfsc: Joi.string().trim().uppercase().pattern(/^[A-Z]{4}0[A-Z0-9]{6}$/).allow('', null).messages({ 'string.pattern.base': 'Invalid IFSC code' }),
+    bankBranch: Joi.string().trim().max(150).allow('', null),
+    invoiceTerms: Joi.string().max(3000).allow('', null),
+    shareMessageTemplate: Joi.string().max(2000).allow('', null),
+    shareLinkDays: Joi.number().integer().min(1).max(365),
 });
 
 router.use(protect);

@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { useCompany } from '../../context/CompanyContext';
 import { Button } from '../../components/ui/Button';
-import { Plus, Download, Trash2, Eye, DollarSign, Edit, Mail } from 'lucide-react';
+import { Plus, Download, Trash2, Eye, DollarSign, Edit } from 'lucide-react';
+import { ShareMenu } from '../../components/ShareMenu';
 import api, { apiError } from '../../api/axios';
 import { useNavigate } from 'react-router-dom';
-import { Input } from '../../components/ui/Input';
 import { notify } from '../../utils/notification';
 
 interface Invoice {
@@ -27,15 +27,6 @@ export const InvoiceList: React.FC = () => {
     const [filterType, setFilterType] = useState<'SALES' | 'PURCHASE' | 'CREDIT_NOTE' | 'DEBIT_NOTE'>('SALES');
     const [paymentFilter, setPaymentFilter] = useState<string>('');
     const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
-    const [emailModal, setEmailModal] = useState<{ id: string, invoiceNumber: string } | null>(null);
-    const [emailForm, setEmailForm] = useState({
-        to: '',
-        cc: '',
-        subject: '',
-        message: ''
-    });
-    const [sendingEmail, setSendingEmail] = useState(false);
-
     const fetchInvoices = async () => {
         if (!selectedCompany) return;
         setLoading(true);
@@ -88,36 +79,8 @@ export const InvoiceList: React.FC = () => {
             setDeleteConfirm(null);
         } catch (error: any) {
             console.error('Failed to delete invoice', error);
-            notify.error(error.response?.data?.message || 'Failed to delete invoice');
+            notify.error(apiError(error, 'Failed to delete invoice'));
         }
-    };
-
-    const handleSendEmail = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!emailModal) return;
-
-        setSendingEmail(true);
-        try {
-            await api.post(`/invoices/${emailModal.id}/email`, emailForm);
-            notify.success('Email sent successfully!');
-            setEmailModal(null);
-            setEmailForm({ to: '', cc: '', subject: '', message: '' });
-        } catch (error: any) {
-            console.error('Failed to send email', error);
-            notify.error(error.response?.data?.message || 'Failed to send email');
-        } finally {
-            setSendingEmail(false);
-        }
-    };
-
-    const openEmailModal = (invoice: Invoice) => {
-        setEmailModal({ id: invoice.id, invoiceNumber: invoice.invoice_number });
-        setEmailForm({
-            to: '',
-            cc: '',
-            subject: `Invoice #${invoice.invoice_number} from CloudLedger`,
-            message: `Dear Sir/Madam,\n\nPlease find attached the invoice #${invoice.invoice_number}.\n\nRegards,\nCloudLedger`
-        });
     };
 
     const getPaymentStatusBadge = (status: string) => {
@@ -273,13 +236,7 @@ export const InvoiceList: React.FC = () => {
                                                 >
                                                     <Edit className="w-4 h-4" />
                                                 </button>
-                                                <button
-                                                    onClick={() => openEmailModal(invoice)}
-                                                    className="p-1 text-slate-400 hover:text-purple-600 transition-colors"
-                                                    title="Email Invoice"
-                                                >
-                                                    <Mail className="w-4 h-4" />
-                                                </button>
+                                                <ShareMenu appearance="icon" target={{ kind: 'invoice', id: invoice.id, label: invoice.invoice_number }} />
                                                 <button
                                                     onClick={() => setDeleteConfirm(invoice.id)}
                                                     className="p-1 text-slate-400 hover:text-red-600 transition-colors"
@@ -321,55 +278,6 @@ export const InvoiceList: React.FC = () => {
                 </div>
             )}
 
-            {/* Email Modal */}
-            {emailModal && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-xl shadow-xl p-6 max-w-lg w-full">
-                        <h2 className="text-xl font-bold text-slate-800 mb-4">Email Invoice #{emailModal.invoiceNumber}</h2>
-                        <form onSubmit={handleSendEmail} className="space-y-4">
-                            <Input
-                                label="To"
-                                type="email"
-                                value={emailForm.to}
-                                onChange={(e) => setEmailForm({ ...emailForm, to: e.target.value })}
-                                placeholder="recipient@example.com"
-                                required
-                            />
-                            <Input
-                                label="CC"
-                                type="text"
-                                value={emailForm.cc}
-                                onChange={(e) => setEmailForm({ ...emailForm, cc: e.target.value })}
-                                placeholder="cc@example.com, another@example.com"
-                            />
-                            <Input
-                                label="Subject"
-                                value={emailForm.subject}
-                                onChange={(e) => setEmailForm({ ...emailForm, subject: e.target.value })}
-                                required
-                            />
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Message</label>
-                                <textarea
-                                    className="input-field"
-                                    rows={4}
-                                    value={emailForm.message}
-                                    onChange={(e) => setEmailForm({ ...emailForm, message: e.target.value })}
-                                />
-                            </div>
-                            <div className="flex justify-end gap-3">
-                                <Button type="button" variant="secondary" onClick={() => setEmailModal(null)}>
-                                    Cancel
-                                </Button>
-                                <Button type="submit" isLoading={sendingEmail}>
-                                    <Mail className="w-4 h-4 mr-2" />
-                                    Send Email
-                                </Button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            )}
         </div>
     );
 };

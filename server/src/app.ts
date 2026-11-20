@@ -21,6 +21,7 @@ import backupRoutes from './routes/backupRoutes';
 import recurringInvoiceRoutes from './routes/recurringInvoiceRoutes';
 import reconciliationRoutes from './routes/reconciliationRoutes';
 import gstRoutes from './routes/gstRoutes';
+import publicRoutes from './routes/publicRoutes';
 
 const app = express();
 
@@ -75,6 +76,7 @@ app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/backup', backupRoutes);
 app.use('/api/reconciliation', reconciliationRoutes);
 app.use('/api/gst', gstRoutes);
+app.use('/api/public', publicRoutes);
 
 app.get('/', (_req, res) => {
     res.send('CloudLedger API is running');

@@ -1,8 +1,9 @@
 import { Request, Response } from 'express';
 import { query, withTransaction } from '../config/db';
 import { AppError } from '../middleware/errorHandler';
-import { generateInvoicePDF } from '../utils/pdfGenerator';
-import { pdfToBuffer } from '../utils/pdfBuffer';
+import { renderInvoicePdf } from '../services/pdf/invoicePdf';
+import { loadInvoiceDocument } from '../services/documentService';
+import { shareInvoice, revokeShares, logCommunication, listCommunications, Channel } from '../services/shareService';
 import * as invoiceService from '../services/invoiceService';
 import { resolveFinancialYear, toDateString } from '../services/financialYear';
 import { peekNextNumber } from '../services/numberSeries';
@@ -114,61 +115,86 @@ export const getInvoiceById = async (req: Request, res: Response) => {
 };
 
 export const downloadInvoicePDF = async (req: Request, res: Response) => {
-    const { id } = req.params;
-    const inv = await query('SELECT invoice_number FROM invoices WHERE id = $1', [id]);
-    const buffer = await pdfToBuffer(await generateInvoicePDF(id));
+    const d = await loadInvoiceDocument(req.params.id);
+    const buffer = await renderInvoicePdf(d);
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename="${safeFilename(inv.rows[0]?.invoice_number || id)}.pdf"`);
+    res.setHeader(
+        'Content-Disposition',
+        `${req.query.inline ? 'inline' : 'attachment'}; filename="${safeFilename(d.invoice.invoice_number)}.pdf"`
+    );
     res.send(buffer);
+};
+
+/** Creates a secure public link and returns ready-made WhatsApp / email / UPI share data. */
+export const createInvoiceShare = async (req: Request, res: Response) => {
+    const data = await shareInvoice(req.company!.id, req.params.id, req.user!.id);
+    res.status(201).json({ status: 'success', data });
+};
+
+/** Withdraws every public link to this invoice. */
+export const revokeInvoiceShares = async (req: Request, res: Response) => {
+    const revoked = await revokeShares(req.company!.id, 'INVOICE', req.params.id);
+    res.status(200).json({ status: 'success', data: { revoked } });
+};
+
+const CHANNELS: Channel[] = ['WHATSAPP', 'LINK', 'NATIVE', 'DOWNLOAD', 'PRINT', 'SMS'];
+
+/** Records a share the browser performed itself (WhatsApp, copy link, native share, print). */
+export const logInvoiceShare = async (req: Request, res: Response) => {
+    const channel = String(req.body.channel || '').toUpperCase() as Channel;
+    if (!CHANNELS.includes(channel)) throw new AppError('Unknown channel', 400);
+    await logCommunication({
+        companyId: req.company!.id, docType: 'INVOICE', docId: req.params.id, channel,
+        recipient: req.body.recipient ? String(req.body.recipient).slice(0, 255) : null, userId: req.user!.id,
+    });
+    res.status(201).json({ status: 'success' });
+};
+
+export const getInvoiceCommunications = async (req: Request, res: Response) => {
+    res.status(200).json({
+        status: 'success',
+        data: { communications: await listCommunications(req.company!.id, 'INVOICE', req.params.id) },
+    });
 };
 
 export const sendInvoiceEmail = async (req: Request, res: Response) => {
     const { id } = req.params;
     const { to, cc, subject, message } = req.body;
+    const share = await shareInvoice(req.company!.id, id, req.user!.id);
+    const d = await loadInvoiceDocument(id);
+    const recipient = to || d.party.email;
+    if (!recipient) throw new AppError('No recipient email address. Add an email to the party or type one.', 400);
 
-    const r = await query(
-        `SELECT i.*, l.email AS party_email, l.name AS party_name, c.name AS company_name, c.email AS company_email
-         FROM invoices i
-         LEFT JOIN ledgers l ON i.party_ledger_id = l.id
-         LEFT JOIN companies c ON c.id = i.company_id
-         WHERE i.id = $1 AND i.company_id = $2`,
-        [id, req.company!.id]
-    );
-    if (!r.rows.length) throw new AppError('Invoice not found', 404);
-    const invoice = r.rows[0];
-    const recipient = to || invoice.party_email;
-    if (!recipient) throw new AppError('No recipient email address provided', 400);
-
-    const label = DOC_LABEL[invoice.type] || 'Invoice';
-    const mailSubject = subject || `${label} ${invoice.invoice_number} from ${invoice.company_name}`;
-    const body = message || `Please find attached ${label.toLowerCase()} ${invoice.invoice_number}.`;
-    const pdf = await pdfToBuffer(await generateInvoicePDF(id));
+    const label = DOC_LABEL[d.invoice.type] || 'Invoice';
+    const mailSubject = subject || share.email.subject;
+    const body = message || share.message;
+    const pdf = await renderInvoicePdf(d);
 
     try {
         await sendMail({
             to: recipient,
             cc,
             subject: mailSubject,
-            fromName: invoice.company_name,
-            replyTo: invoice.company_email,
-            text: `Dear ${invoice.party_name},\n\n${body}\n\n${label} No: ${invoice.invoice_number}\nDate: ${invoice.date}\nAmount: ${formatINR(invoice.grand_total)}\n\nThank you for your business!\n${invoice.company_name}`,
-            html: `<p>Dear ${escapeHtml(invoice.party_name)},</p>
-                   <p>${escapeHtml(body).replace(/\n/g, '<br>')}</p>
-                   <table cellpadding="4">
-                     <tr><td>${label} No</td><td><b>${escapeHtml(invoice.invoice_number)}</b></td></tr>
-                     <tr><td>Date</td><td>${escapeHtml(invoice.date)}</td></tr>
-                     <tr><td>Amount</td><td><b>${escapeHtml(formatINR(invoice.grand_total))}</b></td></tr>
-                   </table>
-                   <p>Thank you for your business!<br>${escapeHtml(invoice.company_name)}</p>`,
-            attachments: [{ filename: `${safeFilename(invoice.invoice_number)}.pdf`, content: pdf }],
+            fromName: d.company.name,
+            replyTo: d.company.email || undefined,
+            text: body,
+            html: `<div style="font-family:Arial,sans-serif;font-size:14px;color:#111">
+                     <p>${escapeHtml(body).replace(/\n/g, '<br>')}</p>
+                     <p><a href="${escapeHtml(share.url)}" style="display:inline-block;padding:10px 16px;background:#4338CA;color:#fff;border-radius:6px;text-decoration:none">View ${escapeHtml(label)}</a></p>
+                     <table cellpadding="4" style="font-size:13px;color:#374151">
+                       <tr><td>${escapeHtml(label)} No</td><td><b>${escapeHtml(d.invoice.invoice_number)}</b></td></tr>
+                       <tr><td>Amount</td><td><b>${escapeHtml(formatINR(d.totals.grandTotal))}</b></td></tr>
+                       ${d.totals.balance > 0 && d.totals.balance !== d.totals.grandTotal ? `<tr><td>Balance due</td><td><b>${escapeHtml(formatINR(d.totals.balance))}</b></td></tr>` : ''}
+                     </table>
+                   </div>`,
+            attachments: [{ filename: share.fileName, content: pdf }],
         });
-        await query(`INSERT INTO email_logs (invoice_id, recipient, cc, subject, status) VALUES ($1,$2,$3,$4,'SENT')`, [
-            id, recipient, cc || null, mailSubject,
-        ]);
+        await logCommunication({ companyId: req.company!.id, docType: 'INVOICE', docId: id, channel: 'EMAIL', recipient, subject: mailSubject, userId: req.user!.id });
     } catch (err: any) {
-        await query(`INSERT INTO email_logs (invoice_id, recipient, cc, subject, status) VALUES ($1,$2,$3,$4,'FAILED')`, [
-            id, recipient, cc || null, mailSubject,
-        ]);
+        await logCommunication({
+            companyId: req.company!.id, docType: 'INVOICE', docId: id, channel: 'EMAIL', recipient, subject: mailSubject,
+            status: 'FAILED', error: String(err.message).slice(0, 500), userId: req.user!.id,
+        });
         if (err instanceof AppError) throw err;
         throw new AppError(`Failed to send email: ${err.message}`, 502);
     }

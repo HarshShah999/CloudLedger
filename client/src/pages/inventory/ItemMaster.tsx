@@ -159,6 +159,7 @@ export const ItemMaster: React.FC = () => {
             </div>
 
             <div className="card overflow-hidden">
+                <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">
                     <thead>
                         <tr className="border-b border-slate-200 bg-slate-50">
@@ -198,6 +199,7 @@ export const ItemMaster: React.FC = () => {
                         )}
                     </tbody>
                 </table>
+                </div>
             </div>
 
             {/* Item Modal */}
@@ -208,7 +210,7 @@ export const ItemMaster: React.FC = () => {
                             {editingItem ? 'Edit Item' : 'Create New Item'}
                         </h2>
                         <form onSubmit={handleSubmit} className="space-y-4">
-                            <div className="grid grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <div className="col-span-2">
                                     <Input
                                         label="Item Name"

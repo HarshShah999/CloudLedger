@@ -8,11 +8,19 @@ Cloud accounting for Indian businesses: double-entry books, GST invoicing, payme
 - **GST invoicing**: sales, purchase, credit note and debit note. CGST/SGST or IGST is chosen from the place of supply. Discounts apply before tax. Totals round to the nearest rupee through a Round Off ledger.
 - **Automatic numbering** per document type and financial year (e.g. `INV/25-26/0001`), with GST's 16-character and uniqueness rules enforced.
 - **Indian chart of accounts** created with every company (Tally-style groups such as Sundry Debtors, Duties & Taxes, Bank Accounts), plus system ledgers: Cash, Sales, Purchase, Input/Output CGST/SGST/IGST and Round Off.
+- **One-click sharing**: a Share button on every invoice, credit/debit note and party statement:
+  - **WhatsApp**, with the party's number and a ready-made message.
+  - **Email**, with the PDF attached.
+  - **Copy link**, **Download** and **Print**.
+  - **More apps** on phones, which attaches the actual PDF to WhatsApp, Gmail, Telegram and so on.
+- **Secure public links**: customers open the document without logging in, see what is due, pay with a **UPI button or QR code**, or download the PDF. Links expire and can be withdrawn.
+- **GST-compliant PDFs**: HSN summary, CGST/SGST/IGST, amount in words, bank details, UPI QR and terms.
 - **Payments** against invoices into a chosen cash or bank account, with paid/partial/outstanding tracking.
 - **Financial years**: the Indian April–March year is created automatically. A closed year is locked: nothing can be posted, edited or deleted in it.
 - **Reports**: Trial Balance, Profit & Loss (with gross profit), Balance Sheet (always balances: includes current profit and any opening-balance difference), Ledger Statement with running balance, GSTR-1, GSTR-3B and Excel export.
 - **Recurring invoices**: weekly, monthly, quarterly, half-yearly or yearly, with catch-up for missed periods.
 - **Multi-company with per-company roles**: admin, accountant or viewer, enforced by the server on every request.
+- Works on phones: responsive layout with a slide-out menu.
 - Bank reconciliation, inventory quantities, email invoices with PDF, company export/import and full database backups.
 
 ## Tech Stack
@@ -47,6 +55,8 @@ npm run dev
 ```
 
 Generate a JWT secret with `openssl rand -hex 48`. The server refuses to start without one.
+
+Shared links point to `CLIENT_URL`. Set `PUBLIC_APP_URL` if the public address of the web app is different, for example `https://books.yourfirm.in`. Email sending needs the `SMTP_*` settings. Add your UPI ID and bank details under **Settings → Company & Invoice Settings**.
 
 ### 3. Frontend
 

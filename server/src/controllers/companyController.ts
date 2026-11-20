@@ -61,8 +61,16 @@ export const getCompany = async (req: Request, res: Response) => {
 };
 
 export const updateCompany = async (req: Request, res: Response) => {
-    const fields = ['name', 'address', 'email', 'phone', 'gstin', 'state', 'round_off_invoices'] as const;
-    const map: Record<string, string> = { roundOffInvoices: 'round_off_invoices' };
+    const fields = [
+        'name', 'address', 'email', 'phone', 'gstin', 'state', 'round_off_invoices', 'pan', 'website', 'upi_id',
+        'bank_name', 'bank_account_name', 'bank_account_number', 'bank_ifsc', 'bank_branch', 'invoice_terms',
+        'share_message_template', 'share_link_days',
+    ] as const;
+    const map: Record<string, string> = {
+        roundOffInvoices: 'round_off_invoices', upiId: 'upi_id', bankName: 'bank_name', bankAccountName: 'bank_account_name',
+        bankAccountNumber: 'bank_account_number', bankIfsc: 'bank_ifsc', bankBranch: 'bank_branch',
+        invoiceTerms: 'invoice_terms', shareMessageTemplate: 'share_message_template', shareLinkDays: 'share_link_days',
+    };
     const sets: string[] = [];
     const values: any[] = [];
     for (const [key, value] of Object.entries(req.body)) {

@@ -2,7 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
-import { ArrowLeft, Download, DollarSign, Trash2, Edit, Mail } from 'lucide-react';
+import { ArrowLeft, DollarSign, Trash2, Edit } from 'lucide-react';
+import { ShareMenu } from '../../components/ShareMenu';
 import api, { apiError } from '../../api/axios';
 import { useCompany } from '../../context/CompanyContext';
 import { notify } from '../../utils/notification';
@@ -25,15 +26,6 @@ export const InvoiceDetail: React.FC = () => {
     const [payments, setPayments] = useState<Payment[]>([]);
     const [loading, setLoading] = useState(true);
     const [showPaymentModal, setShowPaymentModal] = useState(false);
-    const [showEmailModal, setShowEmailModal] = useState(false);
-    const [emailForm, setEmailForm] = useState({
-        to: '',
-        cc: '',
-        subject: '',
-        message: ''
-    });
-    const [sendingEmail, setSendingEmail] = useState(false);
-
     const [paymentForm, setPaymentForm] = useState({
         paymentDate: new Date().toISOString().split('T')[0],
         amount: 0,
@@ -116,51 +108,6 @@ export const InvoiceDetail: React.FC = () => {
         }
     };
 
-    const handleSendEmail = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setSendingEmail(true);
-        try {
-            await api.post(`/invoices/${id}/email`, emailForm);
-            notify.success('Email sent successfully!');
-            setShowEmailModal(false);
-            setEmailForm({ to: '', cc: '', subject: '', message: '' });
-        } catch (error: any) {
-            console.error('Failed to send email', error);
-            notify.error(error.response?.data?.message || 'Failed to send email');
-        } finally {
-            setSendingEmail(false);
-        }
-    };
-
-    const openEmailModal = () => {
-        setShowEmailModal(true);
-        setEmailForm({
-            to: '',
-            cc: '',
-            subject: `Invoice #${invoice.invoice_number} from CloudLedger`,
-            message: `Dear Sir/Madam,\n\nPlease find attached the invoice #${invoice.invoice_number}.\n\nRegards,\nCloudLedger`
-        });
-    };
-
-    const handleDownloadPDF = async () => {
-        try {
-            const response = await api.get(`/invoices/${id}/pdf`, {
-                responseType: 'blob'
-            });
-
-            const url = window.URL.createObjectURL(new Blob([response.data]));
-            const link = document.createElement('a');
-            link.href = url;
-            link.setAttribute('download', `invoice-${invoice.invoice_number}.pdf`);
-            document.body.appendChild(link);
-            link.click();
-            link.remove();
-        } catch (error) {
-            console.error('Failed to download PDF', error);
-            notify.error(apiError(error, 'Failed to download PDF'));
-        }
-    };
-
     if (loading) return <div className="text-center py-8">Loading...</div>;
     if (!invoice) return <div className="text-center py-8">Invoice not found</div>;
 
@@ -168,29 +115,22 @@ export const InvoiceDetail: React.FC = () => {
 
     return (
         <div className="space-y-6">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-4">
                     <Button variant="secondary" onClick={() => navigate('/invoices')}>
                         <ArrowLeft className="w-4 h-4" />
                         Back
                     </Button>
                     <h1 className="text-2xl font-bold text-slate-800">
-                        Invoice #{invoice.invoice_number}
+                        {({ SALES: 'Invoice', PURCHASE: 'Purchase Bill', CREDIT_NOTE: 'Credit Note', DEBIT_NOTE: 'Debit Note' } as Record<string, string>)[invoice.type] || 'Invoice'} {invoice.invoice_number}
                     </h1>
                 </div>
-                <div className="flex gap-2">
-                    <Button variant="secondary" onClick={handleDownloadPDF}>
-                        <Download className="w-4 h-4" />
-                        Download PDF
-                    </Button>
+                <div className="flex flex-wrap gap-2">
                     <Button variant="secondary" onClick={() => navigate(`/invoices/${id}/edit`)}>
                         <Edit className="w-4 h-4" />
                         Edit
                     </Button>
-                    <Button variant="secondary" onClick={openEmailModal}>
-                        <Mail className="w-4 h-4" />
-                        Email
-                    </Button>
+                    <ShareMenu target={{ kind: 'invoice', id: invoice.id, label: invoice.invoice_number }} />
                     {Number(invoice.outstanding_amount) > 0 && (
                         <Button onClick={() => { setPaymentForm((f) => ({ ...f, amount: Number(invoice.outstanding_amount ?? invoice.grand_total) })); setShowPaymentModal(true); }}>
                             <DollarSign className="w-4 h-4" />
@@ -201,7 +141,7 @@ export const InvoiceDetail: React.FC = () => {
             </div>
 
             {/* Invoice Header */}
-            <div className="card grid grid-cols-2 gap-6">
+            <div className="card grid grid-cols-1 sm:grid-cols-2 gap-6">
                 <div>
                     <h3 className="font-semibold text-slate-700 mb-2">Company Details</h3>
                     <p className="text-slate-800 font-medium">{invoice.company_name}</p>
@@ -229,6 +169,7 @@ export const InvoiceDetail: React.FC = () => {
             {/* Items Table */}
             <div className="card">
                 <h3 className="font-semibold text-slate-700 mb-4">Items</h3>
+                <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">
                     <thead>
                         <tr className="border-b border-slate-200 bg-slate-50">
@@ -268,12 +209,13 @@ export const InvoiceDetail: React.FC = () => {
                         ))}
                     </tbody>
                 </table>
+                </div>
             </div>
 
             {/* Totals */}
             <div className="card bg-slate-50">
                 <div className="flex justify-end">
-                    <div className="w-96 space-y-2">
+                    <div className="w-full sm:w-96 space-y-2">
                         {Number(invoice.discount_amount) > 0 && (
                             <div className="flex justify-between text-red-600">
                                 <span>Invoice Discount ({Number(invoice.discount_percent)}%):</span>
@@ -314,6 +256,7 @@ export const InvoiceDetail: React.FC = () => {
             {payments.length > 0 && (
                 <div className="card">
                     <h3 className="font-semibold text-slate-700 mb-4">Payment History</h3>
+                    <div className="overflow-x-auto">
                     <table className="w-full text-left border-collapse">
                         <thead>
                             <tr className="border-b border-slate-200 bg-slate-50">
@@ -345,6 +288,7 @@ export const InvoiceDetail: React.FC = () => {
                             ))}
                         </tbody>
                     </table>
+                    </div>
                 </div>
             )}
 
@@ -435,55 +379,6 @@ export const InvoiceDetail: React.FC = () => {
                 </div>
             )}
 
-            {/* Email Modal */}
-            {showEmailModal && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-xl shadow-xl p-6 max-w-lg w-full">
-                        <h2 className="text-xl font-bold text-slate-800 mb-4">Email Invoice #{invoice.invoice_number}</h2>
-                        <form onSubmit={handleSendEmail} className="space-y-4">
-                            <Input
-                                label="To"
-                                type="email"
-                                value={emailForm.to}
-                                onChange={(e) => setEmailForm({ ...emailForm, to: e.target.value })}
-                                placeholder="recipient@example.com"
-                                required
-                            />
-                            <Input
-                                label="CC"
-                                type="text"
-                                value={emailForm.cc}
-                                onChange={(e) => setEmailForm({ ...emailForm, cc: e.target.value })}
-                                placeholder="cc@example.com, another@example.com"
-                            />
-                            <Input
-                                label="Subject"
-                                value={emailForm.subject}
-                                onChange={(e) => setEmailForm({ ...emailForm, subject: e.target.value })}
-                                required
-                            />
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Message</label>
-                                <textarea
-                                    className="input-field"
-                                    rows={4}
-                                    value={emailForm.message}
-                                    onChange={(e) => setEmailForm({ ...emailForm, message: e.target.value })}
-                                />
-                            </div>
-                            <div className="flex justify-end gap-3">
-                                <Button type="button" variant="secondary" onClick={() => setShowEmailModal(false)}>
-                                    Cancel
-                                </Button>
-                                <Button type="submit" isLoading={sendingEmail}>
-                                    <Mail className="w-4 h-4 mr-2" />
-                                    Send Email
-                                </Button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            )}
         </div>
     );
 };

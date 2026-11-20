@@ -78,6 +78,9 @@ export const createInvoiceSchema = Joi.object({ companyId: uuid().required(), ..
 export const updateInvoiceSchema = Joi.object({ companyId: uuid(), ...invoiceBase });
 
 export const emailSchema = Joi.object({
+    companyId: uuid(),
+    startDate: isoDate(),
+    endDate: isoDate(),
     to: Joi.string().trim().email().allow('', null),
     cc: Joi.string().trim().email().allow('', null),
     subject: Joi.string().max(300).allow('', null),

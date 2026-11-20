@@ -2,9 +2,9 @@ import React, { useEffect, useState } from 'react';
 import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
 import { useCompany } from '../context/CompanyContext';
-import { LogOut, User as UserIcon, ChevronDown } from 'lucide-react';
+import { LogOut, User as UserIcon, ChevronDown, Menu } from 'lucide-react';
 
-export const Header: React.FC = () => {
+export const Header: React.FC<{ onMenu?: () => void }> = ({ onMenu }) => {
     const { user, logout } = useAuth();
     const { companies, selectedCompany, selectCompany } = useCompany();
     const [fyName, setFyName] = useState<string>('');
@@ -18,44 +18,46 @@ export const Header: React.FC = () => {
     }, [selectedCompany?.id]);
 
     return (
-        <header className="h-16 bg-white border-b border-slate-200 fixed top-0 right-0 left-64 z-10 px-6 flex items-center justify-between">
-            <div className="flex items-center gap-4">
+        <header className="h-16 bg-white border-b border-slate-200 fixed top-0 right-0 left-0 lg:left-64 z-20 px-3 sm:px-6 flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 sm:gap-4 min-w-0">
+                <button
+                    onClick={onMenu}
+                    className="lg:hidden p-2 -ml-1 text-slate-600 hover:bg-slate-100 rounded-lg"
+                    aria-label="Open menu"
+                >
+                    <Menu className="w-6 h-6" />
+                </button>
                 {companies.length > 0 ? (
-                    <div className="relative group">
-                        <button className="flex items-center gap-2 text-slate-700 font-medium hover:text-primary transition-colors">
-                            <span className="text-lg">{selectedCompany?.name || 'Select Company'}</span>
-                            <ChevronDown className="w-4 h-4" />
-                        </button>
-
-                        <div className="absolute top-full left-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-slate-100 py-2 hidden group-hover:block">
+                    <label className="relative flex items-center min-w-0">
+                        <span className="sr-only">Company</span>
+                        <select
+                            value={selectedCompany?.id || ''}
+                            onChange={(e) => selectCompany(e.target.value)}
+                            className="appearance-none bg-transparent pr-6 text-base sm:text-lg font-medium text-slate-700 hover:text-primary cursor-pointer truncate max-w-[55vw] sm:max-w-xs focus:outline-none"
+                        >
                             {companies.map((company) => (
-                                <button
-                                    key={company.id}
-                                    onClick={() => selectCompany(company.id)}
-                                    className="w-full text-left px-4 py-2 hover:bg-slate-50 text-slate-700"
-                                >
-                                    {company.name}
-                                </button>
+                                <option key={company.id} value={company.id}>{company.name}</option>
                             ))}
-                        </div>
-                    </div>
+                        </select>
+                        <ChevronDown className="w-4 h-4 absolute right-0 pointer-events-none text-slate-500" />
+                    </label>
                 ) : (
-                    <span className="text-slate-500">No companies found</span>
+                    <span className="text-slate-500 text-sm">No companies yet</span>
                 )}
 
-                <div className="h-6 w-px bg-slate-200 mx-2"></div>
+                <div className="hidden sm:block h-6 w-px bg-slate-200 mx-2"></div>
 
-                <div className="flex items-center gap-2 text-sm text-slate-500 bg-slate-100 px-3 py-1 rounded-full">
+                <div className="hidden sm:flex items-center gap-2 text-sm text-slate-500 bg-slate-100 px-3 py-1 rounded-full whitespace-nowrap">
                     <span>{fyName ? `FY: ${fyName}` : 'No active FY'}</span>
                 </div>
             </div>
 
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 sm:gap-4 shrink-0">
                 <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center">
+                    <div className="w-8 h-8 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center" title={user?.name}>
                         <UserIcon className="w-4 h-4" />
                     </div>
-                    <div className="text-sm">
+                    <div className="text-sm hidden md:block">
                         <p className="font-medium text-slate-700">{user?.name}</p>
                         <p className="text-xs text-slate-500 capitalize">{selectedCompany?.role || (user?.is_superadmin ? 'owner' : '')}</p>
                     </div>

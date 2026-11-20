@@ -5,6 +5,7 @@ import { validate, createInvoiceSchema, updateInvoiceSchema, emailSchema } from 
 import {
     createInvoice, getInvoices, getInvoiceById, updateInvoice, deleteInvoice,
     downloadInvoicePDF, sendInvoiceEmail, getNextNumber,
+    createInvoiceShare, revokeInvoiceShares, logInvoiceShare, getInvoiceCommunications,
 } from '../controllers/invoiceController';
 
 const router = express.Router();
@@ -19,5 +20,9 @@ router.put('/:id', validate(updateInvoiceSchema), requireResource('invoices', 'a
 router.delete('/:id', requireResource('invoices', 'accountant'), deleteInvoice);
 router.get('/:id/pdf', requireResource('invoices', 'viewer'), downloadInvoicePDF);
 router.post('/:id/email', validate(emailSchema), requireResource('invoices', 'viewer'), sendInvoiceEmail);
+router.post('/:id/share', requireResource('invoices', 'viewer'), createInvoiceShare);
+router.delete('/:id/share', requireResource('invoices', 'accountant'), revokeInvoiceShares);
+router.post('/:id/share-log', requireResource('invoices', 'viewer'), logInvoiceShare);
+router.get('/:id/communications', requireResource('invoices', 'viewer'), getInvoiceCommunications);
 
 export default router;

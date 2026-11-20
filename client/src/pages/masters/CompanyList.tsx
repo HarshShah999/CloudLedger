@@ -126,7 +126,7 @@ export const CompanyList: React.FC = () => {
                                 value={formData.gstin}
                                 onChange={(e) => setFormData({ ...formData, gstin: e.target.value })}
                             />
-                            <div className="grid grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <Input
                                     label="Email"
                                     type="email"

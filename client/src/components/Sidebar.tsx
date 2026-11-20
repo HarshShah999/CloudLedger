@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import logo from '../assets/logo.png';
 import { Link, useLocation } from 'react-router-dom';
 import clsx from 'clsx';
@@ -43,12 +43,25 @@ const bottomNavItems = [
     { label: 'Settings', icon: Settings, path: '/settings' },
 ];
 
-export const Sidebar: React.FC = () => {
+export const Sidebar: React.FC<{ open?: boolean; onClose?: () => void }> = ({ open = false, onClose }) => {
     const location = useLocation();
     const [reportsOpen, setReportsOpen] = useState(true);
 
+    // Close the drawer after navigating on phones
+    useEffect(() => {
+        onClose?.();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [location.pathname]);
+
     return (
-        <aside className="w-64 bg-slate-900 text-white h-screen fixed left-0 top-0 flex flex-col">
+        <>
+        {open && <div className="fixed inset-0 z-30 bg-black/40 lg:hidden" onClick={onClose} aria-hidden="true" />}
+        <aside
+            className={clsx(
+                'w-64 bg-slate-900 text-white h-screen fixed left-0 top-0 z-40 flex flex-col transition-transform duration-200 lg:translate-x-0',
+                open ? 'translate-x-0' : '-translate-x-full'
+            )}
+        >
             <div className="p-6 shrink-0">
                 <h1 className="text-2xl font-bold text-white flex items-center">
                     {/* <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
@@ -217,5 +230,6 @@ export const Sidebar: React.FC = () => {
                 </div>
             </div>
         </aside>
+        </>
     );
 };
