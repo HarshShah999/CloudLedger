@@ -86,6 +86,13 @@ const invoiceBase = {
     shippingBillNumber: Joi.string().trim().max(20).allow('', null),
     shippingBillDate: isoDate().allow('', null),
     portCode: Joi.string().trim().max(10).allow('', null),
+    transportMode: Joi.string().valid('ROAD', 'RAIL', 'AIR', 'SHIP').allow('', null),
+    transportDistanceKm: Joi.number().integer().min(0).max(4000).allow(null),
+    vehicleNumber: Joi.string().trim().max(15).allow('', null),
+    transporterId: Joi.string().trim().uppercase().max(15).allow('', null),
+    transporterName: Joi.string().trim().max(100).allow('', null),
+    transportDocNumber: Joi.string().trim().max(15).allow('', null),
+    transportDocDate: isoDate().allow('', null),
 };
 
 export const createInvoiceSchema = Joi.object({ companyId: uuid().required(), ...invoiceBase });

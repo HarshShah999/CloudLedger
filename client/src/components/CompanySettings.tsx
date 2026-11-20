@@ -13,6 +13,7 @@ const empty = {
     name: '', address: '', phone: '', email: '', gstin: '', pan: '', state: '', website: '',
     upiId: '', bankName: '', bankAccountName: '', bankAccountNumber: '', bankIfsc: '', bankBranch: '',
     invoiceTerms: '', shareMessageTemplate: '', shareLinkDays: 30, roundOffInvoices: true,
+    city: '', pincode: '', einvoiceEnabled: false,
 };
 
 /** Company profile printed on invoices, plus payment details and sharing preferences. */
@@ -32,6 +33,7 @@ export const CompanySettings: React.FC = () => {
                 bankAccountNumber: c.bank_account_number || '', bankIfsc: c.bank_ifsc || '', bankBranch: c.bank_branch || '',
                 invoiceTerms: c.invoice_terms || '', shareMessageTemplate: c.share_message_template || '',
                 shareLinkDays: c.share_link_days || 30, roundOffInvoices: c.round_off_invoices ?? true,
+                city: c.city || '', pincode: c.pincode || '', einvoiceEnabled: !!c.einvoice_enabled,
             });
         });
     }, [selectedCompany?.id]);
@@ -77,6 +79,8 @@ export const CompanySettings: React.FC = () => {
                     <div className="md:col-span-2">
                         <Input label="Address" value={form.address} onChange={set('address')} />
                     </div>
+                    <Input label="City" value={form.city} onChange={set('city')} />
+                    <Input label="PIN code" inputMode="numeric" maxLength={6} value={form.pincode} onChange={set('pincode')} />
                     <Input label="GSTIN" value={form.gstin} maxLength={15} onChange={(e) => setForm({ ...form, gstin: e.target.value.toUpperCase() })} />
                     <Input label="PAN" value={form.pan} maxLength={10} onChange={(e) => setForm({ ...form, pan: e.target.value.toUpperCase() })} />
                     <Input label="Phone" value={form.phone} onChange={set('phone')} />
@@ -110,6 +114,10 @@ export const CompanySettings: React.FC = () => {
                             onChange={(e) => setForm({ ...form, roundOffInvoices: e.target.checked })}
                         />
                         Round invoice totals to the nearest rupee
+                    </label>
+                    <label className="flex items-center gap-2 text-sm text-slate-700">
+                        <input type="checkbox" checked={form.einvoiceEnabled} onChange={(e) => setForm({ ...form, einvoiceEnabled: e.target.checked })} />
+                        E-invoicing applies to us (aggregate turnover above the notified limit, currently ₹5 crore)
                     </label>
                     <label className="block text-sm font-medium text-slate-700">
                         Terms & conditions (one per line)

@@ -4,6 +4,7 @@ import pool from './config/db';
 import { runMigrations } from './db/migrate';
 import { startRecurringInvoiceJob } from './jobs/recurringInvoiceJob';
 import { startBackupScheduler } from './jobs/backupScheduler';
+import { startReminderJob } from './jobs/reminderJob';
 import { initializeBackupDirectories } from './services/backupService';
 
 const startServer = async () => {
@@ -18,6 +19,7 @@ const startServer = async () => {
             console.log(`🚀 Server running on port ${env.port}`);
             startRecurringInvoiceJob();
             startBackupScheduler();
+            startReminderJob();
         });
     } catch (error) {
         console.error('❌ Server failed to start:', (error as Error).message);

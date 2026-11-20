@@ -3,6 +3,8 @@ import { query, withTransaction } from '../config/db';
 import { AppError } from '../middleware/errorHandler';
 import { renderInvoicePdf, INVOICE_COPIES, InvoiceCopy } from '../services/pdf/invoicePdf';
 import { renderThermalPdf } from '../services/pdf/thermalPdf';
+import { buildEinvoice, buildEinvoiceBulk, recordIrn, cancelIrn } from '../services/einvoiceService';
+import { buildEwayBill, buildEwayBillBulk, recordEwayBill } from '../services/ewaybillService';
 import { loadInvoiceDocument } from '../services/documentService';
 import { shareInvoice, revokeShares, logCommunication, listCommunications, Channel } from '../services/shareService';
 import * as invoiceService from '../services/invoiceService';
@@ -233,4 +235,68 @@ export const convertInvoice = async (req: Request, res: Response) => {
 export const updateDocumentStatus = async (req: Request, res: Response) => {
     const invoice = await withTransaction((db) => invoiceService.setDocumentStatus(db, req.company!.id, req.params.id, String(req.body.status || '')));
     res.json({ status: 'success', data: { invoice } });
+};
+
+/* ---------- E-invoice (IRN) and e-way bill ---------- */
+
+const jsonDownload = (res: Response, name: string, body: unknown) => {
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Content-Disposition', `attachment; filename="${name}"`);
+    res.send(JSON.stringify(body, null, 2));
+};
+
+const readPeriodQuery = (req: Request) => {
+    const from = String(req.query.fromDate || '').slice(0, 10);
+    const to = String(req.query.toDate || '').slice(0, 10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(from) || !/^\d{4}-\d{2}-\d{2}$/.test(to)) throw new AppError('fromDate and toDate are required', 400);
+    return { from, to };
+};
+
+/** GET /invoices/:id/einvoice — payload + problems; ?download=1 returns the JSON file. */
+export const getEinvoice = async (req: Request, res: Response) => {
+    const e = await buildEinvoice(req.params.id);
+    if (req.query.download) {
+        if (e.problems.length) throw new AppError(`Fix before uploading: ${e.problems.join('; ')}`, 400);
+        return jsonDownload(res, `einvoice-${safeFilename(e.invoice.number)}.json`, [e.json]);
+    }
+    res.json({ status: 'success', data: e });
+};
+
+/** GET /invoices/einvoice/bulk?companyId&fromDate&toDate — all pending IRNs as one upload file. */
+export const getEinvoiceBulk = async (req: Request, res: Response) => {
+    const { from, to } = readPeriodQuery(req);
+    const r = await buildEinvoiceBulk(req.company!.id, from, to);
+    if (req.query.download) return jsonDownload(res, `einvoices-${from}-to-${to}.json`, r.docs);
+    res.json({ status: 'success', data: { count: r.docs.length, problems: r.problems } });
+};
+
+export const postIrn = async (req: Request, res: Response) => {
+    await recordIrn(req.company!.id, req.params.id, req.body);
+    res.json({ status: 'success' });
+};
+
+export const postCancelIrn = async (req: Request, res: Response) => {
+    await cancelIrn(req.company!.id, req.params.id);
+    res.json({ status: 'success' });
+};
+
+export const getEwayBill = async (req: Request, res: Response) => {
+    const e = await buildEwayBill(req.params.id);
+    if (req.query.download) {
+        if (e.problems.length) throw new AppError(`Fix before uploading: ${e.problems.join('; ')}`, 400);
+        return jsonDownload(res, `ewaybill-${safeFilename(e.invoice.number)}.json`, { version: '1.0.0621', billLists: [e.bill] });
+    }
+    res.json({ status: 'success', data: e });
+};
+
+/** POST /invoices/ewaybill/bulk { companyId, invoiceIds } — one bulk-upload file. */
+export const postEwayBillBulk = async (req: Request, res: Response) => {
+    const ids: string[] = Array.isArray(req.body.invoiceIds) ? req.body.invoiceIds : [];
+    const r = await buildEwayBillBulk(req.company!.id, ids);
+    res.json({ status: 'success', data: r });
+};
+
+export const postEwayBillNumber = async (req: Request, res: Response) => {
+    await recordEwayBill(req.company!.id, req.params.id, req.body);
+    res.json({ status: 'success' });
 };

@@ -17,6 +17,8 @@ export default defineConfig({
             DB_USER: process.env.TEST_DB_USER || 'postgres',
             DB_PASSWORD: process.env.TEST_DB_PASSWORD || 'postgres',
             DB_NAME: process.env.TEST_DB_NAME || 'cloudledger_test',
+            // Emails are captured in memory instead of going to an SMTP server
+            MAIL_TRANSPORT: 'json',
         },
     },
 });

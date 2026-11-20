@@ -60,7 +60,36 @@ export interface InvoiceInput {
     shippingBillNumber?: string | null;
     shippingBillDate?: string | Date | null;
     portCode?: string | null;
+    /** Transport details for the e-way bill */
+    transportMode?: string | null;
+    transportDistanceKm?: number | null;
+    vehicleNumber?: string | null;
+    transporterId?: string | null;
+    transporterName?: string | null;
+    transportDocNumber?: string | null;
+    transportDocDate?: string | Date | null;
 }
+
+/** Stores transport details (kept out of the main insert/update for readability). */
+const saveTransport = async (db: Queryable, id: string, input: InvoiceInput) => {
+    await db.query(
+        `UPDATE invoices SET transport_mode = $1, transport_distance_km = $2, vehicle_number = $3, transporter_id = $4,
+                transporter_name = $5, transport_doc_number = $6, transport_doc_date = $7 WHERE id = $8`,
+        [
+            input.transportMode || null, input.transportDistanceKm ?? null,
+            input.vehicleNumber ? input.vehicleNumber.replace(/[\s-]/g, '').toUpperCase() : null,
+            input.transporterId || null, input.transporterName || null, input.transportDocNumber || null,
+            input.transportDocDate ? toDateString(input.transportDocDate) : null, id,
+        ]
+    );
+};
+
+/** An invoice with an active IRN is final: it can only be cancelled on the IRP or adjusted by a credit note. */
+const assertNoActiveIrn = (inv: { irn: string | null; irn_status: string | null }) => {
+    if (inv.irn && inv.irn_status === 'ACTIVE') {
+        throw new AppError('This invoice has an e-invoice IRN. Cancel the IRN on the IRP first (within 24 hours) or issue a credit note.', 400);
+    }
+};
 
 /** Values for supply_type .. port_code, in column order. */
 const gstColumns = (input: InvoiceInput, doc: { supply: string; rcm: boolean; tdsRate: number; tdsAmount: number }) => [
@@ -333,6 +362,7 @@ export const createInvoice = async (db: Queryable, companyId: string, input: Inv
 
     await insertLines(db, inv.id, input, calc);
     await adjustStock(db, type, input.items, 1);
+    await saveTransport(db, inv.id, input);
     return inv;
 };
 
@@ -352,6 +382,7 @@ export const updateInvoice = async (db: Queryable, companyId: string, id: string
     if (paid.rows[0].n > 0) throw new AppError('Cannot edit an invoice that has payments. Delete the payments first.', 400);
     await assertPeriodOpen(db, companyId, existing.date);
     if (existing.status === 'CONVERTED') throw new AppError('This document has already been converted and cannot be edited', 400);
+    assertNoActiveIrn(existing);
 
     const ctx = await loadContext(db, companyId, input);
     const date = toDateString(input.date);
@@ -412,6 +443,7 @@ export const updateInvoice = async (db: Queryable, companyId: string, id: string
 
     await insertLines(db, id, input, calc);
     await adjustStock(db, type, input.items, 1);
+    await saveTransport(db, id, input);
     return inv;
 };
 
@@ -421,6 +453,7 @@ export const deleteInvoice = async (db: Queryable, companyId: string, id: string
     const paid = await db.query('SELECT COUNT(*)::int AS n FROM payments WHERE invoice_id = $1', [id]);
     if (paid.rows[0].n > 0) throw new AppError('Cannot delete an invoice that has payments. Delete the payments first.', 400);
     await assertPeriodOpen(db, companyId, existing.date);
+    assertNoActiveIrn(existing);
 
     const lines = await db.query('SELECT item_id, quantity FROM invoice_items WHERE invoice_id = $1', [id]);
     await adjustStock(db, existing.type, lines.rows, -1);

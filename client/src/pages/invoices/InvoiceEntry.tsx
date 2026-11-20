@@ -76,7 +76,12 @@ export const InvoiceEntry: React.FC<{ type?: DocType }> = ({ type: initialType }
         tdsRate: 0,
         shippingBillNumber: '',
         shippingBillDate: '',
-        portCode: ''
+        portCode: '',
+        transportMode: '',
+        transportDistanceKm: '',
+        vehicleNumber: '',
+        transporterId: '',
+        transporterName: ''
     });
 
     const [invoiceItems, setInvoiceItems] = useState<InvoiceItem[]>([
@@ -151,6 +156,11 @@ export const InvoiceEntry: React.FC<{ type?: DocType }> = ({ type: initialType }
                     shippingBillNumber: invoice.shipping_bill_number || '',
                     shippingBillDate: invoice.shipping_bill_date ? String(invoice.shipping_bill_date).slice(0, 10) : '',
                     portCode: invoice.port_code || '',
+                    transportMode: invoice.transport_mode || '',
+                    transportDistanceKm: invoice.transport_distance_km ?? '',
+                    vehicleNumber: invoice.vehicle_number || '',
+                    transporterId: invoice.transporter_id || '',
+                    transporterName: invoice.transporter_name || '',
                     validUntil: invoice.valid_until ? String(invoice.valid_until).slice(0, 10) : ''
                 });
 
@@ -255,6 +265,8 @@ export const InvoiceEntry: React.FC<{ type?: DocType }> = ({ type: initialType }
             ...formData,
             supplyType: formData.supplyType || null,
             tdsRate: Number(formData.tdsRate || 0),
+            transportMode: formData.transportMode || null,
+            transportDistanceKm: formData.transportDistanceKm === '' ? null : Number(formData.transportDistanceKm),
             items: invoiceItems.map(item => ({
                 itemId: item.itemId || null,
                 description: item.description,
@@ -433,6 +445,29 @@ export const InvoiceEntry: React.FC<{ type?: DocType }> = ({ type: initialType }
                         </>
                     )}
                 </div>
+
+                {/* Transport (for the e-way bill) */}
+                {(type === 'SALES' || type === 'SALES_ORDER') && (
+                    <details className="card" open={!!formData.transportMode}>
+                        <summary className="cursor-pointer text-sm font-medium text-slate-700">Transport details (needed for an e-way bill when goods are worth more than ₹50,000)</summary>
+                        <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
+                            <div>
+                                <label className="mb-1 block text-sm font-medium text-slate-700">Mode</label>
+                                <select className="input-field" value={formData.transportMode} onChange={(e) => setFormData({ ...formData, transportMode: e.target.value })}>
+                                    <option value="">Not specified</option>
+                                    <option value="ROAD">Road</option>
+                                    <option value="RAIL">Rail</option>
+                                    <option value="AIR">Air</option>
+                                    <option value="SHIP">Ship</option>
+                                </select>
+                            </div>
+                            <Input label="Vehicle number" placeholder="MH12AB1234" value={formData.vehicleNumber} onChange={(e) => setFormData({ ...formData, vehicleNumber: e.target.value.toUpperCase() })} />
+                            <Input label="Distance (km, 0 = auto)" type="number" min="0" value={formData.transportDistanceKm} onChange={(e) => setFormData({ ...formData, transportDistanceKm: e.target.value })} />
+                            <Input label="Transporter ID" value={formData.transporterId} onChange={(e) => setFormData({ ...formData, transporterId: e.target.value.toUpperCase() })} />
+                            <Input label="Transporter name" value={formData.transporterName} onChange={(e) => setFormData({ ...formData, transporterName: e.target.value })} />
+                        </div>
+                    </details>
+                )}
 
                 {/* Items Table */}
                 <div className="card overflow-x-auto">

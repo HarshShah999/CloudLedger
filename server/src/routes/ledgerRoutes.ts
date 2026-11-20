@@ -24,6 +24,8 @@ const ledgerFields = {
     email: Joi.string().trim().email().allow('', null),
     phone: Joi.string().trim().max(30).allow('', null),
     address: Joi.string().max(1000).allow('', null),
+    city: Joi.string().trim().max(100).allow('', null),
+    pincode: Joi.string().trim().pattern(/^[1-9]\d{5}$/).allow('', null).messages({ 'string.pattern.base': 'PIN code must be 6 digits' }),
     gstRegistrationType: Joi.string().valid('REGULAR', 'COMPOSITION', 'UNREGISTERED', 'CONSUMER', 'SEZ', 'OVERSEAS').allow('', null),
     pan: Joi.string().trim().uppercase().pattern(/^[A-Z]{5}[0-9]{4}[A-Z]$/).allow('', null).messages({ 'string.pattern.base': 'Invalid PAN' }),
 };

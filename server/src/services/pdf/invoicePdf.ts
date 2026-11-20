@@ -76,6 +76,12 @@ const drawInvoice = async (doc: PDFKit.PDFDocument, d: InvoiceDocument, copyLabe
     if (inv.type === 'SALES' || inv.type === 'PURCHASE') meta.push(['Reverse Charge', inv.reverse_charge ? 'Yes' : 'No']);
     if (inv.shipping_bill_number) meta.push(['Shipping Bill', `${inv.shipping_bill_number}${inv.shipping_bill_date ? ` dt. ${dmy(inv.shipping_bill_date)}` : ''}`]);
     if (inv.port_code) meta.push(['Port Code', inv.port_code]);
+    if (inv.irn && inv.irn_status === 'ACTIVE') {
+        meta.push(['Ack No.', inv.irn_ack_no || '']);
+        if (inv.irn_ack_date) meta.push(['Ack Date', dmy(String(inv.irn_ack_date).slice(0, 10))]);
+    }
+    if (inv.ewb_number) meta.push(['E-way Bill', inv.ewb_number]);
+    if (inv.vehicle_number) meta.push(['Vehicle', inv.vehicle_number]);
     if (inv.original_invoice_number) {
         meta.push(['Against Invoice', `${inv.original_invoice_number}${inv.original_invoice_date ? ` dt. ${dmy(inv.original_invoice_date)}` : ''}`]);
     }
@@ -86,6 +92,17 @@ const drawInvoice = async (doc: PDFKit.PDFDocument, d: InvoiceDocument, copyLabe
         my = doc.y + 2;
     }
     y = Math.max(leftBottom, my) + 8;
+    if (inv.irn && inv.irn_status === 'ACTIVE') {
+        // E-invoice: IRN and the IRP's signed QR code must appear on the invoice
+        const qrSize = 70;
+        if (inv.irn_signed_qr) {
+            const png = await QRCode.toBuffer(inv.irn_signed_qr, { margin: 0, width: 300, errorCorrectionLevel: 'L' });
+            doc.image(png, PAGE.width - PAGE.margin - qrSize, y, { width: qrSize });
+        }
+        doc.font('B').fontSize(7.5).fillColor(COLORS.text).text('IRN', x, y + 2);
+        doc.font('R').fontSize(7.5).text(inv.irn, x + 24, y + 2, { width: CONTENT_W - qrSize - 34 });
+        y = Math.max(doc.y, inv.irn_signed_qr ? y + qrSize : doc.y) + 6;
+    }
     hline(doc, y);
     y += 6;
 

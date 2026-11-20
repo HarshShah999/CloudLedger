@@ -46,6 +46,16 @@ const updateCompanySchema = Joi.object({
     shareLinkDays: Joi.number().integer().min(1).max(365),
     brandColor: Joi.string().pattern(/^#[0-9A-Fa-f]{6}$/).messages({ 'string.pattern.base': 'Colour must look like #4338CA' }),
     printCopyLabels: Joi.boolean(),
+    city: Joi.string().trim().max(100).allow('', null),
+    pincode: Joi.string().trim().pattern(/^[1-9]\d{5}$/).allow('', null).messages({ 'string.pattern.base': 'PIN code must be 6 digits' }),
+    einvoiceEnabled: Joi.boolean(),
+    remindersEnabled: Joi.boolean(),
+    reminderDays: Joi.string().trim().pattern(/^-?\d{1,3}(,-?\d{1,3})*$/).messages({ 'string.pattern.base': 'Reminder days look like -3,0,7,15' }),
+    reminderChannels: Joi.string().valid('EMAIL', 'WHATSAPP', 'EMAIL,WHATSAPP'),
+    whatsappPhoneNumberId: Joi.string().trim().pattern(/^\d{6,30}$/).allow('', null),
+    whatsappToken: Joi.string().trim().max(1000).allow('', null),
+    whatsappTemplate: Joi.string().trim().max(100).allow('', null),
+    whatsappTemplateLang: Joi.string().trim().max(10),
 });
 
 router.use(protect);

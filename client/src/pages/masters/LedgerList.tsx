@@ -22,6 +22,8 @@ interface Ledger {
     address?: string;
     gst_registration_type?: string;
     pan?: string;
+    city?: string;
+    pincode?: string;
 }
 
 interface Group {
@@ -50,7 +52,9 @@ export const LedgerList: React.FC = () => {
         email: '',
         address: '',
         gstRegistrationType: '',
-        pan: ''
+        pan: '',
+        city: '',
+        pincode: ''
     });
 
     const fetchLedgers = async () => {
@@ -118,7 +122,9 @@ export const LedgerList: React.FC = () => {
             email: ledger.email || '',
             address: ledger.address || '',
             gstRegistrationType: ledger.gst_registration_type || '',
-            pan: ledger.pan || ''
+            pan: ledger.pan || '',
+            city: ledger.city || '',
+            pincode: ledger.pincode || ''
         });
         setShowModal(true);
     };
@@ -151,7 +157,9 @@ export const LedgerList: React.FC = () => {
             email: '',
             address: '',
             gstRegistrationType: '',
-            pan: ''
+            pan: '',
+            city: '',
+            pincode: ''
         });
     };
 
@@ -356,6 +364,10 @@ export const LedgerList: React.FC = () => {
                                 value={formData.address}
                                 onChange={(e) => setFormData({ ...formData, address: e.target.value })}
                             />
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <Input label="City" value={formData.city} onChange={(e) => setFormData({ ...formData, city: e.target.value })} />
+                                <Input label="PIN code" inputMode="numeric" maxLength={6} value={formData.pincode} onChange={(e) => setFormData({ ...formData, pincode: e.target.value.replace(/\D/g, '') })} />
+                            </div>
 
                             <div className="flex justify-end gap-3 mt-6">
                                 <Button type="button" variant="secondary" onClick={handleCloseModal}>

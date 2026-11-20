@@ -7,6 +7,7 @@ import api from '../api/axios';
 import { notify } from '../utils/notification';
 import { CompanySettings } from '../components/CompanySettings';
 import { BrandingSettings } from '../components/BrandingSettings';
+import { ReminderSettings } from '../components/ReminderSettings';
 import { useCompany } from '../context/CompanyContext';
 
 export const Settings: React.FC = () => {
@@ -155,6 +156,7 @@ export const Settings: React.FC = () => {
 
             <CompanySettings />
             <BrandingSettings />
+            <ReminderSettings />
 
             {/* Change Password */}
             <div className="card lg:max-w-2xl">

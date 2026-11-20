@@ -88,11 +88,12 @@ export const createLedger = async (req: Request, res: Response) => {
     const g = gstProfile(req.body);
     const result = await query(
         `INSERT INTO ledgers (company_id, group_id, name, opening_balance, opening_balance_type, current_balance,
-                              state, gstin, email, phone, address, gst_registration_type, pan)
-         VALUES ($1, $2, $3, $4, $5, $4, $6, $7, $8, $9, $10, $11, $12) RETURNING *`,
+                              state, gstin, email, phone, address, gst_registration_type, pan, city, pincode)
+         VALUES ($1, $2, $3, $4, $5, $4, $6, $7, $8, $9, $10, $11, $12, $13, $14) RETURNING *`,
         [
             companyId, groupId, name.trim(), openingBalance || 0, openingBalanceType || 'Dr',
             g.state, g.gstin, email || null, phone || null, address || null, g.type, g.pan,
+            req.body.city || null, req.body.pincode || null,
         ]
     );
     res.status(201).json({ status: 'success', data: { ledger: result.rows[0] } });
@@ -117,12 +118,13 @@ export const updateLedger = async (req: Request, res: Response) => {
         `UPDATE ledgers SET
             name = COALESCE($1, name), group_id = COALESCE($2, group_id),
             opening_balance = COALESCE($3, opening_balance), opening_balance_type = COALESCE($4, opening_balance_type),
-            state = $5, gstin = $6, email = $7, phone = $8, address = $9, gst_registration_type = $12, pan = $13
+            state = $5, gstin = $6, email = $7, phone = $8, address = $9, gst_registration_type = $12, pan = $13,
+            city = $14, pincode = $15
          WHERE id = $10 AND company_id = $11 RETURNING *`,
         [
             name?.trim() || null, groupId || null, openingBalance ?? null, openingBalanceType || null,
             g.state, g.gstin, pick('email', 'email') || null, pick('phone', 'phone') || null, pick('address', 'address') || null,
-            id, companyId, g.type, g.pan,
+            id, companyId, g.type, g.pan, pick('city', 'city') || null, pick('pincode', 'pincode') || null,
         ]
     );
     if (!result.rows.length) throw new AppError('Ledger not found', 404);

@@ -33,6 +33,13 @@ Cloud accounting for Indian businesses: double-entry books, GST invoicing, payme
   - **GSTR-3B** tables 3.1 and 4 from your books.
   - **GSTR-2B upload and matching** against purchase bills, showing ITC at risk.
   - **TDS register** by section.
+- **E-invoice and e-way bill**:
+  - E-invoice JSON in the NIC INV-01 v1.1 schema, single or bulk, with a checklist of anything the IRP would reject.
+  - Save the IRN, acknowledgement and signed QR; they print on the invoice, and the invoice is then locked.
+  - E-way bill bulk-upload JSON built from transport details; flags goods over ₹50,000; records the EWB number.
+- **Automatic payment reminders**:
+  - Sent by email (PDF attached) and/or WhatsApp (Business Cloud API, approved template) on the days you choose around the due date.
+  - Each reminder is sent once, every send is logged, and the WhatsApp token is stored encrypted.
 - **Payments** against invoices into a chosen cash or bank account, with paid/partial/outstanding tracking.
 - **Financial years**: the Indian April–March year is created automatically. A closed year is locked: nothing can be posted, edited or deleted in it.
 - **Reports**: Trial Balance, Profit & Loss (with gross profit), Balance Sheet (always balances: includes current profit and any opening-balance difference), Ledger Statement with running balance, GSTR-1, GSTR-3B and Excel export.
@@ -73,6 +80,8 @@ npm run dev
 ```
 
 Generate a JWT secret with `openssl rand -hex 48`. The server refuses to start without one.
+
+Optional: `SECRETS_KEY` encrypts stored API tokens (defaults to the JWT secret; set it before saving a WhatsApp token if you plan to rotate the JWT secret).
 
 Shared links point to `CLIENT_URL`. Set `PUBLIC_APP_URL` if the public address of the web app is different, for example `https://books.yourfirm.in`. Email sending needs the `SMTP_*` settings. Add your UPI ID and bank details under **Settings → Company & Invoice Settings**.
 

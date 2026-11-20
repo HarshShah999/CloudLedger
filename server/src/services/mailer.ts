@@ -6,7 +6,14 @@ export const escapeHtml = (s: unknown) =>
 
 let transporter: nodemailer.Transporter | null = null;
 
+/** Messages captured when MAIL_TRANSPORT=json (tests / local development without SMTP). */
+export const capturedMail: any[] = [];
+
 const getTransporter = () => {
+    if (process.env.MAIL_TRANSPORT === 'json') {
+        if (!transporter) transporter = nodemailer.createTransport({ jsonTransport: true });
+        return transporter;
+    }
     if (!process.env.SMTP_USER || !process.env.SMTP_PASSWORD) {
         throw new AppError('Email is not configured on the server (SMTP_USER / SMTP_PASSWORD)', 503);
     }
@@ -33,7 +40,8 @@ export interface MailInput {
 }
 
 export const sendMail = async (m: MailInput) => {
-    const from = process.env.SMTP_FROM || process.env.SMTP_USER!;
+    const from = process.env.SMTP_FROM || process.env.SMTP_USER || 'noreply@cloudledger.local';
+    if (process.env.MAIL_TRANSPORT === 'json') capturedMail.push(m);
     await getTransporter().sendMail({
         from: m.fromName ? `"${m.fromName.replace(/"/g, '')}" <${from}>` : from,
         to: m.to,

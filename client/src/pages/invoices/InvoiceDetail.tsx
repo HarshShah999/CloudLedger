@@ -6,6 +6,7 @@ import { ArrowLeft, ArrowRightCircle, DollarSign, Trash2, Edit } from 'lucide-re
 import { CONVERSIONS, DocType, STATUS_OPTIONS, STATUS_STYLE, docInfo, isPostingType } from '../../lib/docTypes';
 import { ShareMenu } from '../../components/ShareMenu';
 import { DocumentHistory } from '../../components/DocumentHistory';
+import { EDocsPanel } from '../../components/EDocsPanel';
 import api, { apiError } from '../../api/axios';
 import { useCompany } from '../../context/CompanyContext';
 import { notify } from '../../utils/notification';
@@ -22,7 +23,7 @@ interface Payment {
 export const InvoiceDetail: React.FC = () => {
     const { id } = useParams();
     const navigate = useNavigate();
-    const { selectedCompany } = useCompany();
+    const { selectedCompany, canWrite } = useCompany();
     const [invoice, setInvoice] = useState<any>(null);
     const [items, setItems] = useState<any[]>([]);
     const [payments, setPayments] = useState<Payment[]>([]);
@@ -445,6 +446,7 @@ export const InvoiceDetail: React.FC = () => {
                 </div>
             )}
 
+            <EDocsPanel invoice={invoice} canWrite={canWrite} onChange={fetchInvoiceDetails} />
             <DocumentHistory recordId={invoice.id} />
         </div>
     );

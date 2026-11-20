@@ -3,6 +3,7 @@ import { query, withTransaction } from '../config/db';
 import { AppError } from '../middleware/errorHandler';
 import { seedCompany } from '../services/companySetup';
 import { indianFinancialYear, toDateString } from '../services/financialYear';
+import { encryptSecret } from '../utils/secrets';
 import { ASSET_KINDS, AssetKind, deleteAsset, getAsset, listAssetKinds, saveAsset } from '../services/assetService';
 
 export const createCompany = async (req: Request, res: Response) => {
@@ -45,6 +46,12 @@ export const createCompany = async (req: Request, res: Response) => {
     res.status(201).json({ status: 'success', data: { company: { ...company, role: 'admin' } } });
 };
 
+/** Never send stored secrets to the browser; only whether they are set. */
+const withoutSecrets = (row: any) => {
+    const { whatsapp_token_enc, ...rest } = row;
+    return { ...rest, has_whatsapp_token: !!whatsapp_token_enc };
+};
+
 export const getCompanies = async (req: Request, res: Response) => {
     const result = await query(
         `SELECT c.*, cu.role FROM companies c
@@ -52,7 +59,7 @@ export const getCompanies = async (req: Request, res: Response) => {
          WHERE cu.user_id = $1 ORDER BY c.name`,
         [req.user!.id]
     );
-    res.status(200).json({ status: 'success', results: result.rows.length, data: { companies: result.rows } });
+    res.status(200).json({ status: 'success', results: result.rows.length, data: { companies: result.rows.map(withoutSecrets) } });
 };
 
 export const getCompany = async (req: Request, res: Response) => {
@@ -61,7 +68,14 @@ export const getCompany = async (req: Request, res: Response) => {
     const assets = await listAssetKinds(req.company!.id);
     res.status(200).json({
         status: 'success',
-        data: { company: { ...result.rows[0], role: req.company!.role, has_logo: assets.includes('logo'), has_signature: assets.includes('signature') } },
+        data: {
+            company: {
+                ...withoutSecrets(result.rows[0]),
+                role: req.company!.role,
+                has_logo: assets.includes('logo'),
+                has_signature: assets.includes('signature'),
+            },
+        },
     });
 };
 
@@ -94,13 +108,18 @@ export const updateCompany = async (req: Request, res: Response) => {
     const fields = [
         'name', 'address', 'email', 'phone', 'gstin', 'state', 'round_off_invoices', 'pan', 'website', 'upi_id',
         'bank_name', 'bank_account_name', 'bank_account_number', 'bank_ifsc', 'bank_branch', 'invoice_terms',
-        'share_message_template', 'share_link_days', 'brand_color', 'print_copy_labels',
+        'share_message_template', 'share_link_days', 'brand_color', 'print_copy_labels', 'city', 'pincode',
+        'einvoice_enabled', 'reminders_enabled', 'reminder_days', 'reminder_channels', 'whatsapp_phone_number_id',
+        'whatsapp_template', 'whatsapp_template_lang',
     ] as const;
     const map: Record<string, string> = {
         roundOffInvoices: 'round_off_invoices', upiId: 'upi_id', bankName: 'bank_name', bankAccountName: 'bank_account_name',
         bankAccountNumber: 'bank_account_number', bankIfsc: 'bank_ifsc', bankBranch: 'bank_branch',
         invoiceTerms: 'invoice_terms', shareMessageTemplate: 'share_message_template', shareLinkDays: 'share_link_days',
-        brandColor: 'brand_color', printCopyLabels: 'print_copy_labels',
+        brandColor: 'brand_color', printCopyLabels: 'print_copy_labels', einvoiceEnabled: 'einvoice_enabled',
+        remindersEnabled: 'reminders_enabled', reminderDays: 'reminder_days', reminderChannels: 'reminder_channels',
+        whatsappPhoneNumberId: 'whatsapp_phone_number_id', whatsappTemplate: 'whatsapp_template',
+        whatsappTemplateLang: 'whatsapp_template_lang',
     };
     const sets: string[] = [];
     const values: any[] = [];
@@ -110,8 +129,13 @@ export const updateCompany = async (req: Request, res: Response) => {
         values.push(value === '' ? null : value);
         sets.push(`${column} = $${values.length}`);
     }
+    // The WhatsApp token is write-only and stored encrypted
+    if ('whatsappToken' in req.body) {
+        values.push(req.body.whatsappToken ? encryptSecret(req.body.whatsappToken) : null);
+        sets.push(`whatsapp_token_enc = $${values.length}`);
+    }
     if (!sets.length) throw new AppError('Nothing to update', 400);
     values.push(req.company!.id);
     const result = await query(`UPDATE companies SET ${sets.join(', ')} WHERE id = $${values.length} RETURNING *`, values);
-    res.status(200).json({ status: 'success', data: { company: result.rows[0] } });
+    res.status(200).json({ status: 'success', data: { company: withoutSecrets(result.rows[0]) } });
 };
