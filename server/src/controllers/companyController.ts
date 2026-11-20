@@ -3,6 +3,7 @@ import { query, withTransaction } from '../config/db';
 import { AppError } from '../middleware/errorHandler';
 import { seedCompany } from '../services/companySetup';
 import { indianFinancialYear, toDateString } from '../services/financialYear';
+import { ASSET_KINDS, AssetKind, deleteAsset, getAsset, listAssetKinds, saveAsset } from '../services/assetService';
 
 export const createCompany = async (req: Request, res: Response) => {
     const { name, address, email, phone, currency, financialYear, gstin, state } = req.body;
@@ -57,19 +58,49 @@ export const getCompanies = async (req: Request, res: Response) => {
 export const getCompany = async (req: Request, res: Response) => {
     const result = await query('SELECT * FROM companies WHERE id = $1', [req.company!.id]);
     if (!result.rows.length) throw new AppError('Company not found', 404);
-    res.status(200).json({ status: 'success', data: { company: { ...result.rows[0], role: req.company!.role } } });
+    const assets = await listAssetKinds(req.company!.id);
+    res.status(200).json({
+        status: 'success',
+        data: { company: { ...result.rows[0], role: req.company!.role, has_logo: assets.includes('logo'), has_signature: assets.includes('signature') } },
+    });
+};
+
+const assetKind = (req: Request): AssetKind => {
+    const k = req.params.kind as AssetKind;
+    if (!ASSET_KINDS.includes(k)) throw new AppError('Unknown image type', 404);
+    return k;
+};
+
+/** PUT /companies/:companyId/assets/:kind  { dataUrl } */
+export const uploadCompanyAsset = async (req: Request, res: Response) => {
+    await saveAsset(req.company!.id, assetKind(req), String(req.body?.dataUrl || ''), req.user!.id);
+    res.status(200).json({ status: 'success' });
+};
+
+export const removeCompanyAsset = async (req: Request, res: Response) => {
+    await deleteAsset(req.company!.id, assetKind(req));
+    res.status(204).send();
+};
+
+export const getCompanyAsset = async (req: Request, res: Response) => {
+    const a = await getAsset(req.company!.id, assetKind(req));
+    if (!a) throw new AppError('No image uploaded', 404);
+    res.setHeader('Content-Type', a.mime);
+    res.setHeader('Cache-Control', 'private, max-age=60');
+    res.send(a.data);
 };
 
 export const updateCompany = async (req: Request, res: Response) => {
     const fields = [
         'name', 'address', 'email', 'phone', 'gstin', 'state', 'round_off_invoices', 'pan', 'website', 'upi_id',
         'bank_name', 'bank_account_name', 'bank_account_number', 'bank_ifsc', 'bank_branch', 'invoice_terms',
-        'share_message_template', 'share_link_days',
+        'share_message_template', 'share_link_days', 'brand_color', 'print_copy_labels',
     ] as const;
     const map: Record<string, string> = {
         roundOffInvoices: 'round_off_invoices', upiId: 'upi_id', bankName: 'bank_name', bankAccountName: 'bank_account_name',
         bankAccountNumber: 'bank_account_number', bankIfsc: 'bank_ifsc', bankBranch: 'bank_branch',
         invoiceTerms: 'invoice_terms', shareMessageTemplate: 'share_message_template', shareLinkDays: 'share_link_days',
+        brandColor: 'brand_color', printCopyLabels: 'print_copy_labels',
     };
     const sets: string[] = [];
     const values: any[] = [];

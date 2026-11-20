@@ -67,6 +67,11 @@ export const ShareMenu: React.FC<{
     const [showEmail, setShowEmail] = useState(false);
     const [email, setEmail] = useState({ to: '', cc: '', subject: '' });
     const ep = useMemo(() => endpoints(target), [target]);
+    // Invoice print/download layout: A4, A4 with original/duplicate/triplicate, or 80 mm thermal
+    const [layout, setLayout] = useState<'a4' | 'copies' | 'thermal'>('a4');
+    const pdfParams = target.kind === 'invoice'
+        ? { ...ep.params, ...(layout === 'thermal' ? { format: 'thermal' } : layout === 'copies' ? { copies: 'all' } : {}) }
+        : ep.params;
     const nativeFiles = useMemo(() => canShareFiles(), []);
 
     const log = (channel: string, recipient?: string | null) =>
@@ -91,7 +96,7 @@ export const ShareMenu: React.FC<{
         }
     };
 
-    const getPdf = () => fetchBlob(ep.pdf, ep.params);
+    const getPdf = () => fetchBlob(ep.pdf, pdfParams);
 
     const whatsapp = () => {
         if (!data) return;
@@ -257,6 +262,26 @@ export const ShareMenu: React.FC<{
                                     {hasNativeShare &&
                                         action('native', <Smartphone className="h-6 w-6" />, 'More apps', nativeShare, 'border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100', nativeFiles ? 'sends the PDF' : undefined)}
                                 </div>
+
+                                {target.kind === 'invoice' && (
+                                    <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-slate-600">
+                                        <span>Download / print as:</span>
+                                        {([
+                                            ['a4', 'A4'],
+                                            ['copies', 'A4 × 3 copies'],
+                                            ['thermal', 'Thermal 80 mm'],
+                                        ] as const).map(([v, l]) => (
+                                            <button
+                                                key={v}
+                                                type="button"
+                                                onClick={() => setLayout(v)}
+                                                className={`rounded-full border px-3 py-1 ${layout === v ? 'border-primary bg-indigo-50 text-primary' : 'border-slate-200'}`}
+                                            >
+                                                {l}
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
 
                                 <div className="mt-5 space-y-3">
                                     <label className="block text-sm font-medium text-slate-700">

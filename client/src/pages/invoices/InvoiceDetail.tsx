@@ -4,6 +4,7 @@ import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { ArrowLeft, DollarSign, Trash2, Edit } from 'lucide-react';
 import { ShareMenu } from '../../components/ShareMenu';
+import { DocumentHistory } from '../../components/DocumentHistory';
 import api, { apiError } from '../../api/axios';
 import { useCompany } from '../../context/CompanyContext';
 import { notify } from '../../utils/notification';
@@ -379,6 +380,7 @@ export const InvoiceDetail: React.FC = () => {
                 </div>
             )}
 
+            <DocumentHistory recordId={invoice.id} />
         </div>
     );
 };

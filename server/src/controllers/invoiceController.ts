@@ -1,7 +1,8 @@
 import { Request, Response } from 'express';
 import { query, withTransaction } from '../config/db';
 import { AppError } from '../middleware/errorHandler';
-import { renderInvoicePdf } from '../services/pdf/invoicePdf';
+import { renderInvoicePdf, INVOICE_COPIES, InvoiceCopy } from '../services/pdf/invoicePdf';
+import { renderThermalPdf } from '../services/pdf/thermalPdf';
 import { loadInvoiceDocument } from '../services/documentService';
 import { shareInvoice, revokeShares, logCommunication, listCommunications, Channel } from '../services/shareService';
 import * as invoiceService from '../services/invoiceService';
@@ -114,9 +115,17 @@ export const getInvoiceById = async (req: Request, res: Response) => {
     });
 };
 
+/** ?format=thermal for 80 mm receipts; ?copies=original,duplicate,triplicate (or "all") for marked copies. */
+export const parsePdfOptions = (q: Request['query']) => {
+    const raw = String(q.copies || '').toLowerCase();
+    const copies = (raw === 'all' ? INVOICE_COPIES : raw.split(',').filter((c) => INVOICE_COPIES.includes(c as InvoiceCopy))) as InvoiceCopy[];
+    return { thermal: q.format === 'thermal', copies };
+};
+
 export const downloadInvoicePDF = async (req: Request, res: Response) => {
     const d = await loadInvoiceDocument(req.params.id);
-    const buffer = await renderInvoicePdf(d);
+    const o = parsePdfOptions(req.query);
+    const buffer = o.thermal ? await renderThermalPdf(d) : await renderInvoicePdf(d, { copies: o.copies });
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader(
         'Content-Disposition',

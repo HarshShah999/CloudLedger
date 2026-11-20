@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { AuthLayout } from './layouts/AuthLayout';
 import { SharedDocument } from './pages/public/SharedDocument';
+import { AuditTrail } from './pages/AuditTrail';
 import { Login } from './pages/auth/Login';
 import { Register } from './pages/auth/Register';
 import { MainLayout } from './layouts/MainLayout';
@@ -78,6 +79,7 @@ function App() {
                         <Route path="/users" element={<Users />} />
                         <Route path="/banking/reconciliation" element={<BankReconciliation />} />
                         <Route path="/settings" element={<Settings />} />
+                        <Route path="/audit" element={<AuditTrail />} />
                     </Route>
 
                     <Route path="*" element={<Navigate to="/login" replace />} />

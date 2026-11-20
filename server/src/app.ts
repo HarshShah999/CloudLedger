@@ -3,6 +3,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import { env } from './config/env';
+import { requestContext } from './config/requestContext';
 import { errorHandler, AppError } from './middleware/errorHandler';
 import authRoutes from './routes/authRoutes';
 import companyRoutes from './routes/companyRoutes';
@@ -22,6 +23,7 @@ import recurringInvoiceRoutes from './routes/recurringInvoiceRoutes';
 import reconciliationRoutes from './routes/reconciliationRoutes';
 import gstRoutes from './routes/gstRoutes';
 import publicRoutes from './routes/publicRoutes';
+import auditRoutes from './routes/auditRoutes';
 
 const app = express();
 
@@ -34,6 +36,9 @@ app.use(
         exposedHeaders: ['Content-Disposition'],
     })
 );
+// Who is acting (filled in by `protect`); used by the audit trail
+app.use((req, _res, next) => requestContext.run({ ip: req.ip }, next));
+
 // Company imports can be large JSON documents
 app.use(express.json({ limit: '25mb' }));
 
@@ -77,6 +82,7 @@ app.use('/api/backup', backupRoutes);
 app.use('/api/reconciliation', reconciliationRoutes);
 app.use('/api/gst', gstRoutes);
 app.use('/api/public', publicRoutes);
+app.use('/api/audit', auditRoutes);
 
 app.get('/', (_req, res) => {
     res.send('CloudLedger API is running');

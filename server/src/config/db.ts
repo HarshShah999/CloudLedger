@@ -1,5 +1,6 @@
 import { Pool, PoolClient, QueryResult, types } from 'pg';
 import dotenv from 'dotenv';
+import { currentContext } from './requestContext';
 
 dotenv.config();
 
@@ -26,8 +27,17 @@ export interface Queryable {
     query: (text: string, params?: any[]) => Promise<QueryResult<any>>;
 }
 
-export const query = (text: string, params?: any[]) => pool.query(text, params);
-export const getClient = () => pool.connect();
+const WRITE_RE = /^\s*(insert|update|delete)\b/i;
+
+/** Tags the transaction with the acting user so audit triggers can record who changed what. */
+const setAuditContext = async (client: PoolClient) => {
+    const ctx = currentContext();
+    if (!ctx?.userId && !ctx?.ip) return;
+    await client.query("SELECT set_config('app.user_id', $1, true), set_config('app.ip', $2, true)", [
+        ctx.userId ?? '',
+        ctx.ip ?? '',
+    ]);
+};
 
 /**
  * Runs `fn` inside a single database transaction on one dedicated connection.
@@ -39,6 +49,7 @@ export const withTransaction = async <T>(fn: (client: PoolClient) => Promise<T>)
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
+        await setAuditContext(client);
         const result = await fn(client);
         await client.query('COMMIT');
         return result;
@@ -49,5 +60,17 @@ export const withTransaction = async <T>(fn: (client: PoolClient) => Promise<T>)
         client.release();
     }
 };
+
+/**
+ * Runs a single statement. Writes made during a user's request run in a short
+ * transaction carrying the user id, so the audit trail always knows who acted.
+ */
+export const query = (text: string, params?: any[]): Promise<QueryResult<any>> => {
+    if (WRITE_RE.test(text) && currentContext()?.userId) {
+        return withTransaction((client) => client.query(text, params));
+    }
+    return pool.query(text, params);
+};
+export const getClient = () => pool.connect();
 
 export default pool;

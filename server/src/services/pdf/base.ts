@@ -35,12 +35,30 @@ export const dmy = (d?: string | null) => {
 export const hline = (doc: PDFKit.PDFDocument, y: number, x1 = PAGE.margin, x2 = PAGE.width - PAGE.margin) =>
     doc.moveTo(x1, y).lineTo(x2, y).lineWidth(0.6).strokeColor(COLORS.line).stroke();
 
-/** Company letterhead on the left, document title on the right. Returns the y below it. */
-export const letterhead = (doc: PDFKit.PDFDocument, c: CompanyProfile, title: string) => {
-    const x = PAGE.margin;
-    let y = PAGE.margin;
-    doc.font('B').fontSize(16).fillColor(COLORS.text).text(c.name, x, y, { width: CONTENT_W * 0.62 });
-    y = doc.y + 2;
+/** Draws an image, ignoring corrupt files instead of failing the whole PDF. */
+export const safeImage = (doc: PDFKit.PDFDocument, img: Buffer | null | undefined, x: number, y: number, opts: PDFKit.Mixins.ImageOption) => {
+    if (!img) return false;
+    try {
+        doc.image(img, x, y, opts);
+        return true;
+    } catch {
+        return false;
+    }
+};
+
+/**
+ * Company letterhead (logo + details) on the left, document title and optional
+ * copy label ("ORIGINAL FOR RECIPIENT") on the right. Returns the y below it.
+ */
+export const letterhead = (doc: PDFKit.PDFDocument, c: CompanyProfile, title: string, copyLabel?: string) => {
+    const accent = /^#[0-9a-f]{6}$/i.test(c.brand_color || '') ? c.brand_color : COLORS.accent;
+    let x = PAGE.margin;
+    const top = PAGE.margin;
+    if (safeImage(doc, c.logo, x, top, { fit: [64, 64] })) x += 74;
+    const textW = CONTENT_W * 0.62 - (x - PAGE.margin);
+
+    doc.font('B').fontSize(16).fillColor(COLORS.text).text(c.name, x, top, { width: textW });
+    let y = doc.y + 2;
     doc.font('R').fontSize(8.5).fillColor(COLORS.muted);
     const lines = [
         c.address,
@@ -48,13 +66,16 @@ export const letterhead = (doc: PDFKit.PDFDocument, c: CompanyProfile, title: st
         [c.phone && `Ph: ${c.phone}`, c.email, c.website].filter(Boolean).join('   '),
     ].filter(Boolean) as string[];
     for (const l of lines) {
-        doc.text(l, x, y, { width: CONTENT_W * 0.62 });
+        doc.text(l, x, y, { width: textW });
         y = doc.y + 1;
     }
-    doc.font('B').fontSize(14).fillColor(COLORS.accent).text(title.toUpperCase(), x, PAGE.margin, { width: CONTENT_W, align: 'right' });
+    doc.font('B').fontSize(14).fillColor(accent).text(title.toUpperCase(), PAGE.margin, top, { width: CONTENT_W, align: 'right' });
+    if (copyLabel) {
+        doc.font('R').fontSize(7.5).fillColor(COLORS.muted).text(copyLabel.toUpperCase(), PAGE.margin, doc.y + 1, { width: CONTENT_W, align: 'right' });
+    }
     doc.fillColor(COLORS.text);
-    y = Math.max(y, PAGE.margin + 40) + 6;
-    hline(doc, y);
+    y = Math.max(y, top + (c.logo ? 66 : 40)) + 6;
+    doc.moveTo(PAGE.margin, y).lineTo(PAGE.width - PAGE.margin, y).lineWidth(1.2).strokeColor(accent).stroke();
     return y + 8;
 };
 

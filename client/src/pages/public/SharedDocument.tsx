@@ -68,15 +68,18 @@ export const SharedDocument: React.FC = () => {
                 <div className="overflow-hidden rounded-2xl bg-white shadow">
                     {/* Header */}
                     <div className="flex flex-col gap-4 border-b border-slate-200 p-5 sm:flex-row sm:justify-between">
-                        <div>
+                        <div className="flex items-start gap-3">
+                            {c.has_logo && <img src={`${API_URL}/public/d/${token}/logo`} alt="" className="h-14 w-14 object-contain" />}
+                            <div>
                             <h1 className="text-xl font-bold text-slate-900">{c.name}</h1>
                             {c.address && <p className="text-sm text-slate-500">{c.address}</p>}
                             <p className="text-xs text-slate-500">
                                 {[c.gstin && `GSTIN ${c.gstin}`, c.phone, c.email].filter(Boolean).join(' · ')}
                             </p>
+                            </div>
                         </div>
                         <div className="sm:text-right">
-                            <p className="text-sm font-bold uppercase tracking-wide text-indigo-700">{doc.title}</p>
+                            <p className="text-sm font-bold uppercase tracking-wide" style={{ color: c.brand_color || '#4338CA' }}>{doc.title}</p>
                             {doc.invoice && (
                                 <>
                                     <p className="font-mono text-sm text-slate-800">{doc.invoice.number}</p>

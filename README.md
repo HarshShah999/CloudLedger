@@ -15,6 +15,8 @@ Cloud accounting for Indian businesses: double-entry books, GST invoicing, payme
   - **More apps** on phones, which attaches the actual PDF to WhatsApp, Gmail, Telegram and so on.
 - **Secure public links**: customers open the document without logging in, see what is due, pay with a **UPI button or QR code**, or download the PDF. Links expire and can be withdrawn.
 - **GST-compliant PDFs**: HSN summary, CGST/SGST/IGST, amount in words, bank details, UPI QR and terms.
+- **Audit trail (edit log)**: every create, change and delete, with the user, time and old → new values. It is recorded by database triggers in an append-only table, so it cannot be edited, deleted or switched off, as required by the Companies (Accounts) Rules, Rule 3(1). See the Audit Trail page and each invoice's History panel.
+- **Invoice design**: your logo, signature/stamp and brand colour; Original/Duplicate/Triplicate copies; 80 mm thermal receipts for counter billing.
 - **Payments** against invoices into a chosen cash or bank account, with paid/partial/outstanding tracking.
 - **Financial years**: the Indian April–March year is created automatically. A closed year is locked: nothing can be posted, edited or deleted in it.
 - **Reports**: Trial Balance, Profit & Loss (with gross profit), Balance Sheet (always balances: includes current profit and any opening-balance difference), Ledger Statement with running balance, GSTR-1, GSTR-3B and Excel export.

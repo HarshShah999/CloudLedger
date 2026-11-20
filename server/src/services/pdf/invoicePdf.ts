@@ -1,7 +1,7 @@
 import QRCode from 'qrcode';
 import { InvoiceDocument, DOC_SHORT } from '../documentService';
 import { pdfToBuffer } from '../../utils/pdfBuffer';
-import { COLORS, CONTENT_W, PAGE, createDoc, dmy, ensureSpace, footer, hline, inr, letterhead, table } from './base';
+import { COLORS, CONTENT_W, PAGE, createDoc, dmy, ensureSpace, footer, hline, inr, letterhead, safeImage, table } from './base';
 
 const DEFAULT_TERMS = [
     'Goods once sold will not be taken back.',
@@ -9,12 +9,34 @@ const DEFAULT_TERMS = [
     'Subject to local jurisdiction.',
 ];
 
-/** Renders a GST invoice / bill / credit note / debit note as a PDF buffer. */
-export const renderInvoicePdf = async (d: InvoiceDocument): Promise<Buffer> => {
+const COPY_LABELS = {
+    original: 'Original for Recipient',
+    duplicate: 'Duplicate for Transporter',
+    triplicate: 'Triplicate for Supplier',
+} as const;
+export type InvoiceCopy = keyof typeof COPY_LABELS;
+export const INVOICE_COPIES = Object.keys(COPY_LABELS) as InvoiceCopy[];
+
+/**
+ * Renders a GST invoice / bill / credit note / debit note as a PDF buffer.
+ * `copies` prints several marked copies (original, duplicate, triplicate) in one file.
+ */
+export const renderInvoicePdf = async (d: InvoiceDocument, opts: { copies?: InvoiceCopy[] } = {}): Promise<Buffer> => {
+    const doc = createDoc(`${d.title} ${d.invoice.invoice_number}`);
+    const labelled = d.company.print_copy_labels && d.invoice.type === 'SALES';
+    const copies: InvoiceCopy[] = opts.copies?.length ? opts.copies : ['original'];
+    for (let i = 0; i < copies.length; i++) {
+        if (i > 0) doc.addPage();
+        await drawInvoice(doc, d, labelled ? COPY_LABELS[copies[i]] : undefined);
+    }
+    footer(doc, 'This is a computer-generated document.');
+    return pdfToBuffer(doc);
+};
+
+const drawInvoice = async (doc: PDFKit.PDFDocument, d: InvoiceDocument, copyLabel?: string) => {
     const inv = d.invoice;
-    const doc = createDoc(`${d.title} ${inv.invoice_number}`);
     const x = PAGE.margin;
-    let y = letterhead(doc, d.company, d.title);
+    let y = letterhead(doc, d.company, d.title, copyLabel);
 
     // ---- Bill-to and document details ----
     const leftW = CONTENT_W * 0.55;
@@ -191,8 +213,6 @@ export const renderInvoicePdf = async (d: InvoiceDocument): Promise<Buffer> => {
     const sx = x + CONTENT_W * 0.66;
     const sw = CONTENT_W * 0.34;
     doc.font('B').fontSize(8.5).fillColor(COLORS.text).text(`For ${c.name}`, sx, blockTop, { width: sw, align: 'right' });
+    safeImage(doc, c.signature, sx + sw - 120, blockTop + 16, { fit: [120, 50], align: 'right' });
     doc.font('R').fontSize(8).fillColor(COLORS.muted).text('Authorised Signatory', sx, blockTop + 70, { width: sw, align: 'right' });
-
-    footer(doc, 'This is a computer-generated document.');
-    return pdfToBuffer(doc);
 };

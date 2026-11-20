@@ -3,7 +3,9 @@ import Joi from 'joi';
 import { protect } from '../middleware/auth';
 import { requireCompany } from '../middleware/companyAccess';
 import { validate, gstin, isoDate, addMemberSchema, updateMemberSchema } from '../middleware/validate';
-import { createCompany, getCompanies, getCompany, updateCompany } from '../controllers/companyController';
+import {
+    createCompany, getCompanies, getCompany, updateCompany, uploadCompanyAsset, removeCompanyAsset, getCompanyAsset,
+} from '../controllers/companyController';
 import { listMembers, addMember, updateMember, removeMember } from '../controllers/userController';
 
 const router = express.Router();
@@ -42,6 +44,8 @@ const updateCompanySchema = Joi.object({
     invoiceTerms: Joi.string().max(3000).allow('', null),
     shareMessageTemplate: Joi.string().max(2000).allow('', null),
     shareLinkDays: Joi.number().integer().min(1).max(365),
+    brandColor: Joi.string().pattern(/^#[0-9A-Fa-f]{6}$/).messages({ 'string.pattern.base': 'Colour must look like #4338CA' }),
+    printCopyLabels: Joi.boolean(),
 });
 
 router.use(protect);
@@ -50,6 +54,11 @@ router.route('/').get(getCompanies).post(validate(createCompanySchema), createCo
 
 router.get('/:companyId', requireCompany('viewer'), getCompany);
 router.put('/:companyId', validate(updateCompanySchema), requireCompany('admin'), updateCompany);
+
+// Logo and signature images printed on invoices
+router.get('/:companyId/assets/:kind', requireCompany('viewer'), getCompanyAsset);
+router.put('/:companyId/assets/:kind', requireCompany('admin'), uploadCompanyAsset);
+router.delete('/:companyId/assets/:kind', requireCompany('admin'), removeCompanyAsset);
 
 // Members (people who can access this company)
 router.get('/:companyId/members', requireCompany('viewer'), listMembers);

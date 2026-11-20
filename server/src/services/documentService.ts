@@ -36,12 +36,19 @@ export interface CompanyProfile {
     invoice_terms: string | null;
     share_message_template: string | null;
     share_link_days: number;
+    brand_color: string;
+    print_copy_labels: boolean;
+    /** Images (PNG/JPEG) loaded from company_assets */
+    logo?: Buffer | null;
+    signature?: Buffer | null;
 }
 
 export const loadCompanyProfile = async (companyId: string): Promise<CompanyProfile> => {
     const r = await query('SELECT * FROM companies WHERE id = $1', [companyId]);
     if (!r.rows.length) throw new AppError('Company not found', 404);
-    return r.rows[0];
+    const assets = await query('SELECT kind, data FROM company_assets WHERE company_id = $1', [companyId]);
+    const img = (k: string) => assets.rows.find((a) => a.kind === k)?.data ?? null;
+    return { ...r.rows[0], logo: img('logo'), signature: img('signature') };
 };
 
 /** UPI deep link (works with GPay, PhonePe, Paytm, BHIM…). Null if no UPI ID or nothing to pay. */

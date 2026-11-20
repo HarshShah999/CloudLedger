@@ -1,6 +1,6 @@
 import express from 'express';
 import rateLimit from 'express-rate-limit';
-import { getSharedDocument, getSharedPdf } from '../controllers/publicController';
+import { getSharedDocument, getSharedPdf, getSharedLogo } from '../controllers/publicController';
 
 /** Unauthenticated routes for documents shared by link. */
 const router = express.Router();
@@ -17,5 +17,6 @@ router.use(
 
 router.get('/d/:token', getSharedDocument);
 router.get('/d/:token/pdf', getSharedPdf);
+router.get('/d/:token/logo', getSharedLogo);
 
 export default router;

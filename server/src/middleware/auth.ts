@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { query } from '../config/db';
 import { verifyToken } from '../utils/authUtils';
 import { AppError } from './errorHandler';
+import { currentContext } from '../config/requestContext';
 
 /** Requires a valid bearer token for an existing user. */
 export const protect = async (req: Request, _res: Response, next: NextFunction) => {
@@ -21,6 +22,8 @@ export const protect = async (req: Request, _res: Response, next: NextFunction) 
         if (res.rows.length === 0) return next(new AppError('User no longer exists', 401));
         const u = res.rows[0];
         req.user = { id: u.id, role: u.role, isSuperadmin: u.is_superadmin };
+        const ctx = currentContext();
+        if (ctx) ctx.userId = u.id;
         next();
     } catch (err) {
         next(err);

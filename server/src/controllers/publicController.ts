@@ -6,7 +6,9 @@ import { resolveShareToken } from '../services/shareService';
 import { loadCompanyProfile, loadInvoiceDocument, CompanyProfile } from '../services/documentService';
 import { renderInvoicePdf } from '../services/pdf/invoicePdf';
 import { renderStatementPdf } from '../services/pdf/statementPdf';
+import { renderThermalPdf } from '../services/pdf/thermalPdf';
 import { ledgerStatement } from '../services/reportService';
+import { getAsset } from '../services/assetService';
 
 /** Company fields that are already printed on documents, safe to show publicly. */
 const publicCompany = (c: CompanyProfile) => ({
@@ -17,6 +19,8 @@ const publicCompany = (c: CompanyProfile) => ({
     gstin: c.gstin,
     state: c.state,
     website: c.website,
+    has_logo: !!c.logo,
+    brand_color: c.brand_color,
     upi_id: c.upi_id,
     bank: c.bank_account_number
         ? { name: c.bank_name, account_name: c.bank_account_name, account_number: c.bank_account_number, ifsc: c.bank_ifsc, branch: c.bank_branch }
@@ -104,7 +108,7 @@ export const getSharedPdf = async (req: Request, res: Response) => {
     let name: string;
     if (share.doc_type === 'INVOICE') {
         const d = await loadInvoiceDocument(share.doc_id);
-        pdf = await renderInvoicePdf(d);
+        pdf = req.query.format === 'thermal' ? await renderThermalPdf(d) : await renderInvoicePdf(d);
         name = `${safeName(d.invoice.invoice_number)}.pdf`;
     } else {
         const company = await loadCompanyProfile(share.company_id);
@@ -116,4 +120,14 @@ export const getSharedPdf = async (req: Request, res: Response) => {
     res.setHeader('Cache-Control', 'no-store');
     res.setHeader('Content-Disposition', `${req.query.download ? 'attachment' : 'inline'}; filename="${name}"`);
     res.send(pdf);
+};
+
+/** GET /api/public/d/:token/logo — the sender's logo for the public page. */
+export const getSharedLogo = async (req: Request, res: Response) => {
+    const share = await resolveShareToken(req.params.token, false);
+    const logo = await getAsset(share.company_id, 'logo');
+    if (!logo) throw new AppError('No logo', 404);
+    res.setHeader('Content-Type', logo.mime);
+    res.setHeader('Cache-Control', 'public, max-age=3600');
+    res.send(logo.data);
 };

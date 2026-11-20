@@ -14,7 +14,8 @@ import {
     ChevronRight,
     Package,
     Repeat,
-    Database
+    Database,
+    ShieldCheck,
 } from 'lucide-react';
 
 const mainNavItems = [
@@ -33,13 +34,12 @@ const reportItems = [
     { label: 'Trial Balance', path: '/reports' },
     { label: 'Profit & Loss', path: '/reports/profit-loss' },
     { label: 'Balance Sheet', path: '/reports/balance-sheet' },
-    { label: 'GSTR-1', path: '/reports/gstr-1' },
-    { label: 'GSTR-3B', path: '/reports/gstr-3b' },
 ];
 
 const bottomNavItems = [
     { label: 'Backup', icon: Database, path: '/backup' },
     { label: 'Users', icon: Users, path: '/users' },
+    { label: 'Audit Trail', icon: ShieldCheck, path: '/audit' },
     { label: 'Settings', icon: Settings, path: '/settings' },
 ];
 
