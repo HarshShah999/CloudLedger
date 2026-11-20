@@ -5,6 +5,7 @@ import { useCompany } from '../context/CompanyContext';
 import { notify } from '../utils/notification';
 import { Button } from '../components/ui/Button';
 import { AuditChanges, AuditEntry, ACTION_LABEL, ACTION_STYLE } from '../components/AuditChanges';
+import { formatDateTime } from '../lib/format';
 
 const ENTITIES = [
     ['', 'All documents & masters'],
@@ -122,7 +123,7 @@ export const AuditTrail: React.FC = () => {
                         {entries.map((e) => (
                             <tr key={e.id} className="border-b border-slate-100 align-top">
                                 <td className="whitespace-nowrap px-3 py-2 text-slate-600">
-                                    {new Date(e.at).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}
+                                    {formatDateTime(e.at)}
                                 </td>
                                 <td className="px-3 py-2">{e.user}</td>
                                 <td className="px-3 py-2">

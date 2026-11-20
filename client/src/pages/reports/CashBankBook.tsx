@@ -92,9 +92,9 @@ export const CashBankBook: React.FC = () => {
                                     {t.narration && <span className="block text-xs text-slate-400">{t.narration}</span>}
                                 </td>
                                 <td className="px-3 py-2">{t.voucher_type_name}<span className="block text-xs text-slate-400">{t.voucher_number}</span></td>
-                                <td className="px-3 py-2 text-right font-mono text-green-700">{t.debit ? inr(t.debit) : ''}</td>
-                                <td className="px-3 py-2 text-right font-mono text-red-600">{t.credit ? inr(t.credit) : ''}</td>
-                                <td className="px-3 py-2 text-right font-mono">{inr(t.balance)} {t.balance_type}</td>
+                                <td className="px-3 py-2 text-right tabular-nums text-green-700">{t.debit ? inr(t.debit) : ''}</td>
+                                <td className="px-3 py-2 text-right tabular-nums text-red-600">{t.credit ? inr(t.credit) : ''}</td>
+                                <td className="px-3 py-2 text-right tabular-nums">{inr(t.balance)} {t.balance_type}</td>
                             </tr>
                         ))}
                     </tbody>

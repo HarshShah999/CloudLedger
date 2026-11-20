@@ -5,6 +5,7 @@ import { Input } from '../components/ui/Input';
 import { Plus, Lock, Unlock, Trash2, CheckCircle } from 'lucide-react';
 import api from '../api/axios';
 import { notify } from '../utils/notification';
+import { formatDate } from '../lib/dates';
 
 interface FinancialYear {
     id: string;
@@ -155,7 +156,7 @@ export const FinancialYears: React.FC = () => {
                                     <tr key={year.id} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
                                         <td className="py-3 px-4 font-medium text-slate-800">{year.name}</td>
                                         <td className="py-3 px-4 text-slate-600">
-                                            {new Date(year.start_date).toLocaleDateString()} - {new Date(year.end_date).toLocaleDateString()}
+                                            {formatDate(year.start_date)} - {formatDate(year.end_date)}
                                         </td>
                                         <td className="py-3 px-4">
                                             <div className="flex items-center gap-2">

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Download, Upload, Trash2, Database, FileJson, AlertTriangle, CheckCircle, Loader } from 'lucide-react';
 import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
+import { formatDateTime } from '../lib/format';
 
 interface Backup {
     filename: string;
@@ -32,7 +33,7 @@ const BackupRestore: React.FC = () => {
     };
 
     const formatDate = (dateString: string) => {
-        return new Date(dateString).toLocaleString();
+        return formatDateTime(dateString);
     };
 
     const fetchBackups = async () => {

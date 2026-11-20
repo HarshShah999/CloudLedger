@@ -84,10 +84,10 @@ export const DayBook: React.FC = () => {
                                     ))}
                                     {v.narration && <p className="mt-1 text-xs italic text-slate-400">{v.narration}</p>}
                                 </td>
-                                <td className="px-3 py-2 text-right font-mono">
+                                <td className="px-3 py-2 text-right tabular-nums">
                                     {v.entries.map((e: any, i: number) => <p key={i}>{e.type === 'Dr' ? inr(e.amount) : ' '}</p>)}
                                 </td>
-                                <td className="px-3 py-2 text-right font-mono">
+                                <td className="px-3 py-2 text-right tabular-nums">
                                     {v.entries.map((e: any, i: number) => <p key={i}>{e.type === 'Cr' ? inr(e.amount) : ' '}</p>)}
                                 </td>
                             </tr>
@@ -97,8 +97,8 @@ export const DayBook: React.FC = () => {
                         <tfoot>
                             <tr className="font-semibold">
                                 <td colSpan={3} className="px-3 py-2 text-right">Total</td>
-                                <td className="px-3 py-2 text-right font-mono">{inr(data.total)}</td>
-                                <td className="px-3 py-2 text-right font-mono">{inr(data.total)}</td>
+                                <td className="px-3 py-2 text-right tabular-nums">{inr(data.total)}</td>
+                                <td className="px-3 py-2 text-right tabular-nums">{inr(data.total)}</td>
                             </tr>
                         </tfoot>
                     )}

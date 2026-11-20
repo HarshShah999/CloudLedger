@@ -54,39 +54,32 @@ export const getDashboardStats = async (req: Request, res: Response, next: NextF
              WHERE company_id = $1 
              AND type IN ('SALES', 'PURCHASE')
              AND NOT is_opening
-             AND date >= CURRENT_DATE - INTERVAL '6 months'
+             AND date >= date_trunc('month', CURRENT_DATE) - INTERVAL '5 months'
+             AND date < date_trunc('month', CURRENT_DATE) + INTERVAL '1 month'
              GROUP BY TO_CHAR(date, 'Mon'), EXTRACT(MONTH FROM date), EXTRACT(YEAR FROM date), type
              ORDER BY EXTRACT(YEAR FROM date), EXTRACT(MONTH FROM date)`,
             [companyId]
         );
 
-        // Build month labels and data arrays
-        const monthsMap = new Map();
-        monthlyRes.rows.forEach(row => {
-            const key = `${row.year_num}-${row.month_num}`;
-            if (!monthsMap.has(key)) {
-                monthsMap.set(key, {
-                    month: row.month,
-                    income: 0,
-                    expenses: 0
-                });
-            }
-            const data = monthsMap.get(key);
-            if (row.type === 'SALES') {
-                data.income = Number(row.total);
-            } else if (row.type === 'PURCHASE') {
-                data.expenses = Number(row.total);
-            }
+        // The last six months in order (Jun, Jul, ... Nov), including months with no bills
+        const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        const now = new Date();
+        const months = Array.from({ length: 6 }, (_, i) => {
+            const d = new Date(now.getFullYear(), now.getMonth() - 5 + i, 1);
+            return { key: `${d.getFullYear()}-${d.getMonth() + 1}`, month: MONTHS[d.getMonth()], income: 0, expenses: 0 };
         });
-
-        const sortedMonths = Array.from(monthsMap.entries())
-            .sort((a, b) => a[0].localeCompare(b[0]))
-            .map(([_, data]) => data);
+        const byKey = new Map(months.map((m) => [m.key, m]));
+        for (const row of monthlyRes.rows) {
+            const m = byKey.get(`${Number(row.year_num)}-${Number(row.month_num)}`);
+            if (!m) continue;
+            if (row.type === 'SALES') m.income = Number(row.total);
+            else if (row.type === 'PURCHASE') m.expenses = Number(row.total);
+        }
 
         const monthlyData = {
-            labels: sortedMonths.map(m => m.month),
-            income: sortedMonths.map(m => m.income),
-            expenses: sortedMonths.map(m => m.expenses)
+            labels: months.map((m) => m.month),
+            income: months.map((m) => m.income),
+            expenses: months.map((m) => m.expenses),
         };
 
         // 6. Get Recent Transactions (Last 10 vouchers)

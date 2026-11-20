@@ -5,6 +5,7 @@ import { Plus, Trash2, Edit, Play } from 'lucide-react';
 import api, { apiError } from '../../api/axios';
 import { useNavigate } from 'react-router-dom';
 import { notify } from '../../utils/notification';
+import { formatDate } from '../../lib/dates';
 
 interface RecurringInvoice {
     id: string;
@@ -100,10 +101,10 @@ export const RecurringInvoiceList: React.FC = () => {
                                         <td className="py-3 px-4 text-slate-600">{invoice.party_name}</td>
                                         <td className="py-3 px-4 text-sm text-slate-600">{({ WEEKLY: 'Weekly', MONTHLY: 'Monthly', QUARTERLY: 'Quarterly', HALF_YEARLY: 'Half-yearly', YEARLY: 'Yearly' } as Record<string, string>)[invoice.frequency] || invoice.frequency}</td>
                                         <td className="py-3 px-4 text-slate-600">
-                                            {new Date(invoice.next_invoice_date).toLocaleDateString()}
+                                            {formatDate(invoice.next_invoice_date)}
                                         </td>
                                         <td className="py-3 px-4 text-slate-600">
-                                            {invoice.last_generated_at ? new Date(invoice.last_generated_at).toLocaleDateString() : '-'}
+                                            {invoice.last_generated_at ? formatDate(invoice.last_generated_at) : '-'}
                                         </td>
                                         <td className="py-3 px-4">
                                             <span className={`px-2 py-1 rounded-full text-xs font-medium ${invoice.is_active ? 'bg-green-100 text-green-800' : 'bg-slate-100 text-slate-800'}`}>

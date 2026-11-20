@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
-import { ArrowLeft, ArrowRightCircle, DollarSign, Trash2, Edit } from 'lucide-react';
+import { ArrowLeft, ArrowRightCircle, IndianRupee, Trash2, Edit } from 'lucide-react';
 import { CONVERSIONS, DocType, STATUS_OPTIONS, STATUS_STYLE, docInfo, isPostingType } from '../../lib/docTypes';
 import { ShareMenu } from '../../components/ShareMenu';
 import { DocumentHistory } from '../../components/DocumentHistory';
@@ -10,6 +10,8 @@ import { EDocsPanel } from '../../components/EDocsPanel';
 import api, { apiError } from '../../api/axios';
 import { useCompany } from '../../context/CompanyContext';
 import { notify } from '../../utils/notification';
+import { inr } from '../../lib/format';
+import { formatDate } from '../../lib/dates';
 
 interface Payment {
     id: string;
@@ -166,7 +168,7 @@ export const InvoiceDetail: React.FC = () => {
                     <ShareMenu target={{ kind: 'invoice', id: invoice.id, label: invoice.invoice_number }} />
                     {isPostingType(invoice.type) && Number(invoice.outstanding_amount) > 0 && (
                         <Button onClick={() => { setPaymentForm((f) => ({ ...f, amount: Number(invoice.outstanding_amount ?? invoice.grand_total) })); setShowPaymentModal(true); }}>
-                            <DollarSign className="w-4 h-4" />
+                            <IndianRupee className="w-4 h-4" />
                             Record Payment
                         </Button>
                     )}
@@ -188,8 +190,8 @@ export const InvoiceDetail: React.FC = () => {
                     {invoice.party_state && <p className="text-sm text-slate-600">State: {invoice.party_state}</p>}
                 </div>
                 <div>
-                    <p className="text-sm text-slate-600">Date: {new Date(invoice.date).toLocaleDateString()}</p>
-                    {invoice.due_date && <p className="text-sm text-slate-600">Due Date: {new Date(invoice.due_date).toLocaleDateString()}</p>}
+                    <p className="text-sm text-slate-600">Date: {formatDate(invoice.date)}</p>
+                    {invoice.due_date && <p className="text-sm text-slate-600">Due Date: {formatDate(invoice.due_date)}</p>}
                 </div>
                 <div>
                     <p className="text-sm text-slate-600">Type: {docInfo(invoice.type).label}</p>
@@ -255,21 +257,21 @@ export const InvoiceDetail: React.FC = () => {
                                 <td className="py-2 px-3">{item.item_name || item.description}</td>
                                 <td className="py-2 px-3">{item.hsn_code}</td>
                                 <td className="py-2 px-3 text-right">{Number(item.quantity).toFixed(2)} {item.unit_symbol}</td>
-                                <td className="py-2 px-3 text-right">₹{Number(item.rate).toFixed(2)}</td>
-                                <td className="py-2 px-3 text-right">₹{Number(item.amount).toFixed(2)}</td>
-                                <td className="py-2 px-3 text-right">₹{Number(item.discount_amount || 0).toFixed(2)}</td>
-                                <td className="py-2 px-3 text-right">₹{Number(item.taxable_amount).toFixed(2)}</td>
+                                <td className="py-2 px-3 text-right">{inr(Number(item.rate))}</td>
+                                <td className="py-2 px-3 text-right">{inr(Number(item.amount))}</td>
+                                <td className="py-2 px-3 text-right">{inr(Number(item.discount_amount || 0))}</td>
+                                <td className="py-2 px-3 text-right">{inr(Number(item.taxable_amount))}</td>
                                 <td className="py-2 px-3 text-right text-sm">
                                     {isInterState ? (
-                                        <div>IGST: ₹{Number(item.igst_amount).toFixed(2)}</div>
+                                        <div>IGST: {inr(Number(item.igst_amount))}</div>
                                     ) : (
                                         <>
-                                            <div>CGST: ₹{Number(item.cgst_amount).toFixed(2)}</div>
-                                            <div>SGST: ₹{Number(item.sgst_amount).toFixed(2)}</div>
+                                            <div>CGST: {inr(Number(item.cgst_amount))}</div>
+                                            <div>SGST: {inr(Number(item.sgst_amount))}</div>
                                         </>
                                     )}
                                 </td>
-                                <td className="py-2 px-3 text-right font-medium">₹{Number(item.total_amount).toFixed(2)}</td>
+                                <td className="py-2 px-3 text-right font-medium">{inr(Number(item.total_amount))}</td>
                             </tr>
                         ))}
                     </tbody>
@@ -284,35 +286,35 @@ export const InvoiceDetail: React.FC = () => {
                         {Number(invoice.discount_amount) > 0 && (
                             <div className="flex justify-between text-red-600">
                                 <span>Invoice Discount ({Number(invoice.discount_percent)}%):</span>
-                                <span className="font-mono">-₹{Number(invoice.discount_amount).toFixed(2)}</span>
+                                <span className="tabular-nums">-{inr(Number(invoice.discount_amount))}</span>
                             </div>
                         )}
                         <div className="flex justify-between">
                             <span>Taxable Value:</span>
-                            <span className="font-mono">₹{Number(invoice.subtotal).toFixed(2)}</span>
+                            <span className="tabular-nums">{inr(Number(invoice.subtotal))}</span>
                         </div>
                         <div className="flex justify-between">
                             <span>GST:</span>
-                            <span className="font-mono">₹{Number(invoice.tax_total).toFixed(2)}</span>
+                            <span className="tabular-nums">{inr(Number(invoice.tax_total))}</span>
                         </div>
                         {Number(invoice.round_off) !== 0 && (
                             <div className="flex justify-between">
                                 <span>Round Off:</span>
-                                <span className="font-mono">{Number(invoice.round_off) > 0 ? '+' : '-'}₹{Math.abs(Number(invoice.round_off)).toFixed(2)}</span>
+                                <span className="tabular-nums">{Number(invoice.round_off) > 0 ? '+' : '-'}{inr(Math.abs(Number(invoice.round_off)))}</span>
                             </div>
                         )}
                         <div className="flex justify-between font-bold text-lg border-t pt-2">
                             <span>Grand Total:</span>
-                            <span className="font-mono">₹{Number(invoice.grand_total).toFixed(2)}</span>
+                            <span className="tabular-nums">{inr(Number(invoice.grand_total))}</span>
                         </div>
                         {isPostingType(invoice.type) && (<>
                         <div className="flex justify-between text-green-600">
                             <span>Paid:</span>
-                            <span className="font-mono">₹{Number(invoice.paid_amount || 0).toFixed(2)}</span>
+                            <span className="tabular-nums">{inr(Number(invoice.paid_amount || 0))}</span>
                         </div>
                         <div className="flex justify-between text-red-600 font-medium">
                             <span>Outstanding:</span>
-                            <span className="font-mono">₹{Number(invoice.outstanding_amount ?? invoice.grand_total).toFixed(2)}</span>
+                            <span className="tabular-nums">{inr(Number(invoice.outstanding_amount ?? invoice.grand_total))}</span>
                         </div>
                         </>)}
                     </div>
@@ -338,8 +340,8 @@ export const InvoiceDetail: React.FC = () => {
                         <tbody>
                             {payments.map((payment) => (
                                 <tr key={payment.id} className="border-b border-slate-100">
-                                    <td className="py-2 px-3">{new Date(payment.payment_date).toLocaleDateString()}</td>
-                                    <td className="py-2 px-3 font-mono">₹{Number(payment.amount).toFixed(2)}</td>
+                                    <td className="py-2 px-3">{formatDate(payment.payment_date)}</td>
+                                    <td className="py-2 px-3 tabular-nums">{inr(Number(payment.amount))}</td>
                                     <td className="py-2 px-3">{payment.payment_mode}</td>
                                     <td className="py-2 px-3">{payment.reference_number}</td>
                                     <td className="py-2 px-3">{payment.notes}</td>

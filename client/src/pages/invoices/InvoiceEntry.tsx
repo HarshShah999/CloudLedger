@@ -9,6 +9,7 @@ import { calculateInvoice, isInterStateSupply } from '../../lib/invoiceCalc';
 import { DocType, docInfo } from '../../lib/docTypes';
 import { useGstMeta } from '../../lib/gstMeta';
 import { notify } from '../../utils/notification';
+import { amount, inr } from '../../lib/format';
 
 interface Ledger {
     id: string;
@@ -523,8 +524,8 @@ export const InvoiceEntry: React.FC<{ type?: DocType }> = ({ type: initialType }
                                             required
                                         />
                                     </td>
-                                    <td className="p-2 text-right font-mono text-slate-700">
-                                        {item.amount.toFixed(2)}
+                                    <td className="p-2 text-right tabular-nums text-slate-700">
+                                        {amount(item.amount)}
                                     </td>
                                     <td className="p-2">
                                         <input
@@ -537,14 +538,14 @@ export const InvoiceEntry: React.FC<{ type?: DocType }> = ({ type: initialType }
                                             step="0.01"
                                         />
                                     </td>
-                                    <td className="p-2 text-right font-mono text-slate-700">
-                                        {item.taxableAmount.toFixed(2)}
+                                    <td className="p-2 text-right tabular-nums text-slate-700">
+                                        {amount(item.taxableAmount)}
                                     </td>
                                     <td className="p-2 text-right text-slate-600">
                                         {item.taxRate}%
                                     </td>
-                                    <td className="p-2 text-right font-mono text-slate-700">
-                                        {item.taxAmount.toFixed(2)}
+                                    <td className="p-2 text-right tabular-nums text-slate-700">
+                                        {amount(item.taxAmount)}
                                     </td>
                                     <td className="p-2 text-center">
                                         <button
@@ -583,17 +584,17 @@ export const InvoiceEntry: React.FC<{ type?: DocType }> = ({ type: initialType }
                         <div className="w-full sm:w-96 space-y-2">
                             <div className="flex justify-between text-slate-600">
                                 <span>Subtotal:</span>
-                                <span className="font-mono">₹{subtotal.toFixed(2)}</span>
+                                <span className="tabular-nums">{inr(subtotal)}</span>
                             </div>
                             {invoiceDiscount > 0 && (
                                 <>
                                     <div className="flex justify-between text-slate-600">
                                         <span>Invoice Discount ({formData.discountPercent}%):</span>
-                                        <span className="font-mono">-₹{invoiceDiscount.toFixed(2)}</span>
+                                        <span className="tabular-nums">-{inr(invoiceDiscount)}</span>
                                     </div>
                                     <div className="flex justify-between text-slate-600">
                                         <span>Taxable Value:</span>
-                                        <span className="font-mono">₹{(preview?.subtotal ?? 0).toFixed(2)}</span>
+                                        <span className="tabular-nums">{inr((preview?.subtotal ?? 0))}</span>
                                     </div>
                                 </>
                             )}
@@ -602,17 +603,17 @@ export const InvoiceEntry: React.FC<{ type?: DocType }> = ({ type: initialType }
                             {gst.isInterState ? (
                                 <div className="flex justify-between text-slate-600">
                                     <span>IGST:</span>
-                                    <span className="font-mono">₹{gst.igst.toFixed(2)}</span>
+                                    <span className="tabular-nums">{inr(gst.igst)}</span>
                                 </div>
                             ) : (
                                 <>
                                     <div className="flex justify-between text-slate-600">
                                         <span>CGST:</span>
-                                        <span className="font-mono">₹{gst.cgst.toFixed(2)}</span>
+                                        <span className="tabular-nums">{inr(gst.cgst)}</span>
                                     </div>
                                     <div className="flex justify-between text-slate-600">
                                         <span>SGST:</span>
-                                        <span className="font-mono">₹{gst.sgst.toFixed(2)}</span>
+                                        <span className="tabular-nums">{inr(gst.sgst)}</span>
                                     </div>
                                 </>
                             )}
@@ -621,25 +622,25 @@ export const InvoiceEntry: React.FC<{ type?: DocType }> = ({ type: initialType }
                             {preview && preview.roundOff !== 0 && (
                                 <div className="flex justify-between text-slate-600">
                                     <span>Round Off:</span>
-                                    <span className="font-mono">{preview.roundOff > 0 ? '+' : '-'}₹{Math.abs(preview.roundOff).toFixed(2)}</span>
+                                    <span className="tabular-nums">{preview.roundOff > 0 ? '+' : '-'}{inr(Math.abs(preview.roundOff))}</span>
                                 </div>
                             )}
                             <div className="flex justify-between font-bold text-lg text-slate-800 border-t border-slate-300 pt-2">
                                 <span>Grand Total:</span>
-                                <span className="font-mono">₹{grandTotal.toFixed(2)}</span>
+                                <span className="tabular-nums">{inr(grandTotal)}</span>
                             </div>
                             {rcm && preview && (
-                                <p className="text-xs text-amber-700">GST of ₹{preview.taxTotal.toFixed(2)} is payable by you under reverse charge (not paid to the supplier).</p>
+                                <p className="text-xs text-amber-700">GST of {inr(preview.taxTotal)} is payable by you under reverse charge (not paid to the supplier).</p>
                             )}
                             {tdsAmount > 0 && (
                                 <>
                                     <div className="flex justify-between text-slate-600">
                                         <span>Less TDS ({formData.tdsSection} @ {formData.tdsRate}%):</span>
-                                        <span className="font-mono">-₹{tdsAmount.toFixed(2)}</span>
+                                        <span className="tabular-nums">-{inr(tdsAmount)}</span>
                                     </div>
                                     <div className="flex justify-between font-semibold text-slate-800">
                                         <span>Payable to supplier:</span>
-                                        <span className="font-mono">₹{(grandTotal - tdsAmount).toFixed(2)}</span>
+                                        <span className="tabular-nums">{inr((grandTotal - tdsAmount))}</span>
                                     </div>
                                 </>
                             )}

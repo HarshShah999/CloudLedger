@@ -4,6 +4,7 @@ import api, { apiError } from '../api/axios';
 import { notify } from '../utils/notification';
 import { Button } from './ui/Button';
 import { fetchBlob, saveBlob } from '../lib/files';
+import { formatDateTime } from '../lib/format';
 
 /**
  * E-invoice (IRN) and e-way bill for one invoice: shows what is missing,
@@ -104,7 +105,7 @@ export const EDocsPanel: React.FC<{ invoice: any; canWrite: boolean; onChange: (
                     {invoice.ewb_number ? (
                         <div className="text-sm">
                             <p className="text-green-700"><CheckCircle2 className="mr-1 inline h-4 w-4" /> EWB {invoice.ewb_number}</p>
-                            {invoice.ewb_valid_until && <p className="text-xs text-slate-500">Valid until {new Date(invoice.ewb_valid_until).toLocaleString('en-IN')}</p>}
+                            {invoice.ewb_valid_until && <p className="text-xs text-slate-500">Valid until {formatDateTime(invoice.ewb_valid_until)}</p>}
                         </div>
                     ) : (
                         <>

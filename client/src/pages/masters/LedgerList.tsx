@@ -7,6 +7,7 @@ import api, { apiError } from '../../api/axios';
 import { stateFromGstin, useGstMeta } from '../../lib/gstMeta';
 import { useNavigate } from 'react-router-dom';
 import { notify } from '../../utils/notification';
+import { amount } from '../../lib/format';
 
 interface Ledger {
     id: string;
@@ -210,8 +211,8 @@ export const LedgerList: React.FC = () => {
                                     <tr key={ledger.id} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
                                         <td className="py-3 px-4 font-medium text-slate-800">{ledger.name}</td>
                                         <td className="py-3 px-4 text-slate-600">{ledger.group_name}</td>
-                                        <td className="py-3 px-4 text-right font-mono">
-                                            {Number(ledger.opening_balance).toLocaleString()} {ledger.opening_balance_type}
+                                        <td className="py-3 px-4 text-right tabular-nums">
+                                            {amount(Number(ledger.opening_balance))} {ledger.opening_balance_type}
                                         </td>
                                         <td className="py-3 px-4 text-right">
                                             <div className="flex items-center justify-end gap-2">

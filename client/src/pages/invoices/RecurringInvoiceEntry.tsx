@@ -6,6 +6,7 @@ import { Plus, Trash2, Save } from 'lucide-react';
 import api from '../../api/axios';
 import { useNavigate, useParams } from 'react-router-dom';
 import { notify } from '../../utils/notification';
+import { amount } from '../../lib/format';
 
 interface Ledger {
     id: string;
@@ -317,8 +318,8 @@ export const RecurringInvoiceEntry: React.FC = () => {
                                             required
                                         />
                                     </td>
-                                    <td className="p-2 text-right font-mono text-slate-700">
-                                        {item.amount.toFixed(2)}
+                                    <td className="p-2 text-right tabular-nums text-slate-700">
+                                        {amount(item.amount)}
                                     </td>
                                     <td className="p-2 text-center">
                                         <button

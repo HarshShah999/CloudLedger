@@ -5,6 +5,7 @@ import { useCompany } from '../../context/CompanyContext';
 import { notify } from '../../utils/notification';
 import { GstMonthPicker, defaultReturnMonth, monthRange } from '../../components/GstMonthPicker';
 import { formatDate } from '../../lib/dates';
+import { formatDateTime } from '../../lib/format';
 
 const inr = (n: number) => '₹' + Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const tax = (x: any) => Number(x.igst || 0) + Number(x.cgst || 0) + Number(x.sgst || 0);
@@ -134,7 +135,7 @@ export const GSTR2B: React.FC = () => {
                         </table>
                     </div>
                     <p className="text-xs text-slate-400">
-                        Uploaded {new Date(data.uploadedAt).toLocaleString('en-IN')} · {data.fileName}. Invoice numbers are compared ignoring spaces, slashes, dashes and leading zeros; amounts within ₹1 count as matched.
+                        Uploaded {formatDateTime(data.uploadedAt)} · {data.fileName}. Invoice numbers are compared ignoring spaces, slashes, dashes and leading zeros; amounts within ₹1 count as matched.
                     </p>
                 </>
             )}

@@ -4,6 +4,7 @@ import api, { apiError } from '../api/axios';
 import { notify } from '../utils/notification';
 import { Button } from './ui/Button';
 import { canShareFiles, fetchBlob, printBlob, saveBlob } from '../lib/files';
+import { formatDateTime } from '../lib/format';
 
 /** What is being shared. */
 export type ShareTarget =
@@ -302,7 +303,7 @@ export const ShareMenu: React.FC<{
                                     {data && (
                                         <p className="text-xs text-slate-500">
                                             Anyone with the link can view and download this document until{' '}
-                                            {new Date(data.expiresAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}.
+                                            {formatDateTime(data.expiresAt).split(',')[0]}.
                                         </p>
                                     )}
                                 </div>

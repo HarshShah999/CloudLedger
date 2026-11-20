@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext';
 import { useCompany } from '../context/CompanyContext';
 import api, { apiError } from '../api/axios';
 import { notify } from '../utils/notification';
+import { formatDate } from '../lib/dates';
 
 interface User {
     id: string;
@@ -171,7 +172,7 @@ export const Users: React.FC = () => {
                                             </span>
                                         </td>
                                         <td className="py-3 px-4 text-slate-600 text-sm">
-                                            {new Date(user.created_at).toLocaleDateString()}
+                                            {formatDate(user.created_at)}
                                         </td>
                                         <td className="py-3 px-4 text-right">
                                             <div className="flex items-center justify-end gap-2">

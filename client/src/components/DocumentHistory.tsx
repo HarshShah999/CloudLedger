@@ -3,6 +3,7 @@ import { History, ChevronDown, ChevronUp, Loader2 } from 'lucide-react';
 import api from '../api/axios';
 import { useCompany } from '../context/CompanyContext';
 import { AuditChanges, AuditEntry, ACTION_LABEL, ACTION_STYLE } from './AuditChanges';
+import { formatDateTime } from '../lib/format';
 
 interface Group {
     txid: string;
@@ -53,7 +54,7 @@ export const DocumentHistory: React.FC<{ recordId: string }> = ({ recordId }) =>
                                         {ACTION_LABEL[main.action]}
                                     </span>
                                     <span className="font-medium text-slate-800">{g.user}</span>
-                                    <span className="text-slate-500"> · {new Date(g.at).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}</span>
+                                    <span className="text-slate-500"> · {formatDateTime(g.at)}</span>
                                 </p>
                                 {main.action === 'UPDATE' && (
                                     <div className="mt-1 text-xs">

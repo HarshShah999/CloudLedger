@@ -6,6 +6,7 @@ import { Input } from '../../components/ui/Input';
 import { Plus, Trash2, Save } from 'lucide-react';
 import api, { apiError } from '../../api/axios';
 import { notify } from '../../utils/notification';
+import { inr } from '../../lib/format';
 
 interface VoucherType {
     id: string;
@@ -260,16 +261,16 @@ export const VoucherEdit: React.FC = () => {
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-center">
                         <div>
                             <p className="text-sm text-slate-500">Total Debit</p>
-                            <p className="text-lg font-bold text-slate-800">₹{totals.debit.toFixed(2)}</p>
+                            <p className="text-lg font-bold text-slate-800">{inr(totals.debit)}</p>
                         </div>
                         <div>
                             <p className="text-sm text-slate-500">Total Credit</p>
-                            <p className="text-lg font-bold text-slate-800">₹{totals.credit.toFixed(2)}</p>
+                            <p className="text-lg font-bold text-slate-800">{inr(totals.credit)}</p>
                         </div>
                         <div>
                             <p className="text-sm text-slate-500">Difference</p>
                             <p className={`text-lg font-bold ${totals.difference < 0.01 ? 'text-emerald-600' : 'text-red-600'}`}>
-                                ₹{totals.difference.toFixed(2)}
+                                {inr(totals.difference)}
                             </p>
                         </div>
                     </div>

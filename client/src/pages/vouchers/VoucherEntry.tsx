@@ -6,6 +6,7 @@ import { Input } from '../../components/ui/Input';
 import { Plus, Trash2, Save, ArrowLeft } from 'lucide-react';
 import api, { apiError } from '../../api/axios';
 import { notify } from '../../utils/notification';
+import { inr } from '../../lib/format';
 
 interface VoucherType {
     id: string;
@@ -233,8 +234,8 @@ export const VoucherEntry: React.FC = () => {
                         <tfoot className="bg-slate-50 border-t border-slate-200 font-bold">
                             <tr>
                                 <td colSpan={2} className="py-3 px-4 text-right text-slate-600">Total:</td>
-                                <td className="py-3 px-4 text-right text-slate-800">₹{totalDebit.toLocaleString()}</td>
-                                <td className="py-3 px-4 text-right text-slate-800">₹{totalCredit.toLocaleString()}</td>
+                                <td className="py-3 px-4 text-right text-slate-800">{inr(totalDebit)}</td>
+                                <td className="py-3 px-4 text-right text-slate-800">{inr(totalCredit)}</td>
                                 <td></td>
                             </tr>
                         </tfoot>
@@ -252,7 +253,7 @@ export const VoucherEntry: React.FC = () => {
                         {isBalanced ? (
                             <>Balanced ✅</>
                         ) : (
-                            <>Difference: ₹{Math.abs(totalDebit - totalCredit).toLocaleString()} ⚠️</>
+                            <>Difference: {inr(Math.abs(totalDebit - totalCredit))} ⚠️</>
                         )}
                     </div>
                 </div>

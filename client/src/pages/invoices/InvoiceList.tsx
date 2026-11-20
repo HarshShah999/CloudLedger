@@ -1,12 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { useCompany } from '../../context/CompanyContext';
 import { Button } from '../../components/ui/Button';
-import { Plus, Download, Trash2, Eye, DollarSign, Edit } from 'lucide-react';
+import { Plus, Download, Trash2, Eye, IndianRupee, Edit } from 'lucide-react';
 import { ShareMenu } from '../../components/ShareMenu';
 import api, { apiError } from '../../api/axios';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { DOC_TYPES, DocType, docInfo, STATUS_STYLE } from '../../lib/docTypes';
 import { notify } from '../../utils/notification';
+import { inr } from '../../lib/format';
+import { formatDate } from '../../lib/dates';
 
 interface Invoice {
     id: string;
@@ -185,7 +187,7 @@ export const InvoiceList: React.FC = () => {
                                 invoices.map((invoice) => (
                                     <tr key={invoice.id} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
                                         <td className="py-3 px-4 text-slate-600">
-                                            {new Date(invoice.date).toLocaleDateString()}
+                                            {formatDate(invoice.date)}
                                         </td>
                                         <td className="py-3 px-4 font-medium text-slate-800">
                                             {invoice.invoice_number}
@@ -196,14 +198,14 @@ export const InvoiceList: React.FC = () => {
                                             )}
                                         </td>
                                         <td className="py-3 px-4 text-slate-600">{invoice.party_name}</td>
-                                        <td className="py-3 px-4 text-right font-mono font-medium text-slate-800">
-                                            ₹{Number(invoice.grand_total).toLocaleString()}
+                                        <td className="py-3 px-4 text-right tabular-nums font-medium text-slate-800">
+                                            {inr(Number(invoice.grand_total))}
                                         </td>
-                                        <td className="py-3 px-4 text-right font-mono text-green-600">
-                                            ₹{Number(invoice.paid_amount || 0).toLocaleString()}
+                                        <td className="py-3 px-4 text-right tabular-nums text-green-600">
+                                            {inr(Number(invoice.paid_amount || 0))}
                                         </td>
-                                        <td className="py-3 px-4 text-right font-mono text-red-600">
-                                            ₹{Number(invoice.outstanding_amount ?? invoice.grand_total).toLocaleString()}
+                                        <td className="py-3 px-4 text-right tabular-nums text-red-600">
+                                            {inr(Number(invoice.outstanding_amount ?? invoice.grand_total))}
                                         </td>
                                         <td className="py-3 px-4">
                                             {info.posting ? (
@@ -235,7 +237,7 @@ export const InvoiceList: React.FC = () => {
                                                     className="p-1 text-slate-400 hover:text-green-600 transition-colors"
                                                     title="Record Payment"
                                                 >
-                                                    <DollarSign className="w-4 h-4" />
+                                                    <IndianRupee className="w-4 h-4" />
                                                 </button>
                                                 <button
                                                     onClick={() => navigate(`/invoices/${invoice.id}/edit`)}

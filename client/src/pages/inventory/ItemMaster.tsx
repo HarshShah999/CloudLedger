@@ -5,6 +5,7 @@ import { Input } from '../../components/ui/Input';
 import { Plus, Edit2, Package } from 'lucide-react';
 import api, { apiError } from '../../api/axios';
 import { notify } from '../../utils/notification';
+import { inr } from '../../lib/format';
 
 interface Unit {
     id: string;
@@ -187,11 +188,11 @@ export const ItemMaster: React.FC = () => {
                                         </div>
                                     </td>
                                     <td className="py-3 px-4 text-slate-600">{item.hsn_code}</td>
-                                    <td className="py-3 px-4 text-right font-mono">
+                                    <td className="py-3 px-4 text-right tabular-nums">
                                         {Number(item.current_quantity)} {item.unit_symbol}
                                     </td>
-                                    <td className="py-3 px-4 text-right font-mono">
-                                        ₹{Number(item.sales_rate).toLocaleString()}
+                                    <td className="py-3 px-4 text-right tabular-nums">
+                                        {inr(Number(item.sales_rate))}
                                     </td>
                                     <td className="py-3 px-4 text-right">
                                         <button onClick={() => handleEdit(item)} className="p-1 text-slate-400 hover:text-primary">

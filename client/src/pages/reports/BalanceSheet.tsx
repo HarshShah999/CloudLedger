@@ -6,6 +6,7 @@ import { Input } from '../../components/ui/Input';
 import { FileSpreadsheet, Filter, Building2, CreditCard } from 'lucide-react';
 import api, { apiError } from '../../api/axios';
 import { notify } from '../../utils/notification';
+import { inr } from '../../lib/format';
 
 interface LedgerItem {
     group_name: string;
@@ -97,7 +98,7 @@ export const BalanceSheet: React.FC = () => {
                         <Building2 className="w-5 h-5 text-blue-500" />
                     </div>
                     <p className="text-2xl font-bold text-blue-600">
-                        ₹{totalAssets.toLocaleString()}
+                        {inr(totalAssets)}
                     </p>
                 </div>
 
@@ -107,7 +108,7 @@ export const BalanceSheet: React.FC = () => {
                         <CreditCard className="w-5 h-5 text-purple-500" />
                     </div>
                     <p className="text-2xl font-bold text-purple-600">
-                        ₹{totalLiabilities.toLocaleString()}
+                        {inr(totalLiabilities)}
                     </p>
                 </div>
 
@@ -117,7 +118,7 @@ export const BalanceSheet: React.FC = () => {
                         <Building2 className="w-5 h-5 text-emerald-500" />
                     </div>
                     <p className={`text-2xl font-bold ${difference >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-                        ₹{Math.abs(difference).toLocaleString()}
+                        {inr(Math.abs(difference))}
                     </p>
                 </div>
             </div>
@@ -155,16 +156,16 @@ export const BalanceSheet: React.FC = () => {
                                     assets.map((item, idx) => (
                                         <div key={idx} className="flex justify-between items-center py-2 border-b border-slate-100">
                                             <span className="text-slate-700">{item.ledger_name}</span>
-                                            <span className="font-mono text-blue-600">
-                                                ₹{item.balance.toLocaleString()}
+                                            <span className="tabular-nums text-blue-600">
+                                                {inr(item.balance)}
                                             </span>
                                         </div>
                                     ))
                                 )}
                                 <div className="flex justify-between items-center py-3 border-t-2 border-slate-300 font-bold">
                                     <span className="text-slate-800">Total Assets</span>
-                                    <span className="font-mono text-blue-600">
-                                        ₹{totalAssets.toLocaleString()}
+                                    <span className="tabular-nums text-blue-600">
+                                        {inr(totalAssets)}
                                     </span>
                                 </div>
                             </div>
@@ -183,16 +184,16 @@ export const BalanceSheet: React.FC = () => {
                                     liabilities.map((item, idx) => (
                                         <div key={idx} className="flex justify-between items-center py-2 border-b border-slate-100">
                                             <span className="text-slate-700">{item.ledger_name}</span>
-                                            <span className="font-mono text-purple-600">
-                                                ₹{item.balance.toLocaleString()}
+                                            <span className="tabular-nums text-purple-600">
+                                                {inr(item.balance)}
                                             </span>
                                         </div>
                                     ))
                                 )}
                                 <div className="flex justify-between items-center py-3 border-t-2 border-slate-300 font-bold">
                                     <span className="text-slate-800">Total Liabilities</span>
-                                    <span className="font-mono text-purple-600">
-                                        ₹{totalLiabilities.toLocaleString()}
+                                    <span className="tabular-nums text-purple-600">
+                                        {inr(totalLiabilities)}
                                     </span>
                                 </div>
                             </div>
@@ -204,7 +205,7 @@ export const BalanceSheet: React.FC = () => {
                         <div className="flex justify-between items-center">
                             <h3 className="text-xl font-bold text-slate-800">Net Worth (Assets - Liabilities)</h3>
                             <p className={`text-3xl font-bold ${difference >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-                                ₹{Math.abs(difference).toLocaleString()}
+                                {inr(Math.abs(difference))}
                             </p>
                         </div>
                     </div>
