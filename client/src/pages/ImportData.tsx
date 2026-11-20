@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Upload, FileSpreadsheet, FileCode2, Download, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { Upload, FileSpreadsheet, FileCode2, Download, CheckCircle2, AlertTriangle, Info } from 'lucide-react';
 import api, { apiError } from '../api/axios';
 import { useCompany } from '../context/CompanyContext';
 import { notify } from '../utils/notification';
@@ -13,6 +13,7 @@ interface Report {
     updated: Record<string, number>;
     skipped: Record<string, number>;
     errors: { ref: string; message: string }[];
+    warnings?: { ref: string; message: string }[];
 }
 
 const TABS: { kind: Kind; title: string; icon: React.ReactNode; help: React.ReactNode; accept: string }[] = [
@@ -23,9 +24,10 @@ const TABS: { kind: Kind; title: string; icon: React.ReactNode; help: React.Reac
         accept: '.xml,text/xml,application/xml',
         help: (
             <ol className="list-decimal space-y-1 pl-5">
-                <li>In Tally: <b>Gateway of Tally → Display More Reports → List of Accounts</b>, press <b>Alt+E (Export)</b>, choose format <b>XML</b> and export. This brings groups, ledgers with opening balances, units and stock items.</li>
-                <li>For transactions: open <b>Day Book</b> for the period, press <b>Alt+E</b>, format <b>XML</b>.</li>
+                <li>In Tally: <b>Gateway of Tally → Display More Reports → List of Accounts</b>, press <b>Alt+E (Export)</b>, choose format <b>XML</b> and export. This brings groups, ledgers with opening balances and unpaid bills, GST tax ledgers, voucher types, units and stock items.</li>
+                <li>For transactions: open <b>Day Book</b> for the period, press <b>Alt+E</b>, format <b>XML</b>. Sales and purchases become GST invoices with their items and stock, and receipts are matched to the bills they paid.</li>
                 <li>Upload the masters file first, then the Day Book file. Re-uploading the same file never creates duplicates.</li>
+                <li>After importing, compare the Trial Balance with Tally's for the same period: they should match exactly.</li>
             </ol>
         ),
     },
@@ -72,6 +74,7 @@ export const ImportData: React.FC = () => {
     const [file, setFile] = useState<File | null>(null);
     const [report, setReport] = useState<Report | null>(null);
     const [busy, setBusy] = useState(false);
+    const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
     const t = TABS.find((x) => x.kind === tab)!;
     const url = tab === 'tally' ? '/import/tally' : `/import/excel/${tab}`;
 
@@ -79,13 +82,32 @@ export const ImportData: React.FC = () => {
         if (!file || !selectedCompany) return;
         setBusy(true);
         try {
-            const res = await api.post(url, { companyId: selectedCompany.id, fileBase64: await toBase64(file), commit });
-            setReport(res.data.data);
+            const body = { companyId: selectedCompany.id, fileBase64: await toBase64(file), commit };
+            if (tab === 'tally') {
+                // Tally files can hold years of vouchers: run in the background and show progress
+                const start = await api.post(url, { ...body, background: true });
+                const jobId = start.data.data.jobId;
+                setProgress({ done: 0, total: 0 });
+                for (;;) {
+                    await new Promise((r) => setTimeout(r, 1200));
+                    const job = (await api.get(`/import/jobs/${jobId}`)).data.data;
+                    setProgress({ done: job.done, total: job.total });
+                    if (job.status === 'done') {
+                        setReport(job.report);
+                        break;
+                    }
+                    if (job.status === 'failed') throw new Error(job.error || 'Import failed');
+                }
+            } else {
+                const res = await api.post(url, body);
+                setReport(res.data.data);
+            }
             if (commit) notify.success('Import finished');
         } catch (e) {
             notify.error(apiError(e, 'Import failed'));
         } finally {
             setBusy(false);
+            setProgress(null);
         }
     };
 
@@ -141,6 +163,22 @@ export const ImportData: React.FC = () => {
                         </Button>
                     )}
                 </div>
+                {progress && (
+                    <div className="mt-4">
+                        <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100">
+                            <div
+                                className="h-2 rounded-full bg-primary transition-all"
+                                style={{ width: progress.total ? `${Math.round((progress.done / progress.total) * 100)}%` : '5%' }}
+                            />
+                        </div>
+                        <p className="mt-1 text-sm text-slate-500">
+                            {progress.total
+                                ? `Reading vouchers: ${progress.done.toLocaleString('en-IN')} of ${progress.total.toLocaleString('en-IN')}`
+                                : 'Reading masters…'}{' '}
+                            You can keep this page open; large files take a few minutes.
+                        </p>
+                    </div>
+                )}
             </div>
 
             {report && (
@@ -160,6 +198,18 @@ export const ImportData: React.FC = () => {
                             </p>
                             <ul className="max-h-64 overflow-y-auto text-sm text-amber-900">
                                 {report.errors.map((e, i) => (
+                                    <li key={i}><b>{e.ref}:</b> {e.message}</li>
+                                ))}
+                            </ul>
+                        </div>
+                    )}
+                    {!!report.warnings?.length && (
+                        <div className="rounded-lg bg-sky-50 p-3">
+                            <p className="mb-1 flex items-center gap-1 text-sm font-semibold text-sky-800">
+                                <Info className="h-4 w-4" /> {report.warnings.length} record{report.warnings.length === 1 ? ' was' : 's were'} imported with a note (please review)
+                            </p>
+                            <ul className="max-h-64 overflow-y-auto text-sm text-sky-900">
+                                {report.warnings.map((e, i) => (
                                     <li key={i}><b>{e.ref}:</b> {e.message}</li>
                                 ))}
                             </ul>

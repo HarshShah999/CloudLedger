@@ -46,9 +46,16 @@ Cloud accounting for Indian businesses: double-entry books, GST invoicing, payme
 - **Recurring invoices**: weekly, monthly, quarterly, half-yearly or yearly, with catch-up for missed periods.
 - **Multi-company with per-company roles**: admin, accountant or viewer, enforced by the server on every request.
 - **Switch from Tally or Excel** (Import page, admins only):
-  - **Tally**: export *List of Accounts* (groups, ledgers with opening balances, units, stock items) and the *Day Book* as XML (Alt+E), then upload the masters first and the Day Book second.
+  - **Tally**: export *List of Accounts* and the *Day Book* as XML (Alt+E), then upload the masters first and the Day Book second. What comes across:
+    - Groups, ledgers with opening balances, GST tax ledgers, custom voucher types (e.g. "Sales GST" is filed as Sales), units and stock items with HSN and GST rate.
+    - **Unpaid bills** from bill-wise opening balances, shown as *Opening* bills in outstanding and ready to be settled.
+    - Every voucher, posted exactly as in Tally, so the Trial Balance matches to the paisa.
+    - Sales, purchases, credit and debit notes as **GST invoices** with items, CGST/SGST/IGST per line, round-off, discounts before tax, TDS and stock movement, so they appear in GSTR-1, outstanding and stock.
+    - Receipts and payments **matched to the bills they paid** (Tally's *Agst Ref*); when bill-wise was off in Tally, they settle the oldest bills first.
+    - Anything that cannot safely become a GST invoice (e.g. a discount after tax, GST cess) stays in the books and is listed for review.
+    - Orders, delivery notes and other non-accounting vouchers are skipped. Godowns, batches and cost centres are not imported yet.
   - **Excel**: download the parties/ledgers or items template, fill it in and upload it.
-  - Every import is previewed first and nothing is saved until you press **Import now**. Bad rows (e.g. an invalid GSTIN) are listed and skipped. Re-uploading the same Tally file never creates duplicates.
+  - Every import is previewed first and nothing is saved until you press **Import now**. Bad rows (e.g. an invalid GSTIN) are listed and skipped. Re-uploading the same Tally file never creates duplicates. Big files (up to 80 MB) run in the background with a progress bar; about 6,000 vouchers take a little over a minute.
 - **Keyboard first**, like Tally:
   - **Ctrl+K** searches pages, parties, ledgers and invoices.
   - **Alt+S** sales invoice, **Alt+P** purchase bill, **Alt+Q** quotation, **Alt+R** receipt/payment, **Alt+J** journal, **Alt+L** ledgers, **Alt+I** items, **Alt+O** outstanding, **Alt+D** Day Book, **Alt+B** balance sheet, **Alt+T** trial balance, **Alt+G** GST returns.

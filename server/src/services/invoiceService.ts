@@ -283,11 +283,13 @@ const insertLines = async (db: Queryable, invoiceId: string, input: InvoiceInput
     }
 };
 
-const assertUniqueNumber = async (db: Queryable, companyId: string, type: string, fyId: string, number: string, exceptId?: string) => {
+/** Purchase bill numbers are the supplier's, so they only need to be unique per supplier. */
+const assertUniqueNumber = async (db: Queryable, companyId: string, type: string, fyId: string, number: string, exceptId?: string, partyLedgerId?: string) => {
     const r = await db.query(
-        `SELECT 1 FROM invoices WHERE company_id = $1 AND type = $2 AND financial_year_id = $3
-         AND lower(invoice_number) = lower($4) AND ($5::uuid IS NULL OR id <> $5)`,
-        [companyId, type, fyId, number, exceptId ?? null]
+        `SELECT 1 FROM invoices WHERE company_id = $1 AND type = $2 AND financial_year_id = $3 AND NOT is_opening
+         AND lower(invoice_number) = lower($4) AND ($5::uuid IS NULL OR id <> $5)
+         AND ($2 <> 'PURCHASE' OR party_ledger_id = $6)`,
+        [companyId, type, fyId, number, exceptId ?? null, partyLedgerId ?? null]
     );
     if (r.rows.length) throw new AppError(`Number ${number} is already used in this financial year`, 400);
     if (number.length > 16 && (type === 'SALES' || type === 'CREDIT_NOTE' || type === 'DEBIT_NOTE')) {
@@ -315,7 +317,7 @@ export const createInvoice = async (db: Queryable, companyId: string, input: Inv
     const calc = doc.calc;
 
     const number = await reserveNumber(db, companyId, type, fy, input.invoiceNumber);
-    await assertUniqueNumber(db, companyId, type, fy.id, number);
+    await assertUniqueNumber(db, companyId, type, fy.id, number, undefined, input.partyLedgerId);
 
     const voucher = isPosting(type)
         ? await postVoucher(
@@ -377,6 +379,9 @@ export const updateInvoice = async (db: Queryable, companyId: string, id: string
     if (!input.items?.length) throw new AppError('Invoice must have at least one item', 400);
     const existing = await loadInvoice(db, companyId, id);
     const type: InvoiceType = existing.type; // the document type never changes
+    if (existing.is_opening) {
+        throw new AppError('Opening bills brought forward cannot be edited. Delete it and enter it again if it is wrong.', 400);
+    }
 
     const paid = await db.query('SELECT COUNT(*)::int AS n FROM payments WHERE invoice_id = $1', [id]);
     if (paid.rows[0].n > 0) throw new AppError('Cannot edit an invoice that has payments. Delete the payments first.', 400);
@@ -392,7 +397,7 @@ export const updateInvoice = async (db: Queryable, companyId: string, id: string
     const calc = doc.calc;
 
     const number = input.invoiceNumber?.trim() || existing.invoice_number;
-    await assertUniqueNumber(db, companyId, type, fy.id, number, id);
+    await assertUniqueNumber(db, companyId, type, fy.id, number, id, input.partyLedgerId);
 
     // Reverse old stock, remove old lines
     const oldLines = await db.query('SELECT item_id, quantity FROM invoice_items WHERE invoice_id = $1', [id]);

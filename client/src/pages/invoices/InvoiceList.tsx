@@ -10,6 +10,7 @@ import { notify } from '../../utils/notification';
 
 interface Invoice {
     id: string;
+    is_opening?: boolean;
     invoice_number: string;
     date: string;
     party_name: string;
@@ -188,6 +189,11 @@ export const InvoiceList: React.FC = () => {
                                         </td>
                                         <td className="py-3 px-4 font-medium text-slate-800">
                                             {invoice.invoice_number}
+                                            {invoice.is_opening && (
+                                                <span className="ml-2 rounded bg-slate-100 px-1.5 py-0.5 text-xs font-normal text-slate-500" title="Unpaid bill brought forward from your previous software">
+                                                    Opening
+                                                </span>
+                                            )}
                                         </td>
                                         <td className="py-3 px-4 text-slate-600">{invoice.party_name}</td>
                                         <td className="py-3 px-4 text-right font-mono font-medium text-slate-800">

@@ -145,11 +145,11 @@ export const InvoiceDetail: React.FC = () => {
                         Back
                     </Button>
                     <h1 className="text-2xl font-bold text-slate-800">
-                        {docInfo(invoice.type).label} {invoice.invoice_number}
+                        {invoice.is_opening ? 'Opening bill' : docInfo(invoice.type).label} {invoice.invoice_number}
                     </h1>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                    {invoice.status !== 'CONVERTED' && (
+                    {invoice.status !== 'CONVERTED' && !invoice.is_opening && (
                         <Button variant="secondary" onClick={() => navigate(`/invoices/${id}/edit`)}>
                             <Edit className="w-4 h-4" />
                             Edit

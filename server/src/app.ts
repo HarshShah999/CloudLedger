@@ -42,6 +42,8 @@ app.use(
 // Who is acting (filled in by `protect`); used by the audit trail
 app.use((req, _res, next) => requestContext.run({ ip: req.ip }, next));
 
+// Tally / Excel files arrive base64-encoded: a few years of Day Book can be large
+app.use('/api/import', express.json({ limit: '120mb' }));
 // Company imports can be large JSON documents
 app.use(express.json({ limit: '25mb' }));
 

@@ -53,6 +53,7 @@ export const getDashboardStats = async (req: Request, res: Response, next: NextF
              FROM invoices
              WHERE company_id = $1 
              AND type IN ('SALES', 'PURCHASE')
+             AND NOT is_opening
              AND date >= CURRENT_DATE - INTERVAL '6 months'
              GROUP BY TO_CHAR(date, 'Mon'), EXTRACT(MONTH FROM date), EXTRACT(YEAR FROM date), type
              ORDER BY EXTRACT(YEAR FROM date), EXTRACT(MONTH FROM date)`,

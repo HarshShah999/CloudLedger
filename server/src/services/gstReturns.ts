@@ -56,7 +56,7 @@ const loadDocs = async (companyId: string, from: string, to: string, types: stri
              FROM invoices i
              JOIN ledgers l ON l.id = i.party_ledger_id
              JOIN companies c ON c.id = i.company_id
-             WHERE i.company_id = $1 AND i.type = ANY($2) AND i.date BETWEEN $3 AND $4
+             WHERE i.company_id = $1 AND i.type = ANY($2) AND i.date BETWEEN $3 AND $4 AND NOT i.is_opening
              ORDER BY i.date, i.invoice_number`,
             [companyId, types, from, to]
         )

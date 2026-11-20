@@ -1,55 +1,12 @@
 import ExcelJS from 'exceljs';
 import { XMLParser } from 'fast-xml-parser';
-import { PoolClient } from 'pg';
-import { withTransaction } from '../config/db';
 import { AppError } from '../middleware/errorHandler';
-import { toPaise, fromPaise } from '../utils/money';
 import { stateName, uqcFor, validateGstin } from '../utils/gst';
-import { postVoucher } from './posting';
-import { STANDARD_VOUCHER_TYPES } from './companySetup';
+import { ImportReport, attempt, bump, runImport } from './importCommon';
+import { asArray, deepFind, tallyNumber, taxHeadFromDutyHead, text, yes } from './tallyXml';
+import { importOpeningBills, importTallyVouchers, saveVoucherTypes } from './tallyVouchers';
 
-export interface ImportReport {
-    dryRun: boolean;
-    created: Record<string, number>;
-    updated: Record<string, number>;
-    skipped: Record<string, number>;
-    errors: { ref: string; message: string }[];
-}
-
-const newReport = (dryRun: boolean): ImportReport => ({ dryRun, created: {}, updated: {}, skipped: {}, errors: [] });
-const bump = (m: Record<string, number>, k: string) => (m[k] = (m[k] ?? 0) + 1);
-
-class DryRunRollback extends Error {}
-
-/**
- * Runs an import in one transaction. In dry-run mode everything is executed and
- * then rolled back, so the report shows exactly what a real import would do.
- */
-const runImport = async (dryRun: boolean, fn: (db: PoolClient, report: ImportReport) => Promise<void>) => {
-    const report = newReport(dryRun);
-    try {
-        await withTransaction(async (db) => {
-            await fn(db, report);
-            if (dryRun) throw new DryRunRollback();
-        });
-    } catch (e) {
-        if (!(e instanceof DryRunRollback)) throw e;
-    }
-    report.errors = report.errors.slice(0, 200);
-    return report;
-};
-
-/** Each row/voucher in its own savepoint: one bad record does not abort the rest. */
-const attempt = async (db: PoolClient, report: ImportReport, ref: string, fn: () => Promise<void>) => {
-    await db.query('SAVEPOINT imp');
-    try {
-        await fn();
-        await db.query('RELEASE SAVEPOINT imp');
-    } catch (e) {
-        await db.query('ROLLBACK TO SAVEPOINT imp');
-        report.errors.push({ ref, message: (e as Error).message });
-    }
-};
+export type { ImportReport };
 
 /* ------------------------------------------------------------------ */
 /* Tally XML                                                           */
@@ -64,33 +21,6 @@ export const decodeTallyFile = (buf: Buffer) => {
     else text = buf.toString('utf8').replace(/^﻿/, '');
     return text.replace(/&#(?:[0-8]|1[124-9]|2\d|3[01]);/g, '').replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '');
 };
-
-const asArray = <T>(v: T | T[] | undefined | null): T[] => (v == null ? [] : Array.isArray(v) ? v : [v]);
-const text = (v: any): string => (v == null ? '' : typeof v === 'object' ? String(v['#text'] ?? '') : String(v)).trim();
-
-/** Finds the first value for `key` anywhere inside `node` (Tally nests GST details in many shapes). */
-const deepFind = (node: any, key: string): any => {
-    if (!node || typeof node !== 'object') return undefined;
-    if (key in node) return node[key];
-    for (const v of Object.values(node)) {
-        const found = Array.isArray(v) ? v.map((x) => deepFind(x, key)).find((x) => x !== undefined) : deepFind(v, key);
-        if (found !== undefined) return found;
-    }
-    return undefined;
-};
-
-/** "-1,250.00" -> -1250 ; "100 Kgs" -> 100 */
-const tallyNumber = (v: any) => {
-    const m = /-?[\d,]*\.?\d+/.exec(text(v));
-    return m ? Number(m[0].replace(/,/g, '')) : 0;
-};
-
-const tallyDate = (v: any) => {
-    const d = text(v);
-    return /^\d{8}$/.test(d) ? `${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)}` : null;
-};
-
-const yes = (v: any) => /^yes$/i.test(text(v));
 
 /** Tally's reserved group names mapped to ours (most are identical). */
 const TALLY_GROUP_ALIASES: Record<string, string> = {
@@ -117,12 +47,15 @@ export const parseTallyXml = (xml: string) => {
     const messages = asArray(deepFind(doc, 'TALLYMESSAGE'));
     if (!messages.length) throw new AppError('No Tally data found. Export from Tally: Gateway → Export → Masters / Day Book, format XML.', 400);
     const pick = (tag: string) => messages.flatMap((m: any) => asArray(m?.[tag]));
-    return { groups: pick('GROUP'), ledgers: pick('LEDGER'), units: pick('UNIT'), items: pick('STOCKITEM'), vouchers: pick('VOUCHER') };
+    return {
+        groups: pick('GROUP'), ledgers: pick('LEDGER'), units: pick('UNIT'), items: pick('STOCKITEM'),
+        voucherTypes: pick('VOUCHERTYPE'), vouchers: pick('VOUCHER'),
+    };
 };
 
 const nameOf = (node: any) => text(node?.['@NAME'] ?? node?.NAME ?? deepFind(node?.['LANGUAGENAME.LIST'], 'NAME'));
 
-export const importTally = async (companyId: string, file: Buffer, dryRun: boolean) => {
+export const importTally = async (companyId: string, file: Buffer, dryRun: boolean, onProgress?: (done: number, total: number) => void) => {
     const data = parseTallyXml(decodeTallyFile(file));
 
     return runImport(dryRun, async (db, report) => {
@@ -184,6 +117,7 @@ export const importTally = async (companyId: string, file: Buffer, dryRun: boole
                     text(l.PINCODE || deepFind(l['LEDMAILINGDETAILS.LIST'], 'PINCODE')) || null,
                     text(l.INCOMETAXNUMBER).toUpperCase() || (gstin ? gstin.slice(2, 12) : null),
                     gstin ? 'REGULAR' : null,
+                    taxHeadFromDutyHead(l.GSTDUTYHEAD || deepFind(l, 'GSTDUTYHEAD')),
                 ];
                 const existing = await db.query('SELECT id FROM ledgers WHERE company_id = $1 AND lower(name) = lower($2)', [companyId, name]);
                 if (existing.rows.length) {
@@ -191,19 +125,22 @@ export const importTally = async (companyId: string, file: Buffer, dryRun: boole
                         `UPDATE ledgers SET group_id = $1, opening_balance = $2, opening_balance_type = $3,
                              gstin = COALESCE($4, gstin), state = COALESCE($5, state), email = COALESCE($6, email),
                              phone = COALESCE($7, phone), address = COALESCE($8, address), pincode = COALESCE($9, pincode),
-                             pan = COALESCE($10, pan), gst_registration_type = COALESCE($11, gst_registration_type)
-                         WHERE id = $12`,
+                             pan = COALESCE($10, pan), gst_registration_type = COALESCE($11, gst_registration_type),
+                             gst_tax_head = COALESCE($12, gst_tax_head)
+                         WHERE id = $13`,
                         [...values, existing.rows[0].id]
                     );
                     bump(report.updated, 'ledgers');
+                    await importOpeningBills(db, companyId, existing.rows[0].id, l, report);
                 } else {
-                    await db.query(
+                    const created = await db.query(
                         `INSERT INTO ledgers (company_id, name, group_id, opening_balance, opening_balance_type, gstin, state,
-                                              email, phone, address, pincode, pan, gst_registration_type)
-                         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
+                                              email, phone, address, pincode, pan, gst_registration_type, gst_tax_head)
+                         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) RETURNING id`,
                         [companyId, name, ...values]
                     );
                     bump(report.created, 'ledgers');
+                    await importOpeningBills(db, companyId, created.rows[0].id, l, report);
                 }
             });
         }
@@ -244,44 +181,9 @@ export const importTally = async (companyId: string, file: Buffer, dryRun: boole
             });
         }
 
-        // Vouchers -> balanced vouchers in the books
-        const ledgerIds = new Map<string, string>();
-        for (const l of (await db.query('SELECT id, name FROM ledgers WHERE company_id = $1', [companyId])).rows) ledgerIds.set(l.name.toLowerCase(), l.id);
-        for (const v of data.vouchers) {
-            const vType = text(v['@VCHTYPE'] || v.VOUCHERTYPENAME);
-            const number = text(v.VOUCHERNUMBER);
-            const ref = `${vType} ${number || ''} ${text(v.DATE)}`.trim();
-            if (yes(v.ISCANCELLED) || yes(v.ISOPTIONAL) || yes(v.ISDELETED)) {
-                bump(report.skipped, 'vouchers (cancelled/optional)');
-                continue;
-            }
-            const guid = text(v.GUID) || null;
-            await attempt(db, report, ref, async () => {
-                if (guid) {
-                    const dup = await db.query('SELECT 1 FROM vouchers WHERE company_id = $1 AND external_id = $2', [companyId, guid]);
-                    if (dup.rows.length) return void bump(report.skipped, 'vouchers (already imported)');
-                }
-                const date = tallyDate(v.DATE);
-                if (!date) throw new Error('Missing date');
-                const lines = [...asArray(v['ALLLEDGERENTRIES.LIST']), ...asArray(v['LEDGERENTRIES.LIST'])];
-                const entries = lines
-                    .map((e: any) => {
-                        const ledger = text(e.LEDGERNAME);
-                        const amount = tallyNumber(e.AMOUNT);
-                        const id = ledgerIds.get(ledger.toLowerCase());
-                        if (!id) throw new Error(`Ledger "${ledger}" not found (import masters first)`);
-                        return { ledgerId: id, amount: fromPaise(Math.abs(toPaise(amount))), type: (amount < 0 ? 'Dr' : 'Cr') as 'Dr' | 'Cr' };
-                    })
-                    .filter((e) => e.amount > 0);
-                const voucherTypeName = STANDARD_VOUCHER_TYPES.find((t) => t.toLowerCase() === vType.toLowerCase()) ?? 'Journal';
-                const voucher = await postVoucher(db, {
-                    companyId, voucherTypeName, voucherNumber: number || null, date,
-                    narration: text(v.NARRATION) || `Imported from Tally (${vType})`, entries,
-                });
-                if (guid) await db.query('UPDATE vouchers SET external_id = $1 WHERE id = $2', [guid, voucher.id]);
-                bump(report.created, 'vouchers');
-            });
-        }
+        // Voucher types, then the Day Book
+        await saveVoucherTypes(db, companyId, data.voucherTypes, report);
+        await importTallyVouchers(db, companyId, data.vouchers, report, onProgress);
     });
 };
 
