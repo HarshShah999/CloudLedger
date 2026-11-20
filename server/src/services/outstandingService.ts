@@ -32,7 +32,7 @@ export const ageing = async (companyId: string, kind: AgeingKind, asOf: string) 
                     l.name AS party_name, l.phone AS party_phone,
                     COALESCE((SELECT SUM(p.amount) FROM payments p WHERE p.invoice_id = i.id AND p.payment_date <= $3), 0) AS paid
              FROM invoices i JOIN ledgers l ON l.id = i.party_ledger_id
-             WHERE i.company_id = $1 AND i.type = ANY($2) AND i.date <= $3`,
+             WHERE i.company_id = $1 AND i.type = ANY($2) AND i.date <= $3 AND COALESCE(i.status, '') <> 'CANCELLED'`,
             [companyId, [...cfg.due, ...cfg.credit], asOf]
         )
     ).rows;

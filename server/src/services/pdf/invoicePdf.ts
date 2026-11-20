@@ -45,6 +45,15 @@ export const renderInvoicePdf = async (d: InvoiceDocument, opts: { copies?: Invo
 const drawInvoice = async (doc: PDFKit.PDFDocument, d: InvoiceDocument, copyLabel?: string) => {
     const inv = d.invoice;
     const x = PAGE.margin;
+    if (inv.status === 'CANCELLED') {
+        // Diagonal stamp so a printed copy can never pass as a live invoice
+        doc.save();
+        doc.rotate(-30, { origin: [doc.page.width / 2, doc.page.height / 2] });
+        doc.font('B').fontSize(90).fillColor('#dc2626').fillOpacity(0.12)
+            .text('CANCELLED', 0, doc.page.height / 2 - 50, { width: doc.page.width, align: 'center' });
+        doc.restore();
+        doc.fillOpacity(1);
+    }
     let y = letterhead(doc, d.company, d.title, copyLabel);
 
     // ---- Bill-to and document details ----

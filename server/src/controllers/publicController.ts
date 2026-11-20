@@ -62,7 +62,8 @@ export const getSharedDocument = async (req: Request, res: Response) => {
                     notes: inv.notes,
                     paymentStatus: inv.payment_status,
                     validUntil: inv.valid_until,
-                    payable: ['SALES', 'DEBIT_NOTE'].includes(inv.type),
+                    payable: ['SALES', 'DEBIT_NOTE'].includes(inv.type) && inv.status !== 'CANCELLED',
+                    cancelled: inv.status === 'CANCELLED',
                     discountAmount: Number(inv.discount_amount || 0),
                 },
                 items: d.items.map((it) => ({
@@ -79,7 +80,7 @@ export const getSharedDocument = async (req: Request, res: Response) => {
                 })),
                 totals: d.totals,
                 amountInWords: d.amountInWords,
-                upi: d.upiLink ? { link: d.upiLink, qr: await QRCode.toDataURL(d.upiLink, { margin: 1, width: 220 }) } : null,
+                upi: d.upiLink && inv.status !== 'CANCELLED' ? { link: d.upiLink, qr: await QRCode.toDataURL(d.upiLink, { margin: 1, width: 220 }) } : null,
             },
         });
         return;

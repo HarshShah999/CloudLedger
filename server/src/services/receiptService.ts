@@ -37,7 +37,7 @@ export const openInvoices = async (db: Queryable, companyId: string, partyLedger
             `SELECT i.id, i.invoice_number, i.type, i.date, i.due_date, i.grand_total,
                     i.grand_total - i.tds_amount - COALESCE((SELECT SUM(p.amount) FROM payments p WHERE p.invoice_id = i.id), 0) AS outstanding
              FROM invoices i
-             WHERE i.company_id = $1 AND i.party_ledger_id = $2 AND i.type = ANY($3)
+             WHERE i.company_id = $1 AND i.party_ledger_id = $2 AND i.type = ANY($3) AND COALESCE(i.status, '') <> 'CANCELLED'
                AND i.grand_total - i.tds_amount - COALESCE((SELECT SUM(p.amount) FROM payments p WHERE p.invoice_id = i.id), 0) > 0
              ORDER BY COALESCE(i.due_date, i.date), i.date, i.invoice_number`,
             [companyId, partyLedgerId, SETTLES[direction]]
@@ -68,6 +68,7 @@ const applyAllocations = async (
             await db.query('SELECT * FROM invoices WHERE id = $1 AND company_id = $2 FOR UPDATE', [invoiceId, companyId])
         ).rows[0];
         if (!inv) throw new AppError('Invoice not found', 404);
+        if (inv.status === 'CANCELLED') throw new AppError(`${inv.invoice_number} is cancelled`, 400);
         if (inv.party_ledger_id !== receipt.party_ledger_id) {
             throw new AppError(`${inv.invoice_number} belongs to a different party`, 400);
         }

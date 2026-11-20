@@ -31,6 +31,7 @@ export const loadForEDoc = async (invoiceId: string) => {
     ).rows[0];
     if (!inv) throw new AppError('Invoice not found', 404);
     if (inv.is_opening) throw new AppError('Opening bills brought forward have no e-invoice or e-way bill', 400);
+    if (inv.status === 'CANCELLED') throw new AppError('This invoice is cancelled', 400);
     const company = (await query('SELECT * FROM companies WHERE id = $1', [inv.company_id])).rows[0];
     const items = (
         await query(
@@ -158,7 +159,7 @@ export const buildEinvoiceBulk = async (companyId: string, from: string, to: str
     const ids = (
         await query(
             `SELECT i.id FROM invoices i JOIN ledgers l ON l.id = i.party_ledger_id
-             WHERE i.company_id = $1 AND i.type IN ('SALES', 'CREDIT_NOTE') AND NOT i.is_opening AND i.date BETWEEN $2 AND $3
+             WHERE i.company_id = $1 AND i.type IN ('SALES', 'CREDIT_NOTE') AND NOT i.is_opening AND COALESCE(i.status, '') <> 'CANCELLED' AND i.date BETWEEN $2 AND $3
                AND (i.irn IS NULL OR i.irn_status = 'CANCELLED')
                AND ((l.gstin IS NOT NULL AND l.gstin <> '') OR i.supply_type <> 'NORMAL')
              ORDER BY i.date, i.invoice_number`,

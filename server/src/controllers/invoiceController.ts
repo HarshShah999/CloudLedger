@@ -37,6 +37,12 @@ export const updateInvoice = async (req: Request, res: Response) => {
     res.status(200).json({ status: 'success', data: { invoice } });
 };
 
+/** POST /api/invoices/:id/cancel { reason? } */
+export const cancelInvoice = async (req: Request, res: Response) => {
+    const invoice = await withTransaction((db) => invoiceService.cancelInvoice(db, req.company!.id, req.params.id, req.body?.reason));
+    res.json({ status: 'success', data: { invoice } });
+};
+
 export const deleteInvoice = async (req: Request, res: Response) => {
     await withTransaction((db) => invoiceService.deleteInvoice(db, req.company!.id, req.params.id));
     res.status(204).send();

@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
-import { ArrowLeft, ArrowRightCircle, IndianRupee, Trash2, Edit } from 'lucide-react';
+import { ArrowLeft, ArrowRightCircle, IndianRupee, Trash2, Edit, Ban } from 'lucide-react';
 import { CONVERSIONS, DocType, STATUS_OPTIONS, STATUS_STYLE, docInfo, isPostingType } from '../../lib/docTypes';
 import { ShareMenu } from '../../components/ShareMenu';
 import { DocumentHistory } from '../../components/DocumentHistory';
@@ -10,7 +10,7 @@ import { EDocsPanel } from '../../components/EDocsPanel';
 import api, { apiError } from '../../api/axios';
 import { useCompany } from '../../context/CompanyContext';
 import { notify } from '../../utils/notification';
-import { inr } from '../../lib/format';
+import { formatDateTime, inr } from '../../lib/format';
 import { formatDate } from '../../lib/dates';
 
 interface Payment {
@@ -133,6 +133,21 @@ export const InvoiceDetail: React.FC = () => {
         }
     };
 
+    const cancelDocument = async () => {
+        const reason = window.prompt(
+            `Cancel ${invoice.invoice_number}?\n\nThe number stays used and is shown as cancelled in GSTR-1. Its accounting entry and stock movement are reversed. This cannot be undone.\n\nReason (optional):`,
+            ''
+        );
+        if (reason === null) return;
+        try {
+            await api.post(`/invoices/${id}/cancel`, { reason });
+            notify.success(`${invoice.invoice_number} cancelled`);
+            fetchInvoiceDetails();
+        } catch (err) {
+            notify.error(apiError(err, 'Could not cancel'));
+        }
+    };
+
     if (loading) return <div className="text-center py-8">Loading...</div>;
     if (!invoice) return <div className="text-center py-8">Invoice not found</div>;
 
@@ -151,7 +166,7 @@ export const InvoiceDetail: React.FC = () => {
                     </h1>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                    {invoice.status !== 'CONVERTED' && !invoice.is_opening && (
+                    {invoice.status !== 'CONVERTED' && invoice.status !== 'CANCELLED' && !invoice.is_opening && (
                         <Button variant="secondary" onClick={() => navigate(`/invoices/${id}/edit`)}>
                             <Edit className="w-4 h-4" />
                             Edit
@@ -166,7 +181,13 @@ export const InvoiceDetail: React.FC = () => {
                         )
                     )}
                     <ShareMenu target={{ kind: 'invoice', id: invoice.id, label: invoice.invoice_number }} />
-                    {isPostingType(invoice.type) && Number(invoice.outstanding_amount) > 0 && (
+                    {isPostingType(invoice.type) && !invoice.is_opening && invoice.status !== 'CANCELLED' && (
+                        <Button variant="secondary" onClick={cancelDocument}>
+                            <Ban className="w-4 h-4" />
+                            Cancel
+                        </Button>
+                    )}
+                    {isPostingType(invoice.type) && invoice.status !== 'CANCELLED' && Number(invoice.outstanding_amount) > 0 && (
                         <Button onClick={() => { setPaymentForm((f) => ({ ...f, amount: Number(invoice.outstanding_amount ?? invoice.grand_total) })); setShowPaymentModal(true); }}>
                             <IndianRupee className="w-4 h-4" />
                             Record Payment
@@ -174,6 +195,13 @@ export const InvoiceDetail: React.FC = () => {
                     )}
                 </div>
             </div>
+
+            {invoice.status === 'CANCELLED' && (
+                <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+                    <b>Cancelled</b>{invoice.cancelled_at ? ` on ${formatDateTime(invoice.cancelled_at)}` : ''}
+                    {invoice.cancel_reason ? ` — ${invoice.cancel_reason}` : ''}. The number stays used and is reported as cancelled in GSTR-1; nothing is posted to the books.
+                </div>
+            )}
 
             {/* Invoice Header */}
             <div className="card grid grid-cols-1 sm:grid-cols-2 gap-6">

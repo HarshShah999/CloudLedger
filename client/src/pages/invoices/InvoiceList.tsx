@@ -98,7 +98,8 @@ export const InvoiceList: React.FC = () => {
         const styles = {
             PAID: 'bg-green-100 text-green-800',
             PARTIAL: 'bg-yellow-100 text-yellow-800',
-            UNPAID: 'bg-red-100 text-red-800'
+            UNPAID: 'bg-red-100 text-red-800',
+            CANCELLED: 'bg-slate-200 text-slate-600 line-through'
         };
         return (
             <span className={`px-2 py-1 rounded-full text-xs font-medium ${styles[status as keyof typeof styles] || styles.UNPAID}`}>
@@ -247,13 +248,16 @@ export const InvoiceList: React.FC = () => {
                                                     <Edit className="w-4 h-4" />
                                                 </button>
                                                 <ShareMenu appearance="icon" target={{ kind: 'invoice', id: invoice.id, label: invoice.invoice_number }} />
-                                                <button
-                                                    onClick={() => setDeleteConfirm(invoice.id)}
-                                                    className="p-1 text-slate-400 hover:text-red-600 transition-colors"
-                                                    title="Delete Invoice"
-                                                >
-                                                    <Trash2 className="w-4 h-4" />
-                                                </button>
+                                                {/* Issued invoices and notes are cancelled from their page, never deleted */}
+                                                {(!['SALES', 'CREDIT_NOTE', 'DEBIT_NOTE'].includes(invoice.type) || invoice.is_opening) && (
+                                                    <button
+                                                        onClick={() => setDeleteConfirm(invoice.id)}
+                                                        className="p-1 text-slate-400 hover:text-red-600 transition-colors"
+                                                        title="Delete"
+                                                    >
+                                                        <Trash2 className="w-4 h-4" />
+                                                    </button>
+                                                )}
                                             </div>
                                         </td>
                                     </tr>

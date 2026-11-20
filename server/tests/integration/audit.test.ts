@@ -61,11 +61,15 @@ describe('audit trail', () => {
         expect(r.rows.at(-1).user_id).toBe(userId);
     });
 
-    it('records deletions and never stores password hashes', async () => {
-        await api().delete(`/api/invoices/${invoiceId}`).set(auth(token));
-        const del = await pool.query(`SELECT * FROM audit_log WHERE table_name = 'invoices' AND record_id = $1 AND action = 'DELETE'`, [invoiceId]);
+    it('records cancellations and deletions, and never stores password hashes', async () => {
+        // Issued invoices are cancelled, not deleted; the change is in the audit trail
+        expect((await api().delete(`/api/invoices/${invoiceId}`).set(auth(token))).status).toBe(400);
+        expect((await api().post(`/api/invoices/${invoiceId}/cancel`).set(auth(token)).send({ reason: 'Wrong party' })).status).toBe(200);
+        const cancel = await pool.query(`SELECT * FROM audit_log WHERE table_name = 'invoices' AND record_id = $1 AND action = 'UPDATE' ORDER BY id DESC LIMIT 1`, [invoiceId]);
+        expect(cancel.rows[0].new_data).toMatchObject({ status: 'CANCELLED', cancel_reason: 'Wrong party' });
+        // The cancelled invoice's voucher was removed, and that deletion is recorded too
+        const del = await pool.query(`SELECT * FROM audit_log WHERE table_name = 'vouchers' AND action = 'DELETE' AND old_data->>'voucher_number' = 'INV/25-26/0001'`);
         expect(del.rows).toHaveLength(1);
-        expect(del.rows[0].old_data.invoice_number).toBe('INV/25-26/0001');
         const pw = await pool.query(`SELECT COUNT(*)::int n FROM audit_log WHERE old_data ? 'password' OR new_data ? 'password'`);
         expect(pw.rows[0].n).toBe(0);
     });
@@ -86,12 +90,12 @@ describe('audit trail', () => {
     it('serves the log and a grouped document history over the API', async () => {
         const log = await api().get('/api/audit').query({ companyId }).set(auth(token));
         expect(log.status).toBe(200);
-        expect(log.body.data.entries.some((e: any) => e.entity === 'Invoice' && e.action === 'DELETE')).toBe(true);
+        expect(log.body.data.entries.some((e: any) => e.entity === 'Invoice' && e.action === 'UPDATE')).toBe(true);
         expect(log.body.data.entries.every((e: any) => e.table !== 'voucher_entries')).toBe(true);
 
         const hist = await api().get(`/api/audit/record/${invoiceId}`).query({ companyId }).set(auth(token));
-        expect(hist.body.data.history.length).toBe(3); // created, edited, deleted
-        expect(hist.body.data.history[0].changes.some((c: any) => c.action === 'DELETE')).toBe(true);
+        expect(hist.body.data.history.length).toBe(3); // created, edited, cancelled
+        expect(hist.body.data.history[0].changes.some((c: any) => c.new_data?.status === 'CANCELLED' || c.changes?.status || c.action === 'UPDATE')).toBe(true);
         expect(hist.body.data.history[0].user).toBe('Auditor Owner');
     });
 

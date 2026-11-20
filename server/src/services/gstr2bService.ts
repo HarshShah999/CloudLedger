@@ -133,7 +133,7 @@ export const reconcileGstr2b = async (companyId: string, period: string) => {
                     COALESCE(SUM(ii.cgst_amount), 0) AS cgst, COALESCE(SUM(ii.sgst_amount), 0) AS sgst
              FROM invoices i JOIN ledgers l ON l.id = i.party_ledger_id
              LEFT JOIN invoice_items ii ON ii.invoice_id = i.id
-             WHERE i.company_id = $1 AND i.type = 'PURCHASE' AND NOT i.is_opening AND l.gstin IS NOT NULL AND l.gstin <> ''
+             WHERE i.company_id = $1 AND i.type = 'PURCHASE' AND NOT i.is_opening AND COALESCE(i.status, '') <> 'CANCELLED' AND l.gstin IS NOT NULL AND l.gstin <> ''
                AND i.date BETWEEN ($2::date - interval '12 months') AND $3::date
              GROUP BY i.id, l.gstin, l.name`,
             [companyId, monthStart, monthEnd]

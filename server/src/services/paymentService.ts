@@ -71,6 +71,7 @@ export const resolveDepositLedger = async (
  */
 export const createPayment = async (db: Queryable, companyId: string, input: PaymentInput) => {
     const inv = (await db.query('SELECT * FROM invoices WHERE id = $1 AND company_id = $2', [input.invoiceId, companyId])).rows[0];
+    if (inv?.status === 'CANCELLED') throw new AppError('This invoice is cancelled', 400);
     if (!inv) throw new AppError('Invoice not found', 404);
     const direction = SETTLES.RECEIPT.includes(inv.type) ? 'RECEIPT' : SETTLES.PAYMENT.includes(inv.type) ? 'PAYMENT' : null;
     if (!direction) throw new AppError('Payments can only be recorded against invoices, bills and notes', 400);

@@ -4,7 +4,7 @@ import { requireCompany, requireResource } from '../middleware/companyAccess';
 import Joi from 'joi';
 import { validate, createInvoiceSchema, updateInvoiceSchema, emailSchema, isoDate, uuid } from '../middleware/validate';
 import {
-    createInvoice, getInvoices, getInvoiceById, updateInvoice, deleteInvoice,
+    createInvoice, getInvoices, getInvoiceById, updateInvoice, deleteInvoice, cancelInvoice,
     downloadInvoicePDF, sendInvoiceEmail, getNextNumber,
     createInvoiceShare, revokeInvoiceShares, logInvoiceShare, getInvoiceCommunications,
     convertInvoice, updateDocumentStatus,
@@ -23,6 +23,7 @@ router.post('/ewaybill/bulk', validate(Joi.object({ companyId: uuid().required()
 router.get('/:id', requireResource('invoices', 'viewer'), getInvoiceById);
 router.put('/:id', validate(updateInvoiceSchema), requireResource('invoices', 'accountant'), updateInvoice);
 router.delete('/:id', requireResource('invoices', 'accountant'), deleteInvoice);
+router.post('/:id/cancel', validate(Joi.object({ companyId: uuid(), reason: Joi.string().trim().max(255).allow('', null) })), requireResource('invoices', 'accountant'), cancelInvoice);
 router.get('/:id/pdf', requireResource('invoices', 'viewer'), downloadInvoicePDF);
 router.post('/:id/email', validate(emailSchema), requireResource('invoices', 'viewer'), sendInvoiceEmail);
 router.post('/:id/share', requireResource('invoices', 'viewer'), createInvoiceShare);

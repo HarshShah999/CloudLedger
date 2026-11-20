@@ -369,6 +369,7 @@ export const updateInvoice = async (db: Queryable, companyId: string, id: string
     if (existing.is_opening) {
         throw new AppError('Opening bills brought forward cannot be edited. Delete it and enter it again if it is wrong.', 400);
     }
+    if (existing.status === 'CANCELLED') throw new AppError('A cancelled invoice cannot be edited', 400);
 
     const paid = await db.query('SELECT COUNT(*)::int AS n FROM payments WHERE invoice_id = $1', [id]);
     if (paid.rows[0].n > 0) throw new AppError('Cannot edit an invoice that has payments. Delete the payments first.', 400);
@@ -437,9 +438,41 @@ export const updateInvoice = async (db: Queryable, companyId: string, id: string
     return inv;
 };
 
+/** Documents we issue with our own GST number series: cancel them, never delete. */
+const ISSUED_TYPES = ['SALES', 'CREDIT_NOTE', 'DEBIT_NOTE'];
+
+/**
+ * Cancels an issued invoice: the number stays used (and is reported as cancelled
+ * in GSTR-1), the accounting voucher and stock movement are reversed, and it no
+ * longer counts as outstanding.
+ */
+export const cancelInvoice = async (db: Queryable, companyId: string, id: string, reason?: string | null) => {
+    const existing = await loadInvoice(db, companyId, id);
+    if (!isPosting(existing.type)) throw new AppError('Quotations and orders are declined or closed, not cancelled', 400);
+    if (existing.is_opening) throw new AppError('Opening bills can simply be deleted', 400);
+    if (existing.status === 'CANCELLED') throw new AppError('This invoice is already cancelled', 400);
+    const paid = await db.query('SELECT COUNT(*)::int AS n FROM payments WHERE invoice_id = $1', [id]);
+    if (paid.rows[0].n > 0) throw new AppError('Remove the receipts/payments settled against this invoice first', 400);
+    await assertPeriodOpen(db, companyId, existing.date);
+    assertNoActiveIrn(existing);
+
+    await db.query(
+        `UPDATE invoices SET status = 'CANCELLED', voucher_id = NULL, paid_amount = 0, outstanding_amount = 0,
+                payment_status = 'CANCELLED', cancelled_at = now(), cancel_reason = $2
+         WHERE id = $1`,
+        [id, reason?.trim().slice(0, 255) || null]
+    );
+    if (existing.voucher_id) await removeVoucher(db, companyId, existing.voucher_id);
+    await syncInvoiceStock(db, id);
+    return (await db.query('SELECT * FROM invoices WHERE id = $1', [id])).rows[0];
+};
+
 /** Deletes an invoice, its voucher and reverses stock. Not allowed once payments exist. */
 export const deleteInvoice = async (db: Queryable, companyId: string, id: string) => {
     const existing = await loadInvoice(db, companyId, id);
+    if (ISSUED_TYPES.includes(existing.type) && !existing.is_opening) {
+        throw new AppError('Issued invoices and notes cannot be deleted, so the GST number series stays complete. Cancel it instead.', 400);
+    }
     const paid = await db.query('SELECT COUNT(*)::int AS n FROM payments WHERE invoice_id = $1', [id]);
     if (paid.rows[0].n > 0) throw new AppError('Cannot delete an invoice that has payments. Delete the payments first.', 400);
     await assertPeriodOpen(db, companyId, existing.date);

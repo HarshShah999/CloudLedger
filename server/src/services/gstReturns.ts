@@ -56,7 +56,7 @@ const loadDocs = async (companyId: string, from: string, to: string, types: stri
              FROM invoices i
              JOIN ledgers l ON l.id = i.party_ledger_id
              JOIN companies c ON c.id = i.company_id
-             WHERE i.company_id = $1 AND i.type = ANY($2) AND i.date BETWEEN $3 AND $4 AND NOT i.is_opening
+             WHERE i.company_id = $1 AND i.type = ANY($2) AND i.date BETWEEN $3 AND $4 AND NOT i.is_opening AND COALESCE(i.status, '') <> 'CANCELLED'
              ORDER BY i.date, i.invoice_number`,
             [companyId, types, from, to]
         )
@@ -207,11 +207,22 @@ export const buildGstr1 = async (companyId: string, from: string, to: string) =>
             txval: r2(h.txval), iamt: r2(h.iamt), camt: r2(h.camt), samt: r2(h.samt), csamt: 0,
         }));
 
-    // Table 13: documents issued
+    // Table 13: documents issued, including cancelled ones (the series must be complete)
+    const cancelled = (
+        await query(
+            `SELECT type, invoice_number, date FROM invoices
+             WHERE company_id = $1 AND type IN ('SALES', 'CREDIT_NOTE') AND status = 'CANCELLED' AND date BETWEEN $2 AND $3`,
+            [companyId, from, to]
+        )
+    ).rows;
     const docIssue = (type: string, docNum: number) => {
-        const list = docs.filter((d) => d.type === type).map((d) => d.invoice_number);
-        if (!list.length) return null;
-        return { doc_num: docNum, docs: [{ num: 1, from: list[0], to: list[list.length - 1], totnum: list.length, cancel: 0, net_issue: list.length }] };
+        const all = [
+            ...docs.filter((d) => d.type === type).map((d) => ({ n: d.invoice_number, d: String(d.date).slice(0, 10) })),
+            ...cancelled.filter((c) => c.type === type).map((c) => ({ n: c.invoice_number, d: String(c.date).slice(0, 10) })),
+        ].sort((a, b) => a.d.localeCompare(b.d) || a.n.localeCompare(b.n, undefined, { numeric: true }));
+        if (!all.length) return null;
+        const cancel = cancelled.filter((c) => c.type === type).length;
+        return { doc_num: docNum, docs: [{ num: 1, from: all[0].n, to: all[all.length - 1].n, totnum: all.length, cancel, net_issue: all.length - cancel }] };
     };
 
     const json: Record<string, unknown> = { gstin: company.gstin, fp: returnPeriod(to) };
@@ -343,7 +354,7 @@ export const tdsRegister = async (companyId: string, from: string, to: string) =
             `SELECT i.id, i.invoice_number, i.date, i.tds_section, i.tds_rate, i.tds_amount, i.subtotal,
                     l.name AS party_name, COALESCE(l.pan, substring(l.gstin from 3 for 10)) AS party_pan
              FROM invoices i JOIN ledgers l ON l.id = i.party_ledger_id
-             WHERE i.company_id = $1 AND i.tds_amount > 0 AND i.date BETWEEN $2 AND $3
+             WHERE i.company_id = $1 AND i.tds_amount > 0 AND i.date BETWEEN $2 AND $3 AND COALESCE(i.status, '') <> 'CANCELLED'
              ORDER BY i.tds_section, i.date`,
             [companyId, from, to]
         )

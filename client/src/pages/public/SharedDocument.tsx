@@ -108,7 +108,8 @@ export const SharedDocument: React.FC = () => {
 
 const InvoiceBody: React.FC<{ doc: any }> = ({ doc }) => {
     const t = doc.totals;
-    const paid = t.balance <= 0;
+    const cancelled = !!doc.invoice?.cancelled;
+    const paid = t.balance <= 0 && !cancelled;
     return (
         <>
             <div className="grid gap-4 border-b border-slate-200 p-5 sm:grid-cols-2">
@@ -119,8 +120,10 @@ const InvoiceBody: React.FC<{ doc: any }> = ({ doc }) => {
                     {doc.party.gstin && <p className="text-xs text-slate-500">GSTIN {doc.party.gstin}</p>}
                 </div>
                 <div className="sm:text-right">
-                    <p className="text-xs font-semibold uppercase text-slate-400">{paid ? 'Status' : 'Amount due'}</p>
-                    {paid ? (
+                    <p className="text-xs font-semibold uppercase text-slate-400">{paid || cancelled ? 'Status' : 'Amount due'}</p>
+                    {cancelled ? (
+                        <p className="font-semibold text-red-600">Cancelled: nothing is due</p>
+                    ) : paid ? (
                         <p className="inline-flex items-center gap-1 font-semibold text-green-600">
                             <CheckCircle2 className="h-5 w-5" /> Paid in full
                         </p>
@@ -192,7 +195,7 @@ const InvoiceBody: React.FC<{ doc: any }> = ({ doc }) => {
             </div>
 
             {/* Payment */}
-            {!paid && (doc.upi || doc.company.bank) && (
+            {!paid && !cancelled && (doc.upi || doc.company.bank) && (
                 <div className="grid gap-5 border-t border-slate-200 bg-slate-50 p-5 sm:grid-cols-2">
                     {doc.upi && (
                         <div className="flex flex-col items-center text-center">

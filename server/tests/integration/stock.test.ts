@@ -78,7 +78,9 @@ describe('Stock valuation (weighted average)', () => {
             items: [{ itemId, quantity: 30, rate: 20, taxRate: 0 }],
         });
         expect(await qty()).toBe(110);
-        await api().delete(`/api/invoices/${sale.body.data.invoice.id}`).set(auth(token)).query({ companyId });
+        // Sales invoices are cancelled, not deleted; cancelling returns the stock
+        expect((await api().delete(`/api/invoices/${sale.body.data.invoice.id}`).set(auth(token))).status).toBe(400);
+        expect((await api().post(`/api/invoices/${sale.body.data.invoice.id}/cancel`).set(auth(token)).send({})).status).toBe(200);
         expect(await qty()).toBe(140);
         // Quotations never move stock
         await doc('QUOTATION', '2025-06-02', 500, 20);

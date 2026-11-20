@@ -414,7 +414,7 @@ const linkReceipt = async (ctx: Ctx, v: any, ref: string, date: string, voucherI
                 await ctx.db.query(
                     `SELECT i.id, i.grand_total - i.tds_amount - COALESCE((SELECT SUM(p.amount) FROM payments p WHERE p.invoice_id = i.id), 0) AS outstanding
                      FROM invoices i
-                     WHERE i.company_id = $1 AND i.party_ledger_id = $2 AND i.type = ANY($3)
+                     WHERE i.company_id = $1 AND i.party_ledger_id = $2 AND i.type = ANY($3) AND COALESCE(i.status, '') <> 'CANCELLED'
                        AND (lower(i.bill_ref) = lower($4) OR lower(i.invoice_number) = lower($4))
                      ORDER BY i.date LIMIT 1`,
                     [ctx.companyId, party.info.id, SETTLES[direction], name]

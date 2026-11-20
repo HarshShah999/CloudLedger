@@ -26,7 +26,7 @@ const dueInvoices = async (companyId: string, offsets: number[], today: string) 
                     i.grand_total - i.tds_amount - COALESCE((SELECT SUM(p.amount) FROM payments p WHERE p.invoice_id = i.id), 0) AS outstanding,
                     l.name AS party_name, l.email AS party_email, l.phone AS party_phone
              FROM invoices i JOIN ledgers l ON l.id = i.party_ledger_id
-             WHERE i.company_id = $1 AND i.type = 'SALES'
+             WHERE i.company_id = $1 AND i.type = 'SALES' AND COALESCE(i.status, '') <> 'CANCELLED'
                AND ($2::date - COALESCE(i.due_date, i.date)) = ANY($3::int[])`,
             [companyId, today, offsets]
         )

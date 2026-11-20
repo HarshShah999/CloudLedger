@@ -54,6 +54,7 @@ export const getDashboardStats = async (req: Request, res: Response, next: NextF
              WHERE company_id = $1 
              AND type IN ('SALES', 'PURCHASE')
              AND NOT is_opening
+             AND COALESCE(status, '') <> 'CANCELLED'
              AND date >= date_trunc('month', CURRENT_DATE) - INTERVAL '5 months'
              AND date < date_trunc('month', CURRENT_DATE) + INTERVAL '1 month'
              GROUP BY TO_CHAR(date, 'Mon'), EXTRACT(MONTH FROM date), EXTRACT(YEAR FROM date), type

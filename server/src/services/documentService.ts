@@ -157,7 +157,7 @@ export const loadInvoiceDocument = async (invoiceId: string): Promise<InvoiceDoc
             paid,
             balance,
         },
-        title: DOC_TITLES[invoice.type] || 'Invoice',
+        title: (DOC_TITLES[invoice.type] || 'Invoice') + (invoice.status === 'CANCELLED' ? ' (Cancelled)' : ''),
         amountInWords: amountInWords(grandTotal),
         isInterState: igst > 0,
         upiLink: receivable ? upiLink(company, balance, `${DOC_SHORT[invoice.type]} ${invoice.invoice_number}`) : null,
