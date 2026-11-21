@@ -35,7 +35,7 @@ describe('Forgot password', () => {
         const unknown = await api().post('/api/auth/forgot-password').send({ email: 'nobody@example.com' });
         expect(unknown.status).toBe(200);
         expect(unknown.body).toEqual(known.body);
-        await mailTo(owner.email, /Reset your CloudLedger password/, before);
+        await mailTo(owner.email, /Reset your Taalmel password/, before);
         await new Promise((r) => setTimeout(r, 100));
         expect(capturedMail.slice(before).some((m) => m.to === 'nobody@example.com')).toBe(false);
     });
@@ -46,7 +46,7 @@ describe('Forgot password', () => {
         expect(session.status).toBe(200);
 
         await api().post('/api/auth/forgot-password').send({ email: memberEmail.toUpperCase() });
-        const mail = await mailTo(memberEmail, /Reset your CloudLedger password/, before);
+        const mail = await mailTo(memberEmail, /Reset your Taalmel password/, before);
         expect(mail.html).toContain('Set a new password');
         expect(mail.text).toMatch(/expires in 30 minutes/);
         const token = tokenFrom(mail);

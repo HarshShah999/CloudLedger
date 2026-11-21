@@ -54,7 +54,7 @@ describe('Error alerts', () => {
             await new Promise((r) => setTimeout(r, 300));
             expect(received).toHaveLength(1);
             expect(received[0]).toMatchObject({ error: 'Disk is full', job: 'backup' });
-            expect(received[0].text).toMatch(/CloudLedger error on .*: Disk is full/);
+            expect(received[0].text).toMatch(/Taalmel error on .*: Disk is full/);
         } finally {
             delete process.env.ERROR_WEBHOOK_URL;
             server.close();

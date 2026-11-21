@@ -1,10 +1,10 @@
 /*
- * CloudLedger service worker.
+ * Taalmel service worker.
  * - Makes the app installable and opens instantly (app shell + hashed assets are cached).
  * - Never caches API responses: accounting data always comes fresh from the server.
  * - When offline, page loads fall back to the cached app shell.
  */
-const VERSION = 'cl-v1';
+const VERSION = 'taalmel-v2'; // new name and icons: replace the old cache
 const SHELL = ['/', '/index.html', '/manifest.webmanifest', '/icons/icon-192.png', '/icons/icon-512.png'];
 
 self.addEventListener('install', (event) => {

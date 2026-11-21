@@ -22,7 +22,7 @@ const sha256 = (s: string) => crypto.createHash('sha256').update(s).digest('hex'
 
 const emailHtml = (paragraphs: string[], button?: { href: string; label: string }) => `
 <div style="font-family:Arial,sans-serif;max-width:520px;margin:auto;color:#0f172a;line-height:1.5">
-  <h2 style="color:#4338ca;margin-bottom:16px">CloudLedger</h2>
+  <h2 style="margin:0 0 16px;font-size:24px;letter-spacing:-0.5px;color:#1e1b4b">taal<span style="color:#4f46e5">mel</span></h2>
   ${paragraphs.map((p) => `<p>${p}</p>`).join('')}
   ${button ? `<p style="margin:24px 0"><a href="${escapeHtml(button.href)}" style="background:#4f46e5;color:#fff;padding:12px 20px;border-radius:8px;text-decoration:none;font-weight:bold">${escapeHtml(button.label)}</a></p>
   <p style="font-size:12px;color:#64748b">If the button does not work, copy this link into your browser:<br>${escapeHtml(button.href)}</p>` : ''}
@@ -47,15 +47,15 @@ const issueLink = async (user: { id: string; name: string; email: string }, opts
     });
     const link = `${publicAppUrl()}/reset-password?token=${token}`;
     const introText = opts.requestedBy
-        ? `${opts.requestedBy.name}, an admin of your company, sent you a link to set a new CloudLedger password.`
-        : 'We received a request to reset the password for your CloudLedger account.';
+        ? `${opts.requestedBy.name}, an admin of your company, sent you a link to set a new Taalmel password.`
+        : 'We received a request to reset the password for your Taalmel account.';
     const intro = escapeHtml(introText);
     const text =
         `Hello ${user.name},\n\n${introText}\n\nSet a new password: ${link}\n\n` +
         `The link works once and expires in ${LINK_MINUTES} minutes. If you did not ask for this, ignore this email; your password stays the same.`;
     await sendMail({
         to: user.email,
-        subject: 'Reset your CloudLedger password',
+        subject: 'Reset your Taalmel password',
         text,
         html: emailHtml(
             [
@@ -135,11 +135,11 @@ export const resetPassword = async (token: string, newPassword: string) => {
     await revokeUserSessions(user.id, null, 'password reset');
     sendMail({
         to: user.email,
-        subject: 'Your CloudLedger password was changed',
-        text: `Hello ${user.name},\n\nThe password for your CloudLedger account was just changed and you were signed out on all devices.\n\nIf this was not you, reset your password again right away and tell your company admin.`,
+        subject: 'Your Taalmel password was changed',
+        text: `Hello ${user.name},\n\nThe password for your Taalmel account was just changed and you were signed out on all devices.\n\nIf this was not you, reset your password again right away and tell your company admin.`,
         html: emailHtml([
             `Hello ${escapeHtml(user.name)},`,
-            'The password for your CloudLedger account was just changed, and you were signed out on all devices.',
+            'The password for your Taalmel account was just changed, and you were signed out on all devices.',
             '<b>If this was not you</b>, reset your password again right away and tell your company admin.',
         ]),
     }).catch((err) => logger.error({ err, userId: user.id }, 'Could not send password-changed notice'));

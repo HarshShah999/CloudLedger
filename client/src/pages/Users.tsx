@@ -242,7 +242,7 @@ export const Users: React.FC = () => {
                                         required
                                     />
                                     <p className="text-xs text-slate-500 -mt-2">
-                                        If this person already has a CloudLedger login they are simply added. Otherwise fill in the name and an initial password.
+                                        If this person already has a Taalmel login they are simply added. Otherwise fill in the name and an initial password.
                                     </p>
                                     <Input
                                         label="Full Name"

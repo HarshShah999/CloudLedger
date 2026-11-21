@@ -23,7 +23,7 @@ export const reportError = (err: unknown, context: Record<string, unknown> = {})
     if ((recent.get(key) ?? 0) > now - THROTTLE_MS) return;
     recent.set(key, now);
 
-    const summary = `CloudLedger error on ${os.hostname()}: ${e.message}`;
+    const summary = `Taalmel error on ${os.hostname()}: ${e.message}`;
     fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

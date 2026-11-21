@@ -40,7 +40,7 @@ export interface MailInput {
 }
 
 export const sendMail = async (m: MailInput) => {
-    const from = process.env.SMTP_FROM || process.env.SMTP_USER || 'noreply@cloudledger.local';
+    const from = process.env.SMTP_FROM || process.env.SMTP_USER || 'noreply@taalmelbooks.in';
     if (process.env.MAIL_TRANSPORT === 'json') capturedMail.push(m);
     await getTransporter().sendMail({
         from: m.fromName ? `"${m.fromName.replace(/"/g, '')}" <${from}>` : from,

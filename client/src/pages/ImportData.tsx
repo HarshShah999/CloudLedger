@@ -113,7 +113,7 @@ export const ImportData: React.FC = () => {
 
     const template = async () => {
         try {
-            saveBlob(await fetchBlob(`/import/excel/${tab}/template`), `cloudledger-${tab}-template.xlsx`);
+            saveBlob(await fetchBlob(`/import/excel/${tab}/template`), `taalmel-${tab}-template.xlsx`);
         } catch (e) {
             notify.error(apiError(e, 'Could not download the template'));
         }

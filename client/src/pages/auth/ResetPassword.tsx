@@ -4,6 +4,7 @@ import { CheckCircle2, LinkIcon } from 'lucide-react';
 import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
 import api, { apiError } from '../../api/axios';
+import { Logo } from '../../components/Logo';
 
 /** Step 2: the page the emailed link opens. Sets a new password with a one-time token. */
 export const ResetPassword: React.FC = () => {
@@ -86,7 +87,7 @@ export const ResetPassword: React.FC = () => {
         <div className="flex min-h-screen items-center justify-center bg-background p-4">
             <div className="w-full max-w-md">
                 <div className="mb-8 text-center">
-                    <h1 className="text-3xl font-bold text-primary">CloudLedger</h1>
+                    <h1 className="inline-flex justify-center"><Logo size={48} textClassName="text-4xl" /></h1>
                 </div>
                 {body}
             </div>

@@ -230,7 +230,7 @@ const recordInvoice = async (
         }
         else accountLines.push(l);
     }
-    if (heads.CESS) return 'it has GST cess, which CloudLedger does not support yet';
+    if (heads.CESS) return 'it has GST cess, which Taalmel does not support yet';
     if (heads.CGST < 0 || heads.SGST < 0 || heads.IGST < 0) return 'its GST entries are reversed';
     if (heads.IGST && (heads.CGST || heads.SGST)) return 'it has both IGST and CGST/SGST';
     if (heads.CGST !== heads.SGST && Math.abs(heads.CGST - heads.SGST) > 1) return 'its CGST and SGST differ';
