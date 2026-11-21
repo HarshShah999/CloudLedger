@@ -75,7 +75,7 @@ app.get('/api/health', async (_req, res) => {
 });
 
 // Only credential endpoints are rate-limited; /auth/me runs on every page load.
-app.use(['/api/auth/login', '/api/auth/register'], authLimiter);
+app.use(['/api/auth/login', '/api/auth/register', '/api/auth/forgot-password', '/api/auth/reset-password'], authLimiter);
 app.use('/api/auth', authRoutes);
 app.use('/api/companies', companyRoutes);
 app.use('/api/ledgers', ledgerRoutes);

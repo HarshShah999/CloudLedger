@@ -7,6 +7,8 @@ import { AuditTrail } from './pages/AuditTrail';
 import { DOC_TYPES } from './lib/docTypes';
 import { ReceiptsPayments } from './pages/banking/ReceiptsPayments';
 import { ImportData } from './pages/ImportData';
+import { ForgotPassword } from './pages/auth/ForgotPassword';
+import { ResetPassword } from './pages/auth/ResetPassword';
 import { StockSummary } from './pages/reports/StockSummary';
 import { Ageing } from './pages/reports/Ageing';
 import { DayBook } from './pages/reports/DayBook';
@@ -52,7 +54,9 @@ function App() {
                     <Route element={<AuthLayout />}>
                         <Route path="/login" element={<Login />} />
                         <Route path="/register" element={<Register />} />
+                        <Route path="/forgot-password" element={<ForgotPassword />} />
                     </Route>
+                    <Route path="/reset-password" element={<ResetPassword />} />
 
                     <Route element={<MainLayout />}>
                         <Route path="/" element={<Dashboard />} />

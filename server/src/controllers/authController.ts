@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { authenticate, getUser, publicUser, registerAccount } from '../services/userService';
 import { AppError } from '../middleware/errorHandler';
 import { requireCsrfHeader } from '../middleware/auth';
+import { checkResetLink, requestPasswordReset, resetPassword } from '../services/passwordResetService';
 import {
     clearAuthCookies, refreshSession, revokeSession, revokeUserSessions, sessionFromRefreshCookie, startSession,
 } from '../services/sessionService';
@@ -57,4 +58,22 @@ export const logoutAll = async (req: Request, res: Response, next: NextFunction)
     } catch (error) {
         next(error);
     }
+};
+
+/** POST /api/auth/forgot-password { email } — same answer whether or not the account exists. */
+export const forgotPassword = async (req: Request, res: Response) => {
+    await requestPasswordReset(req.body.email, req.ip);
+    res.json({ status: 'success', message: 'If this email is registered, we have sent a link to reset the password. It expires in 30 minutes.' });
+};
+
+/** GET /api/auth/reset-password/:token — whether a reset link can still be used. */
+export const getResetLink = async (req: Request, res: Response) => {
+    res.json({ status: 'success', data: await checkResetLink(String(req.params.token)) });
+};
+
+/** POST /api/auth/reset-password { token, password } */
+export const postResetPassword = async (req: Request, res: Response) => {
+    await resetPassword(req.body.token, req.body.password);
+    clearAuthCookies(res);
+    res.json({ status: 'success', message: 'Your password has been changed. Please sign in with the new password.' });
 };

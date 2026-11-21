@@ -52,6 +52,11 @@ export const Login: React.FC = () => {
                     required
                     placeholder="••••••••"
                 />
+                <div className="-mt-2 text-right">
+                    <Link to="/forgot-password" className="text-sm font-medium text-primary hover:underline">
+                        Forgot password?
+                    </Link>
+                </div>
                 <Button type="submit" className="w-full" isLoading={isLoading}>
                     Sign In
                 </Button>
