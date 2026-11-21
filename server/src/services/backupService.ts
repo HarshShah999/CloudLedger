@@ -41,7 +41,11 @@ const findPostgresBinary = (binaryName: 'pg_dump' | 'psql'): string => {
 /** Runs a PostgreSQL tool without a shell (arguments are never interpreted as commands). */
 const runPgTool = async (binary: 'pg_dump' | 'psql', args: string[]) => {
     try {
-        await execFileAsync(findPostgresBinary(binary), ['-h', DB_HOST, '-p', String(DB_PORT), '-U', DB_USER, ...args], {
+        // DATABASE_URL (hosted databases) or the separate DB_* settings
+        const conn = process.env.DATABASE_URL
+            ? [`--dbname=${process.env.DATABASE_URL}`]
+            : ['-h', DB_HOST, '-p', String(DB_PORT), '-U', DB_USER, '-d', DB_NAME];
+        await execFileAsync(findPostgresBinary(binary), [...conn, ...args], {
             env: { ...process.env, PGPASSWORD: DB_PASSWORD },
             maxBuffer: 64 * 1024 * 1024,
         });
@@ -81,7 +85,7 @@ export const createFullBackup = async (): Promise<{ filename: string; filepath: 
         await fs.mkdir(FULL_BACKUP_DIR, { recursive: true });
         // Plain SQL that drops and recreates each object, so it can be restored into
         // the existing database without dropping the database itself
-        await runPgTool('pg_dump', ['-d', DB_NAME, '-F', 'p', '--clean', '--if-exists', '--no-owner', '--no-privileges', '-f', sqlFilepath]);
+        await runPgTool('pg_dump', ['-F', 'p', '--clean', '--if-exists', '--no-owner', '--no-privileges', '-f', sqlFilepath]);
 
         // Check if SQL file was created
         try {
@@ -201,7 +205,7 @@ export const restoreFromBackup = async (filepath: string): Promise<void> => {
         }
 
         // One transaction: if anything fails, the database is left exactly as it was
-        await runPgTool('psql', ['-d', DB_NAME, '-v', 'ON_ERROR_STOP=1', '--single-transaction', '-q', '-f', sqlFilepath]);
+        await runPgTool('psql', ['-v', 'ON_ERROR_STOP=1', '--single-transaction', '-q', '-f', sqlFilepath]);
 
         // Clean up temp files
         for (const file of cleanupFiles) {

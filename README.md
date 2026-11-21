@@ -73,6 +73,26 @@ Cloud accounting for Indian businesses: double-entry books, GST invoicing, payme
 - **Forgot password**: a one-time email link (expires in 30 minutes) from the sign-in page; company admins can also email a member a reset link from Users. Needs SMTP configured (see `server/.env.example`).
 - Bank reconciliation, email invoices with PDF, company export/import and full database backups with one-step restore.
 
+## Try it on your computer (Docker)
+
+Needs only [Docker Desktop](https://www.docker.com/products/docker-desktop/) (Windows, Mac or Linux).
+
+1. Download this project: on GitHub, **Code → Download ZIP** and unzip it (or `git clone` it).
+2. Open a terminal (Windows: PowerShell) in the project folder and run:
+
+   ```bash
+   docker compose up --build
+   ```
+
+   The first run takes 5–10 minutes (it downloads and builds everything). Wait for the line **"Demo ready"**.
+3. Open **http://localhost:5173** and sign in with **demo@taalmelbooks.in / demo1234**.
+
+You get a demo company, *Patel Traders*, with six months of sales, purchases, receipts, stock and GST data. Emails the app sends (invoices, reminders, password resets) are not delivered to real people: they appear in a local mailbox at **http://localhost:8025**. Two sample Tally files to try on the Import page are in the `demo/` folder.
+
+- Stop: press `Ctrl+C` (or `docker compose down`). Your data is kept and comes back on the next `docker compose up`.
+- Start over with fresh demo data: `docker compose down -v`, then `docker compose up --build`.
+- Ports 5173, 8000 and 8025 must be free. This setup is for trying the app on your own computer only.
+
 ## Tech Stack
 
 - **Frontend**: React 18, TypeScript, Vite, Tailwind CSS, Chart.js

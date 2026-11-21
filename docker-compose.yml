@@ -1,0 +1,92 @@
+# Taalmel on your own computer: database, API, web app, a test mailbox and demo data.
+#
+#   docker compose up --build
+#
+# Then open http://localhost:5173 and sign in with demo@taalmelbooks.in / demo1234.
+# Emails the app sends (invoices, reminders, password resets) appear at http://localhost:8025.
+# Stop with Ctrl+C. Your data is kept in a Docker volume; `docker compose down -v` deletes it.
+#
+# For local use only: the passwords below are not secret. Never expose these ports to the internet.
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: taalmel
+      POSTGRES_PASSWORD: taalmel-local
+      POSTGRES_DB: taalmel
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U taalmel -d taalmel"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  mail:
+    image: axllent/mailpit:v1.21
+    environment:
+      MP_SMTP_AUTH_ACCEPT_ANY: "1"
+      MP_SMTP_AUTH_ALLOW_INSECURE: "1"
+    ports:
+      - "8025:8025"
+    restart: unless-stopped
+
+  api:
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: "8000"
+      TZ: Asia/Kolkata
+      DB_HOST: db
+      DB_PORT: "5432"
+      DB_USER: taalmel
+      DB_PASSWORD: taalmel-local
+      DB_NAME: taalmel
+      CLIENT_URL: http://localhost:5173
+      PUBLIC_APP_URL: http://localhost:5173
+      JWT_SECRET: local-demo-secret-change-me-0123456789abcdef0123456789
+      # Plain http on your own computer, so cookies must not require https
+      COOKIE_SECURE: "false"
+      SMTP_HOST: mail
+      SMTP_PORT: "1025"
+      SMTP_USER: demo
+      SMTP_PASSWORD: demo
+      SMTP_FROM: noreply@taalmelbooks.in
+      BACKUP_AUTO_ENABLED: "false"
+      LOG_LEVEL: warn
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+
+  web:
+    build:
+      context: client
+      args:
+        VITE_API_URL: http://localhost:8000/api
+    depends_on:
+      - api
+    ports:
+      - "5173:80"
+    restart: unless-stopped
+
+  demo-data:
+    image: node:22-alpine
+    depends_on:
+      api:
+        condition: service_healthy
+    environment:
+      API_URL: http://api:8000/api
+    volumes:
+      - ./demo:/demo:ro
+    command: ["node", "/demo/seed.mjs"]
+    restart: "no"
+
+volumes:
+  db-data:

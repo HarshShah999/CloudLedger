@@ -5,12 +5,28 @@ import { logger } from './logger';
 
 dotenv.config();
 
+/**
+ * Connection settings: DATABASE_URL (hosted databases such as Neon, Supabase,
+ * DigitalOcean) or the separate DB_* variables (local development).
+ * SSL is used when DB_SSL=true or the URL says sslmode=require; set
+ * DB_SSL_REJECT_UNAUTHORIZED=false only for providers with a private certificate authority.
+ */
+const connectionUrl = process.env.DATABASE_URL;
+const wantsSsl = process.env.DB_SSL === 'true' || /sslmode=(require|verify-ca|verify-full)/.test(connectionUrl || '');
+const ssl = wantsSsl ? { rejectUnauthorized: process.env.DB_SSL_REJECT_UNAUTHORIZED !== 'false' } : undefined;
+
 const pool = new Pool({
-    user: process.env.DB_USER,
-    password: process.env.DB_PASSWORD,
-    host: process.env.DB_HOST,
-    port: parseInt(process.env.DB_PORT || '5432'),
-    database: process.env.DB_NAME,
+    ...(connectionUrl
+        ? // sslmode in the URL would override the ssl option below, so it is taken out
+          { connectionString: connectionUrl.replace(/([?&])sslmode=[^&]*&?/, '$1').replace(/[?&]$/, '') }
+        : {
+              user: process.env.DB_USER,
+              password: process.env.DB_PASSWORD,
+              host: process.env.DB_HOST,
+              port: parseInt(process.env.DB_PORT || '5432'),
+              database: process.env.DB_NAME,
+          }),
+    ssl,
     max: Number(process.env.DB_POOL_SIZE) || 10,
 });
 
