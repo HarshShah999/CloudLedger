@@ -6,7 +6,7 @@ import { validate, gstin, isoDate, addMemberSchema, updateMemberSchema, uuid } f
 import {
     createCompany, getCompanies, getCompany, updateCompany, uploadCompanyAsset, removeCompanyAsset, getCompanyAsset,
 } from '../controllers/companyController';
-import { listMembers, addMember, updateMember, removeMember } from '../controllers/userController';
+import { listMembers, addMember, updateMember, removeMember, sendMemberPasswordReset } from '../controllers/userController';
 
 const router = express.Router();
 
@@ -81,5 +81,6 @@ router.get('/:companyId/members', requireCompany('viewer'), listMembers);
 router.post('/:companyId/members', validate(addMemberSchema), requireCompany('admin'), addMember);
 router.put('/:companyId/members/:userId', validate(updateMemberSchema), requireCompany('admin'), updateMember);
 router.delete('/:companyId/members/:userId', requireCompany('admin'), removeMember);
+router.post('/:companyId/members/:userId/password-reset', validate(Joi.object({ companyId: uuid() })), requireCompany('admin'), sendMemberPasswordReset);
 
 export default router;

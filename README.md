@@ -66,6 +66,7 @@ Cloud accounting for Indian businesses: double-entry books, GST invoicing, payme
 - **Cancel, don't delete**: issued invoices and notes are cancelled (number kept, books and stock reversed, reported as cancelled in GSTR-1) instead of deleted.
 - **The database guards the books**: every voucher must balance (checked at commit, even for direct database writes), names are unique per company, and every record belongs to a company.
 - **Secure sign-in**: sessions in httpOnly cookies with short-lived access tokens and rotating refresh tokens; logout and password changes take effect at once.
+- **Forgot password**: a one-time email link (expires in 30 minutes) from the sign-in page; company admins can also email a member a reset link from Users. Needs SMTP configured (see `server/.env.example`).
 - Bank reconciliation, email invoices with PDF, company export/import and full database backups with one-step restore.
 
 ## Tech Stack

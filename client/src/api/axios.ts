@@ -33,7 +33,7 @@ const refreshSession = () => {
 };
 
 const isAuthCall = (url = '') => /\/auth\/(login|register|refresh|logout)/.test(url);
-const onPublicPage = () => /^\/(v\/|login|register)/.test(window.location.pathname);
+const onPublicPage = () => /^\/(v\/|login|register|forgot-password|reset-password)/.test(window.location.pathname);
 
 api.interceptors.response.use(
     (response) => response,

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { UserPlus, Edit2, Trash2, Shield } from 'lucide-react';
+import { UserPlus, Edit2, Trash2, Shield, KeyRound } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { useAuth } from '../context/AuthContext';
@@ -78,6 +78,16 @@ export const Users: React.FC = () => {
             role: user.role
         });
         setShowModal(true);
+    };
+
+    const sendResetLink = async (user: User) => {
+        if (!window.confirm(`Email ${user.name} (${user.email}) a link to set a new password? Their current password keeps working until they use the link.`)) return;
+        try {
+            const r = await api.post(`${base}/${user.id}/password-reset`, {});
+            notify.success(r.data.message);
+        } catch (error: any) {
+            notify.error(apiError(error, 'Could not send the link'));
+        }
     };
 
     const handleDelete = async (userId: string, userName: string) => {
@@ -183,6 +193,15 @@ export const Users: React.FC = () => {
                                                 >
                                                     <Edit2 className="w-4 h-4" />
                                                 </button>
+                                                {user.id !== currentUser?.id && (
+                                                    <button
+                                                        onClick={() => sendResetLink(user)}
+                                                        className="p-1 text-slate-400 hover:text-primary transition-colors"
+                                                        title="Send password reset link"
+                                                    >
+                                                        <KeyRound className="w-4 h-4" />
+                                                    </button>
+                                                )}
                                                 <button
                                                     onClick={() => handleDelete(user.id, user.name)}
                                                     className="p-1 text-slate-400 hover:text-red-500 transition-colors"
