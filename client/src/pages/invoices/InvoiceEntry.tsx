@@ -40,6 +40,17 @@ interface InvoiceItem {
     taxAmount: number;
 }
 
+/** What the document's number is called on the form. */
+const NUMBER_LABEL: Partial<Record<string, string>> = {
+    SALES: 'Invoice No.',
+    PURCHASE: "Supplier's Bill No.",
+    CREDIT_NOTE: 'Credit Note No.',
+    DEBIT_NOTE: 'Debit Note No.',
+    QUOTATION: 'Quotation No.',
+    SALES_ORDER: 'Order No.',
+    PURCHASE_ORDER: 'PO No.',
+};
+
 export const InvoiceEntry: React.FC<{ type?: DocType }> = ({ type: initialType }) => {
     const { selectedCompany } = useCompany();
     const navigate = useNavigate();
@@ -180,7 +191,7 @@ export const InvoiceEntry: React.FC<{ type?: DocType }> = ({ type: initialType }
 
             } catch (error) {
                 console.error('Failed to fetch invoice details', error);
-                notify.error(apiError(error, 'Failed to load invoice details'));
+                notify.error(apiError(error, 'Could not load this document'));
             }
         };
         fetchInvoice();
@@ -281,15 +292,15 @@ export const InvoiceEntry: React.FC<{ type?: DocType }> = ({ type: initialType }
         try {
             if (id) {
                 await api.put(`/invoices/${id}`, payload);
-                notify.success('Invoice updated successfully!');
+                notify.success(`${info.label} updated`);
             } else {
                 await api.post('/invoices', payload);
-                notify.success('Invoice saved successfully!');
+                notify.success(`${info.label} saved`);
             }
             navigate(`/invoices?type=${type}`);
         } catch (error: any) {
-            console.error('Failed to save invoice', error);
-            notify.error(apiError(error, 'Failed to save invoice'));
+            console.error('Failed to save document', error);
+            notify.error(apiError(error, `Could not save the ${info.label.toLowerCase()}`));
         } finally {
             setLoading(false);
         }
@@ -342,7 +353,7 @@ export const InvoiceEntry: React.FC<{ type?: DocType }> = ({ type: initialType }
                         </select>
                     </div>
                     <Input
-                        label="Invoice No."
+                        label={NUMBER_LABEL[type ?? 'SALES'] ?? `${info.label} No.`}
                         value={formData.invoiceNumber}
                         onChange={(e) => setFormData({ ...formData, invoiceNumber: e.target.value })}
                         placeholder="Auto"
@@ -372,12 +383,12 @@ export const InvoiceEntry: React.FC<{ type?: DocType }> = ({ type: initialType }
                     {(type === 'CREDIT_NOTE' || type === 'DEBIT_NOTE') && (
                         <>
                             <Input
-                                label="Original Invoice No."
+                                label={type === 'DEBIT_NOTE' ? 'Original Bill No.' : 'Original Invoice No.'}
                                 value={formData.originalInvoiceNumber}
                                 onChange={(e) => setFormData({ ...formData, originalInvoiceNumber: e.target.value })}
                             />
                             <Input
-                                label="Original Invoice Date"
+                                label={type === 'DEBIT_NOTE' ? 'Original Bill Date' : 'Original Invoice Date'}
                                 type="date"
                                 value={formData.originalInvoiceDate}
                                 onChange={(e) => setFormData({ ...formData, originalInvoiceDate: e.target.value })}
@@ -572,7 +583,7 @@ export const InvoiceEntry: React.FC<{ type?: DocType }> = ({ type: initialType }
                     <div className="flex justify-between items-start">
                         <div className="w-full sm:w-1/2">
                             <Input
-                                label="Invoice Discount %"
+                                label="Overall Discount %"
                                 type="number"
                                 value={formData.discountPercent}
                                 onChange={(e) => setFormData({ ...formData, discountPercent: Number(e.target.value) })}
@@ -589,7 +600,7 @@ export const InvoiceEntry: React.FC<{ type?: DocType }> = ({ type: initialType }
                             {invoiceDiscount > 0 && (
                                 <>
                                     <div className="flex justify-between text-slate-600">
-                                        <span>Invoice Discount ({formData.discountPercent}%):</span>
+                                        <span>Overall Discount ({formData.discountPercent}%):</span>
                                         <span className="tabular-nums">-{inr(invoiceDiscount)}</span>
                                     </div>
                                     <div className="flex justify-between text-slate-600">
@@ -652,7 +663,7 @@ export const InvoiceEntry: React.FC<{ type?: DocType }> = ({ type: initialType }
                         </Button>
                         <Button type="submit" isLoading={loading}>
                             <Save className="w-4 h-4" />
-                            {id ? 'Update Invoice' : 'Save Invoice'}
+                            {id ? `Update ${info.label}` : `Save ${info.label}`}
                         </Button>
                     </div>
                 </div>
