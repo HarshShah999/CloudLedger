@@ -85,7 +85,7 @@ export const InvoiceList: React.FC = () => {
     const handleDelete = async (invoiceId: string) => {
         try {
             await api.delete(`/invoices/${invoiceId}`);
-            notify.success('Invoice deleted successfully');
+            notify.success(`${info.label} deleted`);
             fetchInvoices();
             setDeleteConfirm(null);
         } catch (error: any) {
@@ -170,7 +170,7 @@ export const InvoiceList: React.FC = () => {
                         <thead>
                             <tr className="border-b border-slate-200">
                                 <th className="py-3 px-4 font-semibold text-slate-600">Date</th>
-                                <th className="py-3 px-4 font-semibold text-slate-600">Invoice No</th>
+                                <th className="py-3 px-4 font-semibold text-slate-600">Number</th>
                                 <th className="py-3 px-4 font-semibold text-slate-600">Party Name</th>
                                 <th className="py-3 px-4 font-semibold text-slate-600 text-right">Amount</th>
                                 <th className="py-3 px-4 font-semibold text-slate-600 text-right">Paid</th>
@@ -183,7 +183,7 @@ export const InvoiceList: React.FC = () => {
                             {loading ? (
                                 <tr><td colSpan={8} className="text-center py-8">Loading...</td></tr>
                             ) : invoices.length === 0 ? (
-                                <tr><td colSpan={8} className="text-center py-8 text-slate-500">No invoices found</td></tr>
+                                <tr><td colSpan={8} className="text-center py-8 text-slate-500">No {info.plural.toLowerCase()} yet</td></tr>
                             ) : (
                                 invoices.map((invoice) => (
                                     <tr key={invoice.id} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
@@ -222,7 +222,7 @@ export const InvoiceList: React.FC = () => {
                                                 <button
                                                     onClick={() => navigate(`/invoices/${invoice.id}`)}
                                                     className="p-1 text-slate-400 hover:text-primary transition-colors"
-                                                    title="View Invoice"
+                                                    title={`View ${info.label}`}
                                                 >
                                                     <Eye className="w-4 h-4" />
                                                 </button>
@@ -243,7 +243,7 @@ export const InvoiceList: React.FC = () => {
                                                 <button
                                                     onClick={() => navigate(`/invoices/${invoice.id}/edit`)}
                                                     className="p-1 text-slate-400 hover:text-orange-500 transition-colors"
-                                                    title="Edit Invoice"
+                                                    title={`Edit ${info.label}`}
                                                 >
                                                     <Edit className="w-4 h-4" />
                                                 </button>
@@ -274,7 +274,7 @@ export const InvoiceList: React.FC = () => {
                     <div className="bg-white rounded-xl shadow-xl p-6 max-w-md">
                         <h2 className="text-xl font-bold text-slate-800 mb-4">Confirm Delete</h2>
                         <p className="text-slate-600 mb-6">
-                            Are you sure you want to delete this invoice? This will reverse all accounting entries and inventory changes.
+                            Delete this {info.label.toLowerCase()}?{info.posting ? ' Its accounting entry and stock movement will be reversed.' : ''} This cannot be undone.
                         </p>
                         <div className="flex justify-end gap-3">
                             <Button variant="secondary" onClick={() => setDeleteConfirm(null)}>

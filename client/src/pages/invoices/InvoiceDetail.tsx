@@ -149,7 +149,7 @@ export const InvoiceDetail: React.FC = () => {
     };
 
     if (loading) return <div className="text-center py-8">Loading...</div>;
-    if (!invoice) return <div className="text-center py-8">Invoice not found</div>;
+    if (!invoice) return <div className="text-center py-8">Document not found</div>;
 
     const isInterState = invoice.company_state !== invoice.party_state;
 
@@ -313,7 +313,7 @@ export const InvoiceDetail: React.FC = () => {
                     <div className="w-full sm:w-96 space-y-2">
                         {Number(invoice.discount_amount) > 0 && (
                             <div className="flex justify-between text-red-600">
-                                <span>Invoice Discount ({Number(invoice.discount_percent)}%):</span>
+                                <span>Overall Discount ({Number(invoice.discount_percent)}%):</span>
                                 <span className="tabular-nums">-{inr(Number(invoice.discount_amount))}</span>
                             </div>
                         )}
