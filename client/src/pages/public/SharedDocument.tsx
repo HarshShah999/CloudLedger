@@ -99,7 +99,7 @@ export const SharedDocument: React.FC = () => {
                 </div>
 
                 <p className="text-center text-xs text-slate-400">
-                    Shared securely via CloudLedger · link valid until {formatDate(String(doc.expiresAt).slice(0, 10))}
+                    Shared securely via Taalmel · link valid until {formatDate(String(doc.expiresAt).slice(0, 10))}
                 </p>
             </div>
         </div>

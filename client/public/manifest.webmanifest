@@ -1,6 +1,6 @@
 {
-    "name": "CloudLedger – Accounting & GST",
-    "short_name": "CloudLedger",
+    "name": "Taalmel – Accounting & GST",
+    "short_name": "Taalmel",
     "description": "GST invoicing, accounting and reports for Indian businesses",
     "start_url": "/",
     "scope": "/",

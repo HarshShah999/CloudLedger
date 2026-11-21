@@ -14,7 +14,7 @@ export const createDoc = (title: string) => {
         size: 'A4',
         margin: PAGE.margin,
         bufferPages: true,
-        info: { Title: title, Producer: 'CloudLedger', Creator: 'CloudLedger' },
+        info: { Title: title, Producer: 'Taalmel', Creator: 'Taalmel' },
     });
     doc.registerFont('R', path.join(FONT_DIR, 'DejaVuSans.ttf'));
     doc.registerFont('B', path.join(FONT_DIR, 'DejaVuSans-Bold.ttf'));

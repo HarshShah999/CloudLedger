@@ -79,7 +79,7 @@ export const renderThermalPdf = async (d: InvoiceDocument): Promise<Buffer> => {
     };
 
     const make = (height: number) => {
-        const doc = new PDFDocument({ size: [WIDTH, height], margin: 0, info: { Title: `${d.title} ${d.invoice.invoice_number}`, Producer: 'CloudLedger' } });
+        const doc = new PDFDocument({ size: [WIDTH, height], margin: 0, info: { Title: `${d.title} ${d.invoice.invoice_number}`, Producer: 'Taalmel' } });
         doc.registerFont('R', path.join(FONT_DIR, 'DejaVuSans.ttf'));
         doc.registerFont('B', path.join(FONT_DIR, 'DejaVuSans-Bold.ttf'));
         doc.fillColor('#000');

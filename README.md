@@ -1,4 +1,8 @@
-# CloudLedger
+# Taalmel
+
+<img src="client/public/favicon.svg" width="64" alt="Taalmel logo" />
+
+*Your books, always in taalmel.* (website: taalmelbooks.in)
 
 Cloud accounting for Indian businesses: double-entry books, GST invoicing, payments, banking and statutory reports, built with React, Node.js and PostgreSQL.
 
@@ -60,7 +64,7 @@ Cloud accounting for Indian businesses: double-entry books, GST invoicing, payme
   - **Ctrl+K** searches pages, parties, ledgers and invoices.
   - **Alt+S** sales invoice, **Alt+P** purchase bill, **Alt+Q** quotation, **Alt+R** receipt/payment, **Alt+J** journal, **Alt+L** ledgers, **Alt+I** items, **Alt+O** outstanding, **Alt+D** Day Book, **Alt+B** balance sheet, **Alt+T** trial balance, **Alt+G** GST returns.
   - **Ctrl+Enter** saves the form you are on; **?** shows all shortcuts.
-- **Installable app**: on a phone, open CloudLedger in Chrome and choose *Add to Home screen* (Safari: *Share → Add to Home Screen*); on a desktop, use the install icon in the address bar. It opens full screen like a native app. Accounting data is never cached on the device; it always comes fresh from the server.
+- **Installable app**: on a phone, open Taalmel in Chrome and choose *Add to Home screen* (Safari: *Share → Add to Home Screen*); on a desktop, use the install icon in the address bar. It opens full screen like a native app. Accounting data is never cached on the device; it always comes fresh from the server.
 - Works on phones: responsive layout with a slide-out menu.
 - **Stock valuation**: every purchase, sale and return is a stock movement; stock is valued at weighted average cost, and Opening/Closing Stock flow into the Profit & Loss and Balance Sheet. Stock Summary report as on any date.
 - **Cancel, don't delete**: issued invoices and notes are cancelled (number kept, books and stock reversed, reported as cancelled in GSTR-1) instead of deleted.
@@ -134,7 +138,7 @@ Set `TEST_DB_HOST`, `TEST_DB_USER`, `TEST_DB_PASSWORD` and `TEST_DB_NAME` if you
 ## Database migrations
 
 - `database/migrations/NNNN_name.sql` files are applied in order and recorded in `schema_migrations`.
-- `0001_baseline.sql` is idempotent: it also upgrades databases created by older versions of CloudLedger.
+- `0001_baseline.sql` is idempotent: it also upgrades databases created by older versions (when the app was called CloudLedger).
 - Never edit a migration that has been released; add a new file instead.
 - `database/legacy/` keeps the old scripts for reference only.
 

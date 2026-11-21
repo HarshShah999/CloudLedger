@@ -328,7 +328,7 @@ const BackupRestore: React.FC = () => {
                 <div className="mt-4 p-4 bg-blue-50 rounded-lg">
                     <p className="text-sm text-blue-800">
                         <strong>Note:</strong> Company export creates a portable JSON file containing all ledgers, vouchers, invoices, and items.
-                        This can be imported into another CloudLedger instance.
+                        This can be imported into another Taalmel installation.
                     </p>
                 </div>
             </div>

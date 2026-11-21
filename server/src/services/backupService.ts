@@ -72,7 +72,7 @@ const getTimestamp = (): string => {
 // Create full database backup using pg_dump
 export const createFullBackup = async (): Promise<{ filename: string; filepath: string; size: number }> => {
     const timestamp = getTimestamp();
-    const filename = `cloudledger_full_${timestamp}.sql`;
+    const filename = `taalmel_full_${timestamp}.sql`;
     const gzFilename = `${filename}.gz`;
     const sqlFilepath = path.join(FULL_BACKUP_DIR, filename);
     const gzFilepath = path.join(FULL_BACKUP_DIR, gzFilename);

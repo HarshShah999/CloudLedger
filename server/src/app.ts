@@ -100,7 +100,7 @@ app.use('/api/reminders', reminderRoutes);
 app.use('/api/import', importRoutes);
 
 app.get('/', (_req, res) => {
-    res.send('CloudLedger API is running');
+    res.send('Taalmel API is running');
 });
 
 app.use((req, _res, next) => {

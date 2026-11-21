@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import logo from '../assets/logo.png';
+import { Logo } from './Logo';
 import { Link, useLocation } from 'react-router-dom';
 import clsx from 'clsx';
 import {
@@ -73,13 +73,8 @@ export const Sidebar: React.FC<{ open?: boolean; onClose?: () => void }> = ({ op
             )}
         >
             <div className="p-6 shrink-0">
-                <h1 className="text-2xl font-bold text-white flex items-center">
-                    {/* <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-                        CL
-                    </div> */}
-                    <div className=" flex items-center justify-center">
-                    <img src={logo} alt="CloudLedger" className="w-16 h-16" /></div>
-                    CloudLedger
+                <h1 className="flex items-center">
+                    <Logo size={38} tone="dark" textClassName="text-[26px]" />
                 </h1>
             </div>
 
@@ -236,7 +231,7 @@ export const Sidebar: React.FC<{ open?: boolean; onClose?: () => void }> = ({ op
             <div className="p-4 border-t border-slate-800 shrink-0">
                 <div className="bg-slate-800 rounded-lg p-3">
                     <p className="text-xs text-slate-400 uppercase font-semibold mb-1">Support</p>
-                    <p className="text-sm text-slate-300">help@cloudledger.com</p>
+                    <p className="text-sm text-slate-300">help@taalmelbooks.in</p>
                 </div>
             </div>
         </aside>

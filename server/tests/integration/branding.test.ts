@@ -3,7 +3,7 @@ import path from 'path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { api, auth, closePool, createCompany, createLedger, ledgerByName, registerUser, resetDatabase } from './helpers';
 
-const LOGO = fs.readFileSync(path.resolve(__dirname, '../../../client/src/assets/logo.png'));
+const LOGO = fs.readFileSync(path.resolve(__dirname, '../../../client/public/icons/icon-512.png'));
 const pngDataUrl = (buf: Buffer) => `data:image/png;base64,${buf.toString('base64')}`;
 
 const binary = (req: any) =>

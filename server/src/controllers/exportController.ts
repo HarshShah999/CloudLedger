@@ -10,7 +10,7 @@ const INR_FMT = '#,##,##0.00';
 const newSheet = async (companyId: string, title: string, subtitle: string) => {
     const company = await companyBasics(companyId);
     const wb = new ExcelJS.Workbook();
-    wb.creator = 'CloudLedger';
+    wb.creator = 'Taalmel';
     const ws = wb.addWorksheet(title);
     ws.addRow([company?.name || '']).font = { bold: true, size: 14 };
     if (company?.gstin) ws.addRow([`GSTIN: ${company.gstin}`]);
